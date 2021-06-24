@@ -1,29 +1,29 @@
 # DSBs GitHub actions
 Collection of DSB custom GitHub actions.
 
-## clean-directory
+## directory-recreate
 
 **USE WITH CAUTION!**
 
-This action removes all files and sub-directories, including hidden ones, within a directory. The action will list out the directory contents before and after the delete operation.
+This action removes and re-creates a directory including all files and sub-directories within. Teh directory will be re-created with `rwx` permissions for `user` and no permissions for `group,others`. The action will list out the directory contents before and after the delete operation.
 
 ## **Inputs**
 ### **`directory`**
 
-**Optional** The directory to remove contents of.
+**Optional** The directory to remove and re-create.
 
 **NOTE:** If no directory is specified, the `${{ github.workspace }}` directroy will be used.
 
 ## **Example: Clean the workspace directory**
-Removes all files and folders within the GitHub workspace directory.
+Removes and re-creates the GitHub workspace directory.
 ```yaml
-- uses: dsb-norge/github-actions/clean-directory@v1
+- uses: dsb-norge/github-actions/directory-recreate@v1
 ```
 
 ## **Example: Clean a specific directory**
-Removes all files and folders within `my-cache-dir` (under the current working directory).
+Removes and re-creates `my-cache-dir` (in the current working directory).
 ```yaml
-- uses: dsb-norge/github-actions/clean-directory@v1
+- uses: dsb-norge/github-actions/directory-recreate@v1
   with:
     directory: ./my-cache-dir
 ```
