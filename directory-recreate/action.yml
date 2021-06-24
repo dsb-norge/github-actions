@@ -14,14 +14,20 @@ runs:
   steps:
     - shell: bash
       run: |
-        echo 'Re-creating directory: ${{ inputs.directory }}'
         echo '::group::List directory contents before cleanup'
-        ls -lah ${{ inputs.directory }}
-        echo '::endgroup::'
-        echo '::group::Perform cleanup'
-        rm -rf ${{ inputs.directory }}
-        mkdir -m u=rwx,go= ${{ inputs.directory }}
-        echo '::endgroup::'
-        echo '::group::List directory contents after cleanup'
-        ls -lah ${{ inputs.directory }}
+        if [[ ! -d "${{ inputs.directory }}" ]]
+        then
+          echo 'The directory "${{ inputs.directory }}" does not exist, nothing to delete.'
+          echo '::endgroup::'
+        else
+          ls -lah '${{ inputs.directory }}'
+          echo '::endgroup::'
+          echo '::group::Perform Delete'
+          echo 'Deleting directory: "${{ inputs.directory }}"'
+          rm -rf '${{ inputs.directory }}'
+          echo '::endgroup::'
+        fi
+        echo '::group::Create directory'
+        echo 'Creating directory: "${{ inputs.directory }}"'
+        mkdir -m u=rwx,go= '${{ inputs.directory }}'
         echo '::endgroup::'
