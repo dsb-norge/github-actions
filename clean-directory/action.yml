@@ -1,0 +1,27 @@
+name: 'Directory cleaner'
+description: |
+  USE WITH CAUTION!
+  This action removes all files and sub-directories, including hidden ones, within a directory.
+  If no directory is specified, the github.workspace directroy will be used.
+author: 'Peder Schmedling'
+inputs:
+  directory:
+    description: 'The directory to remove contents of.'
+    required: false
+    default: '${{ github.workspace }}'
+runs:
+  using: 'composite'
+  steps:
+    - shell: bash
+      run: |
+        shopt -s dotglob # Include files/dirs prefixed with '.'
+        echo 'Cleaning out directory: ${{ inputs.directory }}'
+        echo '::group::List directory contents before cleanup'
+        ls -lah ${{ inputs.directory }}
+        echo '::endgroup::'
+        echo '::group::Perform cleanup'
+        rm -rf ${{ inputs.directory }}/*
+        echo '::endgroup::'
+        echo '::group::List directory contents after cleanup'
+        ls -lah ${{ inputs.directory }}
+        echo '::endgroup::'
