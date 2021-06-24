@@ -20,7 +20,7 @@ runs:
         echo '::endgroup::'
         echo '::group::Perform cleanup'
         rm -rf ${{ inputs.directory }}
-        mkdir u=rwx,go= ${{ inputs.directory }}
+        mkdir -m u=rwx,go= ${{ inputs.directory }}
         echo '::endgroup::'
         echo '::group::List directory contents after cleanup'
         ls -lah ${{ inputs.directory }}
