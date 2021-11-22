@@ -9,6 +9,10 @@ inputs:
     description: 'The directory to remove and re-create.'
     required: false
     default: '${{ github.workspace }}'
+  recreate:
+    description: 'If the directory should be recreated or not.'
+    required: false
+    default: 'true'
 runs:
   using: 'composite'
   steps:
@@ -27,7 +31,10 @@ runs:
           rm -rf '${{ inputs.directory }}'
           echo '::endgroup::'
         fi
-        echo '::group::Create directory'
-        echo 'Creating directory: "${{ inputs.directory }}"'
-        mkdir -m u=rwx,go= '${{ inputs.directory }}'
-        echo '::endgroup::'
+        if [[ ! "${{ inputs.recreate }}" == "false" ]]
+        then
+          echo '::group::Create directory'
+          echo 'Creating directory: "${{ inputs.directory }}"'
+          mkdir -m u=rwx,go= '${{ inputs.directory }}'
+          echo '::endgroup::'
+        fi
