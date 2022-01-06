@@ -1,0 +1,304 @@
+name: 'Create common DSB CI/CD variables'
+description: |
+  Given the required input this action returns common DSB build environment variables with values.
+  Common DSB build environment variables are the values needed to successfully build and deploy an app in DSB's infrastructure.
+  Some varibles are slightly different if the build was triggered from a PR. This is to support PR builds and deployments.
+  Where possible values from input 'app-vars' are preffered.
+author: 'Peder Schmedling'
+inputs:
+  app-vars:
+    description: 'Specifications of application to build and/or deploy, created by the create-app-vars workflow.'
+    required: true
+  application-source-path:
+    description: 'The path to the appication source code.'
+    required: false
+    default: './'
+  application-vendor:
+    description: 'Vendor of application beeing built. Added as label in docker image.'
+    required: false
+    default: Norwegian Directorate for Civil Protection
+  docker-image-registry:
+    description: 'Docker image registry to push built image and tags to.'
+    required: false
+    default: dsbacr.azurecr.io
+  docker-image-repo:
+    description: 'Docker image repo within "docker-image-registry" to push built image and tags to.'
+    required: false
+    default: dsb-norge
+  docker-image-prune-keep-min-images:
+    description: |
+      Minimum number of images to keep for a given application when performing prune on the application image repo.
+      Note: For images built from PRs this has no effect. A hardcoded value will be used when pruning PR images.
+      Also note: This setting will only affects images older than what is set for 'docker-image-prune-keep-num-days'.
+    required: false
+    default: '30'
+  docker-image-prune-keep-num-days:
+    description: |
+      Minimum number of days that images will be preserved for a given application when performing prune on the application image repo.
+      Note: For images built from PRs this has no effect. A hardcoded value will be used when pruning PR images.
+      Also note: All images newer than given value will be preserved regardless of what is set for 'docker-image-prune-keep-min-images'.
+    required: false
+    default: '180'
+  acr-username:
+    description: 'Username for given "docker-image-registry", user must have push pull rights. Used for docker build and docker push.'
+    required: false
+    default: ''
+  acr-password:
+    description: 'Password for the user given in "acr-username".'
+    required: false
+    default: ''
+  acr-service-principal:
+    description: 'Service principal with rights to delete from "docker-image-registry" (ACR). Used for teardown operation of ephemeral PR environments.'
+    required: false
+    default: ''
+  maven-repo-pom-id:
+    description: 'Value of the repository/id field in the pom.xml representing repo.dsb.no.'
+    required: false
+    default: dsb-nexus
+  maven-repo-username:
+    description: 'Username to use when downloading dependencies from repo.dsb.no.'
+    required: true
+  maven-repo-token:
+    description: 'Token for downloading dependencies from repo.dsb.no.'
+    required: true
+  sonarqube-token:
+    description: 'Token used for SonarQube app, see https://docs.sonarqube.org/latest/analysis/github-integration/'
+    required: true
+  jasypt-password:
+    description: 'Jasypt password. Will be passed to maven build as environment variable named "JASYPT_LOCAL_ENCRYPTOR_PASSWORD"'
+    required: false
+    default: ''
+  java-version:
+    description: 'Version of java specified when calling actions/setup-java'
+    required: false
+    default: '11'
+  java-distribution:
+    description: 'Distribution of Java specified when calling actions/setup-java'
+    required: false
+    default: adopt
+  nodejs-version:
+    description: 'Version of Node.js specified when calling actions/setup-node'
+    required: false
+    default: '16'
+  github-repo-token:
+    description: 'Github repo token is required by: 1) Maven Sonar plugin to get PR information; 2) Adding comments from actions to github PRs.'
+    required: true
+  app-config-repo:
+    description: |
+      Repo containing application configuration for apps used during deploy to ephemeral environment and static environments.
+      This input is required when deploying apps.'
+    required: false
+    default: 'dsb-norge/azure-kubernetes-config'
+  app-config-repo-token:
+    description: 'Token for performing checkout and commits to the above repo during deploy. This input is required when deploying apps.'
+    required: false
+    default: ''
+  static-deploy-environments:
+    description: |
+      Comma separated list of static environments to deploy to when building from main.
+      Application configuration for these must be defined in 'app-config-repo'.
+    required: false
+    default: dev, test
+  pr-deploy-app-config-branch:
+    description: |
+      Name of branch in "app-config-repo" potentially containing modified app config used during deploy to ephemeral
+      environment. If branch does not exist deploy will fallback to HEAD @ default branch.'
+    required: false
+    default: '${{ github.head_ref }}'
+  pr-deploy-aks-cluster-name:
+    description: 'Name of AKS instance to use during deploy to ephemeral environment. This input is required when deploying to to ephemeral environments.'
+    required: false
+    default: 'aks-rg7-ss2-cm-k8s-cluster-dev-1'
+  pr-deploy-aks-resource-group:
+    description: |
+      Name of resource group where the AKS instance to use during deploy to ephemeral environment lives. This input is
+      required when deploying to to ephemeral environments.'
+    required: false
+    default: 'rg7-ss2-cm-k8s-dev'
+  pr-deploy-aks-creds:
+    description: |
+      Credentials to the AKS instance to use during deploy to ephemeral environment. This input is required when
+      deploying to to ephemeral environments.'
+    required: false
+    default: ''
+  pr-deploy-additional-helm-values:
+    description: 'Additional values.yml overrides passed to Helm. The multiline string is saved to file and and passed to Helm using --vaules option.'
+    required: false
+    default: ''
+  pr-deploy-argo-applications-url:
+    description: 'URL to applications overview in ArgoCD. Used when creating comments on PRs during deploy to ephemeral environments.'
+    required: false
+    default: 'https://argo.dev.dsbnorge.no/applications'
+  pr-deploy-comment-prefix:
+    description: |
+      Used when creating comments on PRs during deploy to ephemeral environments. All comments will be prfixed with this string.
+      It is also used when looking for comment(s) to delete prior to creating a new comment. I.e. make sure this is a bit uniqe
+      or you will loose comments on our PR. This string will in turn be prefixed with application name.
+    required: false
+    default: 'auto-deployed to ephemeral PR environment:'
+outputs:
+  json:
+    description: 'All envs as json'
+    value: ${{ steps.build-env.outputs.json }}
+
+runs:
+  using: 'composite'
+  steps:
+    # decide on git ref for app config repo branch
+    - id: checkout-config-branch
+      shell: bash
+      run: |
+        # Test if branch ${{ inputs.pr-deploy-app-config-branch }} exists in config repo
+
+        GH_TOKEN='${{ inputs.app-config-repo-token }}'
+        GH_TOKEN_SANITIZED=${GH_TOKEN/ }
+        TMP_FILE=./not-going-to-use-this
+        git clone \
+          --branch '${{ inputs.pr-deploy-app-config-branch }}' \
+          "https://${GH_TOKEN_SANITIZED}@github.com/${{ inputs.app-config-repo }}" \
+          ${TMP_FILE} \
+          && echo "::set-output name=ref::${{ inputs.pr-deploy-app-config-branch }}" \
+          && echo 'create-build-envs: ref "${{ inputs.pr-deploy-app-config-branch }}" exist in "${{ inputs.app-config-repo }}" and will be used for PR deploys.' \
+          || echo "::set-output name=ref::main" \
+          || echo 'create-build-envs: ref "${{ inputs.pr-deploy-app-config-branch }}" does not exist in "${{ inputs.app-config-repo }}", using "main" for PR deploys.'
+        rm -rf ${TMP_FILE}
+
+    # generate DSB build variables
+    - id: build-env
+      shell: bash
+      run: |
+        # Define variables needed for build and deploy of DSB apps
+
+        # Load and log app vars
+        # Output will be a modified version of given app vars
+        OUTPUT_ENV_JSON=$(cat <<'EOF'
+        ${{ inputs.app-vars }}
+        EOF
+        )
+        echo "::group::create-build-envs: given app vars JSON specification"
+        echo "${OUTPUT_ENV_JSON}"
+        echo "::endgroup::"
+
+        # Read action inputs as JSON
+        ACTION_INPUTS=$(cat <<'EOF'
+        ${{ toJSON(inputs) }}
+        EOF
+        )
+
+        # These fields will be set by action inputs and values from app vars will be ignored
+        PROTECTED_ENVS=(
+          acr-password
+          acr-username
+          app-config-repo-token
+          github-repo-token
+          jasypt-password
+          maven-repo-token
+          maven-repo-username
+          sonarqube-token
+          pr-deploy-aks-creds
+          acr-service-principal
+        )
+
+        # Values for these fields will be handled specifically below
+        #  - app-vars is used as basis for output and should not be added as seprate field.
+        #  - helm values requires special format, see further down.
+        #  - docker-image-prune-* is hardcoded when running from a PR.
+        #  The rest is generated in this script and should not be added from app vars.
+        SPECIAL_ENVS=(
+          app-vars
+          pr-deploy-additional-helm-values
+          pr-deploy-k8s-application-name
+          pr-deploy-k8s-namespace
+          application-image-id
+          pr-deploy-app-config-branch
+          application-source
+          application-source-revision
+          docker-image-prune-keep-min-images
+          docker-image-prune-keep-num-days
+        )
+
+        # Helper functions
+        # Add/overwrite fields in OUTPUT_ENV_JSON safely
+        function set-field { OUTPUT_ENV_JSON=$(echo "${OUTPUT_ENV_JSON}" | jq --arg name "$1" --arg value "$2" '.[$name] = $value') ; }
+        # Check if field exists in OUTPUT_ENV_JSON safely
+        function has-field { if [[ "$(echo "${OUTPUT_ENV_JSON}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
+        # Get field value from OUTPUT_ENV_JSON safely
+        function get-val { echo "${OUTPUT_ENV_JSON}" | jq -r --arg name "$1" '.[$name]'; }
+        # Get field value from action inputs safely
+        function get-input-val { echo "${ACTION_INPUTS}" | jq -r --arg name "$1" '.[$name]'; }
+        # True if value is in array PROTECTED_ENVS
+        function is-protected { if [[ " ${PROTECTED_ENVS[*]} " =~ " ${1} " ]]; then true; else false; fi; }
+        # True if value is in array SPECIAL_ENVS
+        function is-special { if [[ " ${SPECIAL_ENVS[*]} " =~ " ${1} " ]]; then true; else false; fi; }
+
+        # Loop over all inputs to this action:
+        #  - If the field is "special", do nothing
+        #  - If field is protected: use value from this action inputs
+        #  - If field does not exist in from app vars: use value from this action inputs
+        # This enables the possibility to override all but protected fields from app vars.
+        INPUT_NAMES=($(echo "${ACTION_INPUTS}" | jq -r '.|keys|.[]'))
+        for NAME in ${INPUT_NAMES[*]}; do
+          if (is-protected "${NAME}" || ! has-field "${NAME}") && ! is-special "${NAME}"; then
+            # echo "create-build-envs: DEBUG: Using input value for field '${NAME}'"
+            set-field "${NAME}" "$(get-input-val "${NAME}")"
+          fi
+        done
+
+        # Handled specifically as app vars field is on JSON format and
+        # 'pr-deploy-additional-helm-values' is expected to be yaml format (as multiline string)
+        if has-field "pr-deploy-additional-helm-values"; then
+          echo "create-build-envs: converting app var 'pr-deploy-additional-helm-values' to yaml ..."
+          CONVERTED_VAL=$(echo "$(get-val 'pr-deploy-additional-helm-values')" | yq e -P -)
+          set-field "pr-deploy-additional-helm-values" "${CONVERTED_VAL}"
+        else
+          echo "create-build-envs: using 'pr-deploy-additional-helm-values' from this action's input"
+          HELM=${{ inputs.pr-deploy-additional-helm-values }}
+          set-field "pr-deploy-additional-helm-values" "${{ inputs.pr-deploy-additional-helm-values }}"
+        fi
+        echo "::group::create-build-envs: resulting value of 'pr-deploy-additional-helm-values'"
+        echo "$(get-val 'pr-deploy-additional-helm-values')"
+        echo "::endgroup::"
+
+        # Differs depending on PR build or not, allow app vars to override
+        PR_KUBERNETES_NAMESPACE="$(get-val 'application-name')"
+        PR_KUBERNETES_APP_NAME="$(get-val 'application-name')"
+        if [ '${{ github.event_name }}' == 'pull_request' ]
+        then
+          PR_KUBERNETES_NAMESPACE=${PR_KUBERNETES_NAMESPACE}-pr-${{ github.event.number }}
+          PR_KUBERNETES_APP_NAME=${PR_KUBERNETES_APP_NAME}-pr-${{ github.event.number }}
+        fi
+        # Only set field if not given in app vars
+        if ! has-field "pr-deploy-k8s-application-name"; then
+          set-field "pr-deploy-k8s-application-name" "${PR_KUBERNETES_APP_NAME}"
+        fi
+        # Only set field if not given in app vars
+        if ! has-field "pr-deploy-k8s-namespace"; then
+          set-field "pr-deploy-k8s-namespace" "${PR_KUBERNETES_APP_NAME}"
+        fi
+
+        # If PR build these are hardcoded, allow app vars to override when not running from a PR
+        if [ '${{ github.event_name }}' == 'pull_request' ]
+        then
+          set-field "docker-image-prune-keep-min-images" "5"
+          set-field "docker-image-prune-keep-num-days" "0"
+        else
+          for NAME in docker-image-prune-keep-min-images docker-image-prune-keep-num-days; do
+            if ! has-field "${NAME}"; then
+              set-field "${NAME}" "$(get-input-val "${NAME}")"
+            fi
+          done
+        fi
+
+        # Generated fields, not possible to override from app vars
+        IMAGE_ID="$(get-val 'docker-image-registry')/$(get-val 'docker-image-repo')/$(get-val 'application-image-name')"
+        set-field "application-image-id"        "${IMAGE_ID}"
+        set-field "pr-deploy-app-config-branch" '${{ steps.checkout-config-branch.outputs.ref }}'
+        set-field "application-source"          '${{ github.server_url }}/${{ github.repository }}'
+        set-field "application-source-revision" '${{ github.sha }}'
+
+        echo "create-build-envs: Number of envs: $(echo ${OUTPUT_ENV_JSON} | jq 'length')"
+
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        OUTPUT_ENV_JSON_ESC=$(escape-for-output "${OUTPUT_ENV_JSON}")
+        echo "::set-output name=json::${OUTPUT_ENV_JSON_ESC}"

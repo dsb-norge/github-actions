@@ -1,0 +1,378 @@
+name: 'Create build/deploy vars for one or more DSB apps'
+description: |
+  Given a yaml array of application specifications this action will:
+    - Convert yaml input to JSON.
+    - Attempt to detect application type for each app, where type is missing, based on input.
+    - Attempt to read application description for each app, where description is missing, based on input.
+    - Validate the app vars structure.
+    - Generate some additional dynamic app vars and add them to all apps:
+      - application-version           : DSB version string.
+      - application-build-timestamp   : ISO datestamp for time of creation.
+      - application-image-name        : Image name to use when pusing to a registry during build.
+    - Return the JSON array, escaped for github and compatible with matrix build jobs, string named 'app-vars'.
+author: 'Peder Schmedling'
+inputs:
+  apps:
+    description: |
+      YAML list (as sting) with specifications of applications to build and/or deploy.
+      Required fields are:
+        - application-name        - string
+      For optional fields see possible inputs to the create-build-envs action.
+    required: true
+outputs:
+  app-vars:
+    description: Updated specification of applications to build and/or deploy, JSON array (as string).
+    value: ${{ steps.make-matrix-compatible.outputs.app-vars }}
+runs:
+  using: 'composite'
+  steps:
+    - shell: bash
+      id: convert
+      run: |
+        # Convert app vars yaml to JSON
+
+        # Log given yaml
+        YAML_CONFIG=$(cat <<'EOF'
+        ${{ inputs.apps }}
+        EOF
+        )
+        echo "::group::create-app-vars-matrix: yaml specification given"
+        echo "${YAML_CONFIG}"
+        echo "::endgroup::"
+
+        # Test if valid yaml
+        if ! echo "${YAML_CONFIG}" | yq e 2>/dev/null 1>&2 ; then
+          echo "ERROR: create-app-vars-matrix: The given specification is not valid yaml!"
+          exit 1
+        fi
+
+        # Convert yaml to JSON
+        JSON_CONFIG=$(echo "${YAML_CONFIG}" | yq e -o=json -)
+        echo "::group::create-app-vars-matrix: specification as JSON"
+        echo "${JSON_CONFIG}"
+        echo "::endgroup::"
+
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        JSON_CONFIG_ESC=$(escape-for-output "${JSON_CONFIG}")
+        echo "::set-output name=app-vars::${JSON_CONFIG_ESC}"
+
+    - shell: bash
+      run: |
+        # Validate given app vars structure
+
+        # Load app vars
+        JSON_CONFIG=$(cat <<'EOF'
+        ${{ steps.convert.outputs.app-vars }}
+        EOF
+        )
+
+        # Check that app vars is of type array
+        if [ ! "$( echo "${JSON_CONFIG}" | jq -r '. | type' )" == 'array' ]; then
+          echo "ERROR: create-app-vars-matrix: The specification is not an array!"
+          exit 1
+        else
+          echo "create-app-vars-matrix: [OK] The specification is an array."
+        fi
+
+        # Make sure at least one app vars specifiction is given
+        NUM_APPS=$( echo "${JSON_CONFIG}" | jq -r '. | length' )
+        if [ ${NUM_APPS} -le 0 ]; then
+          echo "ERROR: create-app-vars-matrix: The specification is an empty array!"
+          exit 1
+        else
+          echo "create-app-vars-matrix: [OK] The specification is not an empty array."
+        fi
+
+    - shell: bash
+      id: detect-type
+      run: |
+        # Set application type where not explicitly defined
+
+        # Load app vars
+        IN_JSON=$(cat <<'EOF'
+        ${{ steps.convert.outputs.app-vars }}
+        EOF
+        )
+
+        # Helper functions
+        function _jq { echo ${APP_VARS} | base64 --decode | jq -r ${*} ; }
+        function has-field { if [[ "$(echo "${OUT_OBJ}" | jq --arg name "${1}" 'has($name)')" == 'true' ]]; then true; else false; fi; }
+        function get-val { echo "${OUT_OBJ}" | jq -r --arg name "${1}" '.[$name] | select( . != null )'; }
+        function set-val { OUT_OBJ="$(echo "${OUT_OBJ}" | jq --arg name "${1}" --arg value "${2}" '.[$name] = $value')" ; }
+
+        # Build output JSON object
+        OUT_JSON='[]'
+        for APP_VARS in $(echo "${IN_JSON}" | jq -r '.[] | @base64'); do
+          OUT_OBJ="$(_jq '.')"
+          if ! has-field "application-type"; then
+            APP_NAME="$(get-val 'application-name')"
+
+            echo "::group::create-app-vars-matrix: Detect 'application-type' for app '${APP_NAME}'"
+            if ! has-field "application-source-path"; then
+              echo "create-app-vars-matrix: 'application-source-path' not defined, using default."
+              set-val "application-source-path" "./" # modifies $OUT_OBJ
+            fi
+
+            SRC_PATH="$(get-val 'application-source-path')"
+            if [ -d "${SRC_PATH}" ]; then
+              echo "create-app-vars-matrix: 'application-source-path' '${SRC_PATH}' is a directory."
+              [ -f "${SRC_PATH}/pom.xml" ] && SRC_PATH="${SRC_PATH}/pom.xml" || :
+              [ -f "${SRC_PATH}/package.json" ] && SRC_PATH="${SRC_PATH}/package.json" || :
+            fi
+
+            echo "create-app-vars-matrix: Using '${SRC_PATH}' as 'application-source-path'."
+            if [ -f "${SRC_PATH}" ] && [ "$(basename ${SRC_PATH})" == 'pom.xml' ]; then
+              echo "create-app-vars-matrix: Setting 'application-type' to 'spring-boot' since pom exists at '${SRC_PATH}'"
+              set-val "application-type" "spring-boot" # modifies $OUT_OBJ
+            elif [ -f "${SRC_PATH}" ] && [ "$(basename ${SRC_PATH})" == 'package.json' ]; then
+              echo "create-app-vars-matrix: Setting 'application-type' to 'vue' since package.json exists at '${SRC_PATH}'"
+              set-val "application-type" "vue" # modifies $OUT_OBJ
+            elif [ -f "${SRC_PATH}" ]; then
+              echo "WARN: create-app-vars-matrix: Unable to detect 'application-type', file '${SRC_PATH}' is of unknown type!"
+            else
+              echo "WARN: create-app-vars-matrix: Unable to detect 'application-type', '${SRC_PATH}' is not a file!"
+            fi
+
+            echo "::endgroup::"
+          fi
+
+          # Add JSON object to output JSON
+          OUT_JSON=$(echo "${OUT_JSON}" | jq '. += '["${OUT_OBJ}"']')
+        done
+
+        # Log the result
+        echo "::group::create-app-vars-matrix: current JSON specification"
+        echo "${OUT_JSON}"
+        echo "::endgroup::"
+
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
+        echo "::set-output name=app-vars::${OUT_JSON_ESC}"
+
+    - shell: bash
+      id: get-description
+      run: |
+        # Attempt to read application description where not explicitly defined
+
+        # Load app vars
+        IN_JSON=$(cat <<'EOF'
+        ${{ steps.detect-type.outputs.app-vars }}
+        EOF
+        )
+
+        # Helper functions
+        function _jq { echo ${APP_VARS} | base64 --decode | jq -r ${*} ; }
+        function has-field { if [[ "$(echo "${OUT_OBJ}" | jq --arg name "${1}" 'has($name)')" == 'true' ]]; then true; else false; fi; }
+        function get-val { echo "${OUT_OBJ}" | jq -r --arg name "${1}" '.[$name] | select( . != null )'; }
+        function set-val { OUT_OBJ="$(echo "${OUT_OBJ}" | jq --arg name "${1}" --arg value "${2}" '.[$name] = $value')" ; }
+
+        # Build output JSON object
+        OUT_JSON='[]'
+        for APP_VARS in $(echo "${IN_JSON}" | jq -r '.[] | @base64'); do
+          OUT_OBJ="$(_jq '.')"
+          if ! has-field "application-description"; then
+            APP_NAME="$(get-val 'application-name')"
+            echo "::group::create-app-vars-matrix: Detect 'application-description' for app '${APP_NAME}'"
+
+            if ! has-field "application-type"; then
+              echo "WARN: create-app-vars-matrix: 'application-type' is not defined!"
+            else
+              if ! has-field "application-source-path"; then
+                echo "create-app-vars-matrix: 'application-source-path' not defined, using default."
+                set-val "application-source-path" "./" # modifies $OUT_OBJ
+              fi
+              APP_TYPE="$(get-val 'application-type')"
+              SRC_PATH="$(get-val 'application-source-path')"
+              if [ -d "${SRC_PATH}" ]; then
+                echo "create-app-vars-matrix: 'application-source-path' '${SRC_PATH}' is a directory."
+                [ "${APP_TYPE}" == 'spring-boot' ] && SRC_PATH="${SRC_PATH}/pom.xml" || :
+                [ "${APP_TYPE}" == 'vue' ] && SRC_PATH="${SRC_PATH}/package.json" || :
+              fi
+
+              echo "create-app-vars-matrix: Using '${SRC_PATH}' as 'application-source-path'."
+              if [ ! -f "${SRC_PATH}" ]; then
+                echo "WARN: create-app-vars-matrix: Unable to use 'application-source-path' with value '$(get-val 'application-source-path')'."
+              else
+                echo "create-app-vars-matrix: Reading file '${SRC_PATH}'"
+                SRC_DATA=$(cat "${SRC_PATH}")
+                if [ -z "${SRC_DATA}" ]; then
+                  echo "WARN: create-app-vars-matrix: Unable to use given 'application-source-path', '${SRC_PATH}' was empty."
+                else
+                  if [ "${APP_TYPE}" == 'spring-boot' ]; then
+                    APP_DESC=$(echo "${SRC_DATA}" | grep -oPm1 "(?<=<description>)[^<]+") \
+                    || echo "WARN: create-app-vars-matrix: Unable to parse file '${SRC_PATH}' as XML or '<description>' field is missing."
+                  elif [ "${APP_TYPE}" == 'vue' ]; then
+                    APP_DESC=$(echo "${SRC_DATA}" | jq -r '.["description"] | select( . != null )') \
+                    || echo "WARN: create-app-vars-matrix: Unable to parse file '${SRC_PATH}' as json."
+                  else
+                    echo "WARN: create-app-vars-matrix: Unknown 'application-type' '${APP_TYPE}', not sure how to use parse file '${SRC_PATH}'."
+                  fi
+                  [ -z "${APP_DESC}" ] \
+                    && echo "WARN: create-app-vars-matrix: No description was parsed from file '${SRC_PATH}'." \
+                    || echo "create-app-vars-matrix: Description is: '${APP_DESC}'."
+                  set-val "application-description" "${APP_DESC}" # modifies $OUT_OBJ
+                fi
+              fi
+            fi
+
+            echo "::endgroup::"
+          fi
+
+          # Add JSON object to output JSON
+          OUT_JSON=$(echo "${OUT_JSON}" | jq '. += '["${OUT_OBJ}"']')
+        done
+
+        # Log the result
+        echo "::group::create-app-vars-matrix: current JSON specification"
+        echo "${OUT_JSON}"
+        echo "::endgroup::"
+
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
+        echo "::set-output name=app-vars::${OUT_JSON_ESC}"
+
+    - shell: bash
+      run: |
+        # Validate app vars structure, required fields and allowed values
+
+        # Load app vars
+        JSON_CONFIG=$(cat <<'EOF'
+        ${{ steps.get-description.outputs.app-vars }}
+        EOF
+        )
+
+        # Required fields
+        REQ_FIELDS=(
+          'application-name'
+          'application-description'
+          'application-type'
+        )
+
+        # Allows values of application-type
+        APP_TYPE_ALLOWED_VALUES=(
+          'vue'
+          'spring-boot'
+        )
+
+        # Check that app vars is of type array
+        if [ ! "$( echo "${JSON_CONFIG}" | jq -r '. | type' )" == 'array' ]; then
+          echo "ERROR: create-app-vars-matrix: The specification is not an array!"
+          exit 1
+        else
+          echo "create-app-vars-matrix: [OK] The specification is an array."
+        fi
+
+        # Make sure at least one app vars specifiction is given
+        NUM_APPS=$( echo "${JSON_CONFIG}" | jq -r '. | length' )
+        if [ ${NUM_APPS} -le 0 ]; then
+          echo "ERROR: create-app-vars-matrix: The specification is an empty array!"
+          exit 1
+        else
+          echo "create-app-vars-matrix: [OK] The specification is not an empty array."
+        fi
+
+        # Helper function
+        function fail-field {
+          DO_EXIT=1
+          echo "::group::ERROR: create-app-vars-matrix: ${1}"
+          echo "$(_jq '.')"
+          echo "::endgroup::"
+        }
+
+        DO_EXIT=0
+        for APP_VARS in $(echo "${JSON_CONFIG}" | jq -r '.[] | @base64'); do
+          function _jq { echo ${APP_VARS} | base64 --decode | jq -r ${1} ; }
+          for FIELD in ${REQ_FIELDS[*]}; do
+            if [ "$(_jq 'has("'${FIELD}'")')" == 'false' ]; then
+              fail-field "Missing property '${FIELD}' in application specification!"
+            elif [ -z "$(_jq '."'${FIELD}'"')" ]; then
+              fail-field "Property '${FIELD}' is empty in application specification!"
+            elif [ "${FIELD}" == 'application-type' ]; then
+              # application-type has allowed values
+              if [[ ! " ${APP_TYPE_ALLOWED_VALUES[*]} " =~ " $(_jq '."application-type"') " ]]; then
+                fail-field "Property '${FIELD}' has unknown value in application specification!"
+              fi
+            fi
+          done
+        done
+        [ ${DO_EXIT} -eq 1 ] && exit 1 || echo "create-app-vars-matrix: [OK] All required fields were found in the specification."
+
+    - shell: bash
+      id: create-app-vars-matrix
+      run: |
+        # Add additional dynamic app vars
+
+        # Load and log app vars
+        IN_JSON=$(cat <<'EOF'
+        ${{ steps.get-description.outputs.app-vars }}
+        EOF
+        )
+
+        # Add static app vars to all elements in array
+        function add-to-all { echo "${1}" | jq --arg name "${2}" --arg value "${3}" '.[] += {($name): $value}' ; }
+        APP_BUILDTIME="$(date -u +'%Y-%m-%dT%H:%M:%S.%3NZ')"
+        APP_VERSION="$( date +%Y.%m.%d ).$(( $( date "+%s" ) - $( date -d 'today 00:00:00' "+%s" ) ))"
+        if [ '${{ github.event_name }}' == 'pull_request' ]; then
+          APP_VERSION="pr-${{ github.event.number }}-${APP_VERSION}"
+        fi
+        IN_JSON=$(add-to-all "${IN_JSON}" "application-version"         "${APP_VERSION}")
+        IN_JSON=$(add-to-all "${IN_JSON}" "application-build-timestamp" "${APP_BUILDTIME}")
+
+        # Helper functions
+        function _jq { echo ${APP_VARS} | base64 --decode | jq -r ${*} ; }
+        function get-val { echo "${OUT_OBJ}" | jq -r --arg name "${1}" '.[$name] | select( . != null )'; }
+        function set-val { OUT_OBJ="$(echo "${OUT_OBJ}" | jq --arg name "${1}" --arg value "${2}" '.[$name] = $value')" ; }
+
+        # Build output JSON object
+        OUT_JSON='[]'
+        for APP_VARS in $(echo "${IN_JSON}" | jq -r '.[] | @base64'); do
+          OUT_OBJ="$(_jq '.')"
+          APP_NAME="$(get-val 'application-name')"
+          IMAGE_NAME="${APP_NAME}"
+          if [ '${{ github.event_name }}' == 'pull_request' ]
+          then
+            IMAGE_NAME=${IMAGE_NAME}-pr-${{ github.event.number }}
+          fi
+          set-val "application-image-name" "${IMAGE_NAME}" # modifies $OUT_OBJ
+
+          # Add JSON object to output JSON
+          OUT_JSON=$(echo "${OUT_JSON}" | jq '. += '["${OUT_OBJ}"']')
+        done
+
+        # Log the result
+        echo "::group::create-app-vars-matrix: ouput JSON specification"
+        echo "${OUT_JSON}"
+        echo "::endgroup::"
+
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
+        echo "::set-output name=app-vars::${OUT_JSON_ESC}"
+
+    - shell: bash
+      id: make-matrix-compatible
+      run: |
+        # Create app vars matrix
+
+        # Load and log app vars
+        IN_JSON=$(cat <<'EOF'
+        ${{ steps.create-app-vars-matrix.outputs.app-vars }}
+        EOF
+        )
+
+        # Github matrix is on format '{"include":[]}', reshape IN_JSON to conform to this:
+        # Each element in the array will have one field 'app-vars' containing all app vars
+        OUT_JSON=$(echo "${IN_JSON}" | jq 'map({ "app-vars": . }) | { "include": . }')
+
+        # Log the result
+        echo "::group::create-app-vars-matrix-matrix: app vars JSON re-formated for Github matrix job"
+        echo "${OUT_JSON}"
+        echo "::endgroup::"
+
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
+        echo "::set-output name=app-vars::${OUT_JSON_ESC}"
