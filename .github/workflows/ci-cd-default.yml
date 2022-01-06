@@ -1,0 +1,167 @@
+name: 'DSB Build, push and deploy'
+
+on:
+  workflow_call:
+    inputs:
+      apps:
+        type: string
+        description: |
+          Specification of applications to build and/or deploy.
+          YAML list (as string) with specifications of applications to build and/or deploy.
+          Required fields are:
+            - application-name        - string
+          For optional fields see possible inputs to the create-build-envs action.
+        required: true
+    secrets:
+      maven-repo-username:
+        required: true
+      maven-repo-token:
+        required: true
+      sonarqube-token:
+        required: true
+      jasypt-password:
+        required: true
+      acr-username:
+        required: true
+      acr-password:
+        required: true
+      github-repo-token:
+        required: true
+      app-config-repo-token:
+        required: true
+      pr-deploy-aks-creds:
+        required: true
+      acr-service-principal:
+        required: true
+
+jobs:
+  create-matrix:
+    name: Create build matrix
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      app-vars-matrix: ${{ steps.create-matrix.outputs.app-vars }}
+
+    steps:
+      # The create-app-vars-matrix action requires source code to be available
+      - name: 🧹 Clean workspace
+        uses: dsb-norge/github-actions/directory-recreate@v1
+      - name: ⬇ Checkout working branch
+        uses: actions/checkout@v2
+
+      - name: 🎰 Create app vars build matrix
+        id: create-matrix
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v1
+        with:
+          apps: ${{ inputs.apps }}
+
+  build-deploy:
+    name: Build and deploy
+    needs: create-matrix
+    runs-on: self-hosted
+    strategy:
+      matrix: ${{ fromJSON(needs.create-matrix.outputs.app-vars-matrix) }}
+      fail-fast: false # allow all paralell jobs to continiue even if one fails
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: 🧹 Clean workspace
+        uses: dsb-norge/github-actions/directory-recreate@v1
+
+      - name: ⬇ Checkout working branch
+        uses: actions/checkout@v2
+
+      - name: 🎰 Generate DSB build variables
+        id: build-env
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1
+        with:
+          app-vars: ${{ toJSON(matrix.app-vars) }}
+          maven-repo-username: ${{ secrets.maven-repo-username }}
+          maven-repo-token: ${{ secrets.maven-repo-token }}
+          sonarqube-token: ${{ secrets.sonarqube-token }}
+          jasypt-password: ${{ secrets.jasypt-password }}
+          acr-username: ${{ secrets.acr-username }}
+          acr-password: ${{ secrets.acr-password }}
+          github-repo-token: ${{ secrets.github-repo-token }}
+          app-config-repo-token: ${{ secrets.app-config-repo-token }}
+          pr-deploy-aks-creds: ${{ secrets.pr-deploy-aks-creds }}
+          acr-service-principal: ${{ secrets.acr-service-principal }}
+
+      - name: '⚒ Spring Boot app: Build and analyze with Maven'
+        # Skip step when closing a PR, and only run for spring-boot apps
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'spring-boot'
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: '🐳 Spring Boot app: Build, tag and push docker image'
+        # Skip step when closing a PR, and only run for spring-boot apps
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'spring-boot'
+        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: '⚒ Vue.js app: Build and test with npm'
+        # Skip step when closing a PR, and only run for vue apps
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'vue'
+        uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: '🐳 Vue.js app: Build, tag and push docker image for vue'
+        # Skip step when closing a PR, and only run for vue apps
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'vue'
+        uses: dsb-norge/github-actions/ci-cd/build-docker-image@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: 🐙 Deploy to ephemeral PR environment
+        # Skip step when closing a PR and when building main
+        if: github.event_name == 'pull_request' && github.event.action != 'closed'
+        uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: 🐙 Deploy to static environment(s)
+        # Skip step when closing a PR, and only run for vue apps
+        if: |
+          github.ref == 'refs/heads/main' &&
+          ( github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
+        uses: dsb-norge/github-actions/ci-cd/deploy-to-static@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: 🗑 Teardown of ephemeral PR environment
+        # Step only runs when closing a PR
+        if: github.event_name == 'pull_request' && github.event.action == 'closed'
+        uses: dsb-norge/github-actions/ci-cd/teardown-pr-environment@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: 🗑 Prune application docker images from ACR
+        # Skip step when closing a PR
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+        uses: dsb-norge/github-actions/ci-cd/prune-images-from-acr@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: 🗑 Delete PR docker images from ACR
+        # Step only runs when closing a PR
+        if: github.event_name == 'pull_request' && github.event.action == 'closed'
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}

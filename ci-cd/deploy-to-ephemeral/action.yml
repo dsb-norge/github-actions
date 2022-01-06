@@ -1,0 +1,188 @@
+name: 'Deploy DSB app to ephemeral environment'
+description: |
+  Deploys a DSB app to an ephemeral namspace in a given AKS cluster using custom helm charts and Argo CD.
+  Application and helm configuration is retreived from an external git repo.
+  This action will attempt to check out a branch from the configuration repo named by the field
+  'config-repo-branch-name' in the 'dsb-build-envs' input. If this does not succeed HEAD @ main branch will be used for configuration instead.
+author: 'Peder Schmedling'
+inputs:
+  dsb-build-envs:
+    description: 'DSB build environment variables JSON.'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    # we need to verify inputs since they are optional input to create-build-envs action
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+      with:
+        dsb-build-envs: ${{ inputs.dsb-build-envs }}
+        require: |
+          app-config-repo
+          app-config-repo-token
+          pr-deploy-app-config-branch
+          pr-deploy-aks-cluster-name
+          pr-deploy-aks-resource-group
+          pr-deploy-aks-creds
+          pr-deploy-k8s-namespace
+          pr-deploy-k8s-application-name
+          pr-deploy-argo-applications-url
+          pr-deploy-comment-prefix
+
+    # checkout config repo
+    - uses: actions/checkout@v2
+      with:
+        repository: ${{ fromJSON(inputs.dsb-build-envs).app-config-repo }}
+        ref: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-app-config-branch }}
+        token: ${{ fromJSON(inputs.dsb-build-envs).app-config-repo-token }}
+        path: ./_pr-deploy
+
+    # check if expected directory structure exists
+    - shell: bash
+      run: |
+        # Look for files and directories
+
+        ROOT_DIR=./_pr-deploy
+        PREVIEW_DIR="${ROOT_DIR}/preview"
+        APPS_DIR="${ROOT_DIR}/apps"
+        ENV_DIR="${APPS_DIR}/dev"
+
+        EXIT_CODE=0
+        if [ ! -d "${ROOT_DIR}" ]; then
+          echo "ERROR: deploy-to-ephemeral: Unable to find config repo root directory '${ROOT_DIR}' after checkout!"
+          EXIT_CODE=1
+        fi
+        if [ ! -d "${PREVIEW_DIR}" ]; then
+          echo "ERROR: deploy-to-ephemeral: Unable to find preview chart directory '${PREVIEW_DIR}' within config repo!"
+          EXIT_CODE=1
+        fi
+        if [ ! -d "${APPS_DIR}" ]; then
+          echo "ERROR: deploy-to-ephemeral: Unable to find apps directory '${APPS_DIR}' within config repo!"
+          EXIT_CODE=1
+        fi
+        if [ ! -d "${ENV_DIR}" ]; then
+          echo "ERROR: deploy-to-ephemeral: Unable to find environment directory '${ENV_DIR}' under apps directory '${APPS_DIR}'!"
+          EXIT_CODE=1
+        fi
+
+        exit ${EXIT_CODE}
+
+    # test for additional Helm values and save to file
+    - id: helm-values
+      shell: bash
+      run: |
+        # Save pr-deploy-additional-helm-values to file if defined
+
+        echo "::group::deploy-to-ephemeral: additional helm value overrides"
+        VALUES_FILE=./_pr-deploy/pr-deploy-additional-helm-values.yml
+        echo "Writing to file: ${VALUES_FILE}"
+        tee ${VALUES_FILE} <<'EOF'
+        ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-additional-helm-values }}
+        EOF
+        echo "::endgroup::"
+
+        if [ -z "$(cat ${VALUES_FILE})" ]; then
+          echo "::set-output name=commandline-parameter::"
+        else
+          echo "::set-output name=commandline-parameter::--values ${VALUES_FILE}"
+        fi
+
+    # set target kubernetes cluster to
+    - uses: Azure/aks-set-context@v1
+      with:
+        creds: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-aks-creds }}
+        cluster-name: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-aks-cluster-name }}
+        resource-group: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-aks-resource-group }}
+
+    # install app in ephemeral environment
+    - shell: bash
+      run: |
+        # Perform Helm install with additional helm values if any
+
+        helm upgrade --install --atomic \
+          --create-namespace \
+          --namespace ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-namespace }} \
+          --set application=${{ fromJSON(inputs.dsb-build-envs).application-name }} \
+          --set parameters.dsb-spring-boot\\.image=${{ fromJSON(inputs.dsb-build-envs).application-image-id }} \
+          --set parameters.dsb-spring-boot\\.tag=${{ fromJSON(inputs.dsb-build-envs).application-version }} \
+          --set parameters.dsb-nginx-frontend\\.image=${{ fromJSON(inputs.dsb-build-envs).application-image-id }} \
+          --set parameters.dsb-nginx-frontend\\.tag=${{ fromJSON(inputs.dsb-build-envs).application-version }} \
+          --set parameters.dsb-spring-boot-job\\.image=${{ fromJSON(inputs.dsb-build-envs).application-image-id }} \
+          --set parameters.dsb-spring-boot-job\\.tag=${{ fromJSON(inputs.dsb-build-envs).application-version }} \
+          --set gitTargetRevision=${{ fromJSON(inputs.dsb-build-envs).pr-deploy-app-config-branch }} \
+          ${{ steps.helm-values.outputs.commandline-parameter }} \
+          ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-application-name }} \
+          ./_pr-deploy/preview/
+
+    # create comment to be added to PR
+    - shell: bash
+      id: create-comment
+      run: |
+        # Create comment to be added to PR
+
+        # The start of this comment must match exactly DELETE_COMMENTS_WITH_PREFIX in the next action
+        COMMENT_PREFIX=$(cat <<'EOF'
+        ${{ fromJSON(inputs.dsb-build-envs).application-name }} ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-comment-prefix }}
+        EOF
+        )
+        COMMENT_TEXT=$(cat <<'EOF'
+        ```
+                 name: ${{ fromJSON(inputs.dsb-build-envs).application-name }}
+              version: ${{ fromJSON(inputs.dsb-build-envs).application-version }}
+          description: ${{ fromJSON(inputs.dsb-build-envs).application-description }}
+        ```
+        ArgoCD url: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-argo-applications-url }}/${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-application-name }}
+        EOF
+        )
+        COMMENT_TEXT=$(echo "${COMMENT_PREFIX}" $'\n' "${COMMENT_TEXT}")
+
+        # Add optional text passed from the triggering workflow
+        ADDITIONAL_TEXT=$(cat <<'EOF'
+        ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-comment-additional-text }}
+        EOF
+        )
+        if [ ! -z "${ADDITIONAL_TEXT}" ];then
+          COMMENT_TEXT=$(echo "${COMMENT_TEXT}" $'\n' "${ADDITIONAL_TEXT}")
+        fi
+
+        echo "deploy-to-ephemeral: Final PR comment prefix: ${COMMENT_PREFIX}"
+        echo "::group::deploy-to-ephemeral: Final PR comment text"
+        echo "${COMMENT_TEXT}"
+        echo "::endgroup::"
+
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        COMMENT_TEXT_ESC=$(escape-for-output "${COMMENT_TEXT}")
+        COMMENT_PREFIX_ESC=$(escape-for-output "${COMMENT_PREFIX}")
+        echo "::set-output name=prefix::${COMMENT_PREFIX_ESC}"
+        echo "::set-output name=comment::${COMMENT_TEXT_ESC}"
+
+    # add comment to PR
+    - uses: actions/github-script@v5
+      env:
+        DELETE_COMMENTS_WITH_PREFIX: ${{ steps.create-comment.outputs.prefix }}
+        NEW_COMMENT_BODY: ${{ steps.create-comment.outputs.comment }}
+      with:
+        script: |
+          const { DELETE_COMMENTS_WITH_PREFIX, NEW_COMMENT_BODY } = process.env
+          const opts = github.rest.issues.listComments.endpoint.merge({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo
+          })
+          const comments = await github.paginate(opts)
+          for (const comment of comments) {
+              if (comment.body.startsWith(`${DELETE_COMMENTS_WITH_PREFIX}`)) {
+                  console.log('deploy-to-ephemeral: Deleting comment -> id: ' + comment.id + ', body: ' + comment.body.slice(0,100))
+                  github.rest.issues.deleteComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      comment_id: comment.id
+                  });
+              }
+          }
+          return github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `${NEW_COMMENT_BODY}`
+          });

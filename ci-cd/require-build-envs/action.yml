@@ -1,0 +1,42 @@
+name: 'Test DSB build environment variables for non-zero values'
+description: |
+  Given DSB build environment variables JSON and a list of variable names, this action will test for existence and empty values of these.
+  If one or more of the variables does not exist, this action will fail.
+  If one or more of the variables are empty, this action will fail.
+author: 'Peder Schmedling'
+inputs:
+  dsb-build-envs:
+    description: 'DSB build environment variables JSON.'
+    required: true
+  require:
+    description: 'Newline delimited string of variable names to test.'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - shell: bash
+      run: |
+        # Test build envs
+
+        JSON_CONFIG=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs }}
+        EOF
+        )
+
+        REQUIRED_KEYS=($(cat <<'EOF'
+        ${{ inputs.require }}
+        EOF
+        ))
+
+        EXIT_CODE=0
+        for KEY in "${REQUIRED_KEYS[@]}"; do
+          if [ ! "$( jq 'has("'${KEY}'")' <<< ${JSON_CONFIG} )" == "true" ]; then
+            echo "ERROR: require-build-envs: Build env '${KEY}' is required but was not found in 'dsb-build-envs' JSON."
+            EXIT_CODE=1
+          elif [ "$( jq -r '."'${KEY}'"' <<< ${JSON_CONFIG} )" == '' ]; then
+            echo "ERROR: require-build-envs: It is required that build env '${KEY}' is set to a value, an empty string was found in 'dsb-build-envs' JSON."
+            EXIT_CODE=1
+          fi
+        done
+
+        exit ${EXIT_CODE}

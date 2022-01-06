@@ -1,0 +1,134 @@
+name: 'Build spring boot OCI image with labels and tags'
+description: |
+  Use spring boot maven plugin to build OCI image from maven project.
+author: 'Peder Schmedling'
+inputs:
+  dsb-build-envs:
+    description: 'DSB build environment variables JSON.'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    # verify we have required inputs in order to avoid blank labels/tags
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+      with:
+        dsb-build-envs: ${{ inputs.dsb-build-envs }}
+        require: |
+          application-image-id
+          application-version
+          application-name
+          application-description
+          application-vendor
+          application-build-timestamp
+          application-source
+          application-source-revision
+
+    # log into azure container registry (ACR)
+    - uses: azure/docker-login@v1
+      with:
+        login-server: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
+        username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
+        password: ${{ fromJSON(inputs.dsb-build-envs).acr-password }}
+
+    # generate tags and labels
+    - uses: docker/metadata-action@v3
+      id: meta
+      with:
+        images: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}
+        flavor: latest=true
+        tags: ${{ fromJSON(inputs.dsb-build-envs).application-version }}
+        labels: |
+          org.opencontainers.image.title=${{ fromJSON(inputs.dsb-build-envs).application-name }}
+          org.opencontainers.image.description=${{ fromJSON(inputs.dsb-build-envs).application-description }}
+          org.opencontainers.image.vendor=${{ fromJSON(inputs.dsb-build-envs).application-vendor }}
+          org.opencontainers.image.created=${{ fromJSON(inputs.dsb-build-envs).application-build-timestamp }}
+          org.opencontainers.image.source=${{ fromJSON(inputs.dsb-build-envs).application-source }}
+          org.opencontainers.image.revision=${{ fromJSON(inputs.dsb-build-envs).application-source-revision }}
+
+    # generate label definition compatible with https://github.com/paketo-buildpacks/image-labels
+    - id: create-labels
+      shell: bash
+      run: |
+        # Create image labels buildpack compatible labels
+
+        # Load labels as created by docker/metadata-action
+        LABELS_JSON=$(cat <<'EOF'
+        ${{ toJSON(fromJSON(steps.meta.outputs.json).labels) }}
+        EOF
+        )
+
+        # Create space-delimited key-value pairs
+        # Escape single and double quotes with '\'
+        REP_DLB_QUOTES=$'gsub("\\""; "\\\\\\"")'
+        REP_SGL_QUOTES=$'gsub("\'"; "\\\\\'")'
+        IMAGE_LABELS=$(echo $LABELS_JSON | jq -r '[keys[] as $k | "\"\($k)\"=\"\((.[$k] | '"${REP_DLB_QUOTES}"' | '"${REP_SGL_QUOTES}"'))\"" ] | join(" ")')
+        echo "::group::build-spring-boot-image: Image labels for Paketo image labels buildpack"
+        echo "${IMAGE_LABELS}"
+        echo "::endgroup::"
+
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        IMAGE_LABELS_ESC=$(escape-for-output "${IMAGE_LABELS}")
+        echo "::set-output name=labels::${IMAGE_LABELS_ESC}"
+
+    # generate JSON with extra envs for maven
+    - id: extra-envs
+      shell: bash
+      run: |
+        # Construct JSON object with extra envs for maven
+
+        # Load paketo-buildpacks/image-labels compatible labels
+        LABELS_RAW=$(cat <<'EOF'
+        ${{ steps.create-labels.outputs.labels }}
+        EOF
+        )
+
+        # Use jq to ensure valid JSON
+        function set-val { OUT_JSON="$(echo "${OUT_JSON}" | jq --arg name "${1}" --arg value "${2}" '.[$name] = $value')" ; }
+        OUT_JSON='{}'
+
+        # These labels are added to the docker image during build
+        # by https://github.com/paketo-buildpacks/image-labels
+        set-val "BP_IMAGE_LABELS" "${LABELS_RAW}" # modifies $OUT_JSON
+
+        # These runtime env vars are added to the docker image during build
+        # by https://github.com/paketo-buildpacks/environment-variables
+        set-val "BPE_DSB_BUILDTIME" '${{ fromJSON(inputs.dsb-build-envs).application-build-timestamp }}'  # modifies $OUT_JSON
+        set-val "BPE_DSB_VERSION"   '${{ fromJSON(inputs.dsb-build-envs).application-version }}'          # modifies $OUT_JSON
+        set-val "BPE_DSB_SOURCE"    '${{ fromJSON(inputs.dsb-build-envs).application-source }}'           # modifies $OUT_JSON
+        set-val "BPE_DSB_REVISION"  '${{ fromJSON(inputs.dsb-build-envs).application-source-revision }}'  # modifies $OUT_JSON
+
+        echo "::group::build-spring-boot-image: Extra maven env JSON"
+        echo "${OUT_JSON}"
+        echo "::endgroup::"
+
+        # Return JSON object to pass to maven action
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
+        echo "::set-output name=json::${OUT_JSON_ESC}"
+
+    # build docker image
+    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
+      with:
+        mvn-goals: spring-boot:build-image
+        mvn-args: -B -DskipTests -Dspring-boot.build-image.imageName=local-spring-boot-image:v0
+        set-extra-envs: ${{ steps.extra-envs.outputs.json }}
+        dsb-build-envs: ${{ inputs.dsb-build-envs }}
+
+    # tag and push docker image
+    - shell: bash
+      run: |
+        # Tag and push with docker
+
+        IMAGE_TAGS_RAW=$(cat <<'EOF'
+        ${{ steps.meta.outputs.tags }}
+        EOF
+        )
+        IMAGE_TAGS=$(echo "${IMAGE_TAGS_RAW}" | tr "\n" " ")
+        for IMAGE_SPEC in ${IMAGE_TAGS}; do
+          echo "::group::build-spring-boot-image: Tagging and pushing image '${IMAGE_SPEC}'"
+          docker tag local-spring-boot-image:v0 "${IMAGE_SPEC}"
+          docker push "${IMAGE_SPEC}"
+          echo "::endgroup::"
+        done

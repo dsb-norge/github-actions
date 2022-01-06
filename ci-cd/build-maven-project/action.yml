@@ -1,0 +1,98 @@
+name: 'Configure Java and build maven project'
+description: |
+  Given the required input this action configures the specified version of java and builds a given maven project.
+  Before maven is invoked the version and distribution of JDK specified in 'dsb-build-envs' is installed.
+  The maven invocation consists of two parts:
+    - Part one: set maven project version using the goal 'versions:set' and version from input 'dsb-build-envs.application-version'
+    - Part two: invoke maven with goals specified in 'mvn-goals' input.
+  In both cases arguments to maven are passed from the input 'mvn-args'.
+  As for pom file the field 'application-source-path' of 'dsb-build-envs' can point either to an existing pom.xml or to a directory containing it.
+  If the pom.xml is not found this action will fail.
+author: 'Peder Schmedling'
+inputs:
+  mvn-goals:
+    description: 'Goals specified to Maven.'
+    required: false
+    default: 'clean verify install org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'
+  mvn-args:
+    description: 'Arguments passed to Maven.'
+    required: false
+    default: '-B' # -B = batch-mode
+  set-extra-envs:
+    description: 'JSON object with extra environment variables to set in same scope as maven is invoked.'
+    required: false
+    default: ''
+  dsb-build-envs:
+    description: 'DSB build environment variables JSON.'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    # define envs
+    - id: mvn-cmd
+      shell: bash
+      run: |
+        # Locate pom.xml and define maven commands
+
+        POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
+        [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
+        [ ! -f "${POM_FILE}" ] && \
+          echo "ERROR: build-dsb-maven-project: Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
+          exit 1
+
+        MVN_VERSION_CMD="mvn ${{ inputs.mvn-args }} --file ${POM_FILE} versions:set -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }}"
+        echo "build-dsb-maven-project: Maven version command: '${MVN_VERSION_CMD}'"
+        echo "::set-output name=mvn-version-cmd::${MVN_VERSION_CMD}"
+
+        MVN_CMD="mvn ${{ inputs.mvn-args }} --file ${POM_FILE} ${{ inputs.mvn-goals }}"
+        echo "build-dsb-maven-project: Maven build command: '${MVN_CMD}'"
+        echo "::set-output name=mvn-cmd::${MVN_CMD}"
+
+    # set up JDK
+    - uses: actions/setup-java@v2
+      with:
+        distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
+        java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
+        server-id: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id }} # Value of the repository/id field of the pom.xml
+        # Jenkins user in repo.dsb.no. Pwd for login to repo.dsb.no found in keepass
+        server-username: DSB_MAVEN_REPO_USER_NAME
+        server-password: DSB_MAVEN_REPO_TOKEN
+        overwrite-settings: true
+
+    #  Invoke maven
+    - shell: bash
+      run: |
+        # Define extra envs, if any, and invoke maven
+
+        EXTRA_ENVS=$(cat <<'EOF'
+        ${{ inputs.set-extra-envs }}
+        EOF
+        )
+        if [ ! -z "$EXTRA_ENVS" ];
+        then
+          echo "::group::build-dsb-maven-project: extra environment variables"
+          JSON_FIELDS=$(echo ${EXTRA_ENVS} | jq -r '[keys[]] | join(" ")')
+          for JSON_FIELD in ${JSON_FIELDS}; do
+              JSON_VALUE=$(echo ${EXTRA_ENVS} | jq -r ".${JSON_FIELD}")
+              echo "Setting extra environment variable '${JSON_FIELD}'"
+              export "${JSON_FIELD}"="${JSON_VALUE}"
+          done
+          echo "::endgroup::"
+        fi
+
+        echo "::group::build-dsb-maven-project: Setting maven project version"
+        echo "build-dsb-maven-project: command string: '${{ steps.mvn-cmd.outputs.mvn-version-cmd }}'"
+        ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
+        echo "::endgroup::"
+
+        echo "::group::build-dsb-maven-project: Invoke maven with goals"
+        echo "build-dsb-maven-project: command string: '${{ steps.mvn-cmd.outputs.mvn-cmd }}'"
+        echo '${{ inputs.mvn-goals }}'
+        ${{ steps.mvn-cmd.outputs.mvn-cmd }}
+        echo "::endgroup::"
+      env:
+        JASYPT_LOCAL_ENCRYPTOR_PASSWORD: ${{ fromJSON(inputs.dsb-build-envs).jasypt-password }}
+        GITHUB_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }} # Needed for Sonar to get PR information, if any
+        SONAR_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).sonarqube-token }}
+        DSB_MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-token }}
+        DSB_MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-username }}

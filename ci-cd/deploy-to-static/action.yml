@@ -1,0 +1,106 @@
+name: 'Deploy DSB app to static environment'
+description: |
+  Deploys a DSB app to a static environment.
+  The deploy itself is handled by ArgoCD externally. This action merely bumps the application version for the given environment(s).
+  Application configuration for these must be defined in the repo pointed to by 'app-config-repo' in the 'dsb-build-envs' input.
+  Additionally ArgoCD must be set up to watch the configuration repo for the deploy to actually happen.
+author: 'Peder Schmedling'
+inputs:
+  dsb-build-envs:
+    description: 'DSB build environment variables JSON.'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    # we need to verify inputs since they are optional input to create-build-envs action
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+      with:
+        dsb-build-envs: ${{ inputs.dsb-build-envs }}
+        require: |
+          application-version
+          application-name
+          app-config-repo
+          app-config-repo-token
+          static-deploy-environments
+
+    # checkout config repo
+    - uses: actions/checkout@v2
+      with:
+        repository: ${{ fromJSON(inputs.dsb-build-envs).app-config-repo }}
+        token: ${{ fromJSON(inputs.dsb-build-envs).app-config-repo-token }}
+        path: ./_static-deploy
+
+    # check if expected directory structure and application config exists
+    - shell: bash
+      run: |
+        # Look for files and directories
+
+        ROOT_DIR=./_static-deploy
+        APPS_DIR="${ROOT_DIR}/apps"
+
+        EXIT_CODE=0
+        if [ ! -d "${ROOT_DIR}" ]; then
+          echo "ERROR: deploy-to-static: Unable to find config repo root directory '${ROOT_DIR}' after checkout!"
+          EXIT_CODE=1
+        fi
+        if [ ! -d "${APPS_DIR}" ]; then
+          echo "ERROR: deploy-to-static: Unable to find apps directory '${APPS_DIR}' within config repo!"
+          EXIT_CODE=1
+        fi
+
+        INPUT_ENVS_STRING="${{ fromJSON(inputs.dsb-build-envs).static-deploy-environments }}"
+        DEPLOY_TO_ENVS=(${INPUT_ENVS_STRING//,/ }) # split comma separated list
+        for DEPLOY_TO_ENV in "${DEPLOY_TO_ENVS[@]}"; do
+          ENV_DIR="${APPS_DIR}/${DEPLOY_TO_ENV}"
+          if [ ! -d "${ENV_DIR}" ]; then
+            echo "ERROR: deploy-to-static: Unable to find environment directory '${ENV_DIR}' under apps directory '${APPS_DIR}'!"
+            EXIT_CODE=1
+          fi
+
+          VALUES_FILE="${ENV_DIR}/${{ fromJSON(inputs.dsb-build-envs).application-name }}/values.yaml"
+          if [ ! -f "${VALUES_FILE}" ]; then
+            echo "ERROR: deploy-to-static: Unable to find values file for environment '${DEPLOY_TO_ENV}', should exists at '${VALUES_FILE}'!"
+            EXIT_CODE=1
+          fi
+        done
+
+        exit ${EXIT_CODE}
+
+    # update application version in given environments, commit and push
+    - shell: bash
+      run: |
+        # Bump versions in git repo
+
+        # Loop over input environments
+        INPUT_ENVS_STRING="${{ fromJSON(inputs.dsb-build-envs).static-deploy-environments }}"
+        DEPLOY_TO_ENVS=(${INPUT_ENVS_STRING//,/ }) # split comma separated list
+        for DEPLOY_TO_ENV in "${DEPLOY_TO_ENVS[@]}"; do
+          echo "deploy-to-static: Bumping ${{ fromJSON(inputs.dsb-build-envs).application-name }} in '${DEPLOY_TO_ENV}':"
+          VALUES_FILE="${DEPLOY_TO_ENV}/${{ fromJSON(inputs.dsb-build-envs).application-name }}/values.yaml"
+
+          echo "::group::deploy-to-static: ${VALUES_FILE} before modification:"
+          cat ${VALUES_FILE}
+          echo "::endgroup::"
+
+          sed -i 's/tag: .* # replaced-by-auto-bumper/tag: "${{ fromJSON(inputs.dsb-build-envs).application-version }}" # replaced-by-auto-bumper/' "${VALUES_FILE}"
+
+          echo "::group::deploy-to-static: ${VALUES_FILE} after modification:"
+          cat ${VALUES_FILE}
+          echo "::endgroup::"
+
+          git add "${VALUES_FILE}"
+        done
+
+        CURRENT_COMMIT_MESSAGE_THIS_REPO=$(git -C "${{ github.workspace }}" log -1 --pretty=format:"%s")
+
+        # Create commit message
+        BUMP_COMMIT_MESSAGE="🆕 ${{ fromJSON(inputs.dsb-build-envs).static-deploy-environments }}: ${{ fromJSON(inputs.dsb-build-envs).application-name }} → ${{ fromJSON(inputs.dsb-build-envs).application-version }}:"
+        BUMP_COMMIT_MESSAGE=$(echo "${BUMP_COMMIT_MESSAGE}" $'\n' "${CURRENT_COMMIT_MESSAGE_THIS_REPO}")
+
+        # Git operations
+        git config user.email "noreply@dsb.no"
+        git config user.name "Auto Bumper"
+        git commit -m "$BUMP_COMMIT_MESSAGE"
+        git push
+
+      working-directory: ./_static-deploy/apps/
