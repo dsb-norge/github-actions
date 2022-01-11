@@ -5,7 +5,12 @@ description: |
 author: 'Peder Schmedling'
 inputs:
   dsb-build-envs:
-    description: 'DSB build environment variables JSON.'
+    description: |
+      DSB build environment variables JSON.
+      Required fields:
+        See first step.
+      Optional fields:
+        None.
     required: true
 runs:
   using: 'composite'

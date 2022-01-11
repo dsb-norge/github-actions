@@ -4,20 +4,16 @@ description: |
 author: 'Peder Schmedling'
 inputs:
   dsb-build-envs:
-    description: 'DSB build environment variables JSON.'
+    description: |
+      DSB build environment variables JSON.
+      Required fields:
+        See first step.
+      Optional fields:
+        None.
     required: true
 runs:
   using: 'composite'
   steps:
-    - shell: bash
-      run: |
-        # Check if triggered by pull request event
-        [ ! '${{ github.event_name }}' == 'pull_request' ] \
-          && echo 'ERROR: delete-pr-images-from-acr: This action should only be called by pull request events.' \
-          && EXIT_CODE=1 \
-          || EXIT_CODE=0
-        exit ${EXIT_CODE}
-
     # we need to verify inputs since they are optional input to create-build-envs action
     - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
       with:
@@ -27,6 +23,15 @@ runs:
           docker-image-registry
           docker-image-repo
           application-image-name
+
+    - shell: bash
+      run: |
+        # Check if triggered by pull request event
+        [ ! '${{ github.event_name }}' == 'pull_request' ] \
+          && echo 'ERROR: delete-pr-images-from-acr: This action should only be called by pull request events.' \
+          && EXIT_CODE=1 \
+          || EXIT_CODE=0
+        exit ${EXIT_CODE}
 
     # log into Azure CLI with service principal
     - uses: azure/login@v1
