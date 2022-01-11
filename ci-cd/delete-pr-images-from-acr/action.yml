@@ -19,7 +19,7 @@ runs:
         exit ${EXIT_CODE}
 
     # we need to verify inputs since they are optional input to create-build-envs action
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1.5
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -29,7 +29,7 @@ runs:
           application-image-name
 
     # log into Azure CLI with service principal
-    - uses: azure/login@v1
+    - uses: azure/login@v1.5
       with:
         creds: ${{ fromJSON(inputs.dsb-build-envs).acr-service-principal }}
         allow-no-subscriptions: true

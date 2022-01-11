@@ -1,6 +1,33 @@
 name: 'Build spring boot OCI image with labels and tags'
 description: |
   Use spring boot maven plugin to build OCI image from maven project.
+  This uses the action dsb-norge/github-actions/ci-cd/build-maven-project to invoke maven.
+  Default maven invocations are:
+    1. mvn -B --file <pom file> versions:set -DnewVersion=<version>
+    2. mvn -B -DskipTests -Dspring-boot.build-image.imageName=local-spring-boot-image:v0 --file <pom file> spring-boot:build-image
+    - Where <pom file> is defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or to a directory containing it.
+    - Where <version> is controlled by 'application-version' defined in 'dsb-build-envs'.
+  Maven invocations can be overriden:
+    Note before overriding:
+      - Make sure that the local OCI image built by the maven invocation is tagged as 'local-spring-boot-image:v0'. Failure to fullfill this will result
+        in the tagging and pushing step of this action to fail.
+    Invocation #1:
+      - If 'spring-boot-build-image-version-command' is defined in 'dsb-build-envs', this will be used (replaces the whole maven invocation command).
+        With the exception that the version number is hardcoded. Ie. all invocations will have the following argument prepended: '-DnewVersion=<version>'
+      - If 'spring-boot-build-image-version-command' is NOT defined in 'dsb-build-envs':
+        - And 'spring-boot-build-image-version-goals' is defined in 'dsb-build-envs', goals from 'spring-boot-build-image-version-goals' will be used.
+        - And 'spring-boot-build-image-version-arguments' is defined in 'dsb-build-envs', arguments from
+          'spring-boot-build-image-version-arguments' will be used.
+        - When specific goals and/or arguments are defined the pom file reference will still be added to the final maven invocation. The resulting
+          maven invocation command is: mvn <arguments> --file <pom file> <goals>
+    Invocation #2 - Similar logic as #1 without <version> and different fields of 'dsb-build-envs':
+      - If 'spring-boot-build-image-command' is defined in 'dsb-build-envs', this will be used (replaces the whole maven invocation command).
+      - If 'spring-boot-build-image-command' is NOT defined in 'dsb-build-envs':
+        - And 'spring-boot-build-image-goals' is defined in 'dsb-build-envs', goals from 'spring-boot-build-image-version-goals' will be used.
+        - And 'spring-boot-build-image-arguments' is defined in 'dsb-build-envs', arguments from
+          'spring-boot-build-image-arguments' will be used.
+        - When specific goals and/or arguments are defined the pom file reference will still be added to the final maven invocation. The resulting
+          maven invocation command is: mvn <arguments> --file <pom file> <goals>
 author: 'Peder Schmedling'
 inputs:
   dsb-build-envs:
@@ -10,7 +37,7 @@ runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1.5
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -22,9 +49,13 @@ runs:
           application-build-timestamp
           application-source
           application-source-revision
+          application-source-path
+          docker-image-registry
+          acr-username
+          acr-password
 
     # log into azure container registry (ACR)
-    - uses: azure/docker-login@v1
+    - uses: azure/docker-login@v1.5
       with:
         login-server: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
         username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
@@ -108,11 +139,93 @@ runs:
         OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
         echo "::set-output name=json::${OUT_JSON_ESC}"
 
+    # define maven commands
+    - id: mvn-cmd
+      shell: bash
+      run: |
+        # Define maven commands
+
+        # Defaults
+        MVN_VERSION_ARGUMENTS_DEFAULT='-B'
+        MVN_VERSION_GOALS_DEFAULT='versions:set'
+        MVN_ARGUMENTS_DEFAULT='-B -DskipTests -Dspring-boot.build-image.imageName=local-spring-boot-image:v0'
+        MVN_GOALS_DEFAULT='spring-boot:build-image'
+
+        BUILD_ENVS=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs }}
+        EOF
+        )
+
+        # Helper functions
+        # Check if field exists in BUILD_ENVS safely
+        function has-field { if [[ "$(echo "${BUILD_ENVS}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
+        # Get field value from BUILD_ENVS safely
+        function get-val { echo "${BUILD_ENVS}" | jq -r --arg name "$1" '.[$name]'; }
+
+        # Locate pom.xml
+        POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
+        [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
+        [ ! -f "${POM_FILE}" ] && \
+          echo "ERROR: build-spring-boot-image: Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
+          exit 1
+
+        # Determine maven command for first invocation
+        echo "::group::build-spring-boot-image: maven version command"
+        if has-field 'spring-boot-build-image-version-command'; then
+          echo "build-spring-boot-image: using maven version command from 'inputs.dsb-build-envs.spring-boot-build-image-version-command'."
+          MVN_VERSION_CMD="$(get-val 'spring-boot-build-image-version-command')"
+        else
+          if has-field 'spring-boot-build-image-version-goals'; then
+            echo "build-spring-boot-image: using maven version goals from 'inputs.dsb-build-envs.spring-boot-build-image-version-goals'."
+            MVN_VERSION_GOALS="$(get-val 'spring-boot-build-image-version-goals')"
+          else
+            echo "build-spring-boot-image: using default maven version goals."
+            MVN_VERSION_GOALS="${MVN_VERSION_GOALS_DEFAULT}"
+          fi
+          if has-field 'spring-boot-build-image-version-arguments'; then
+            echo "build-spring-boot-image: using maven version arguments from 'inputs.dsb-build-envs.spring-boot-build-image-version-arguments'."
+            MVN_VERSION_ARGUMENTS="$(get-val 'spring-boot-build-image-version-arguments')"
+          else
+            echo "build-spring-boot-image: using default maven version arguments."
+            MVN_VERSION_ARGUMENTS="${MVN_VERSION_ARGUMENTS_DEFAULT}"
+          fi
+          MVN_VERSION_CMD="mvn ${MVN_VERSION_ARGUMENTS} --file ${POM_FILE} ${MVN_VERSION_GOALS}"
+        fi
+        echo "::endgroup::"
+        echo "build-spring-boot-image: maven version command: '${MVN_VERSION_CMD}'"
+        echo "::set-output name=mvn-version-cmd::${MVN_VERSION_CMD}"
+
+        # Determine maven command for second invocation
+        echo "::group::build-spring-boot-image: maven command"
+        if has-field 'spring-boot-build-image-command'; then
+          echo "build-spring-boot-image: using maven command from 'inputs.dsb-build-envs.spring-boot-build-image-command'."
+          MVN_CMD="$(get-val 'spring-boot-build-image-command')"
+        else
+          if has-field 'spring-boot-build-image-goals'; then
+            echo "build-spring-boot-image: using maven goals from 'inputs.dsb-build-envs.spring-boot-build-image-goals'."
+            MVN_GOALS="$(get-val 'spring-boot-build-image-goals')"
+          else
+            echo "build-spring-boot-image: using default maven goals."
+            MVN_GOALS="${MVN_GOALS_DEFAULT}"
+          fi
+          if has-field 'spring-boot-build-image-arguments'; then
+            echo "build-spring-boot-image: using maven arguments from 'inputs.dsb-build-envs.spring-boot-build-image-arguments'."
+            MVN_ARGUMENTS="$(get-val 'spring-boot-build-image-arguments')"
+          else
+            echo "build-spring-boot-image: using default maven arguments."
+            MVN_ARGUMENTS="${MVN_ARGUMENTS_DEFAULT}"
+          fi
+          MVN_CMD="mvn ${MVN_ARGUMENTS} --file ${POM_FILE} ${MVN_GOALS}"
+        fi
+        echo "::endgroup::"
+        echo "build-spring-boot-image: Maven build command: '${MVN_CMD}'"
+        echo "::set-output name=mvn-cmd::${MVN_CMD}"
+
     # build docker image
-    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
+    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1.5
       with:
-        mvn-goals: spring-boot:build-image
-        mvn-args: -B -DskipTests -Dspring-boot.build-image.imageName=local-spring-boot-image:v0
+        mvn-version-cmd: ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
+        mvn-cmd: ${{ steps.mvn-cmd.outputs.mvn-cmd }}
         set-extra-envs: ${{ steps.extra-envs.outputs.json }}
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
 

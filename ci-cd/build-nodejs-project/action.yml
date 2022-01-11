@@ -12,7 +12,7 @@ runs:
   using: 'composite'
   steps:
     # set up Node.js
-    - uses: actions/setup-node@v1
+    - uses: actions/setup-node@v1.5
       with:
         node-version:  ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
 
