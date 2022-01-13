@@ -6,7 +6,12 @@ description: |
 author: 'Peder Schmedling'
 inputs:
   dsb-build-envs:
-    description: 'DSB build environment variables JSON.'
+    description: |
+      DSB build environment variables JSON.
+      Required fields:
+        Depends on 'input.require'.
+      Optional fields:
+        None.
     required: true
   require:
     description: 'Newline delimited string of variable names to test.'
