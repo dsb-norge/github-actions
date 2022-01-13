@@ -4,13 +4,11 @@ description: |
   This uses the action dsb-norge/github-actions/ci-cd/build-maven-project to invoke maven.
   Default maven invocations are:
     1. mvn -B --file <pom file> versions:set -DnewVersion=<version>
-    2. mvn -B -DskipTests -Dspring-boot.build-image.imageName=local-spring-boot-image:v0 --file <pom file> spring-boot:build-image
+    2. mvn -B -DskipTests -Dspring-boot.build-image.imageName=local-spring-boot-image:<local image tag> --file <pom file> spring-boot:build-image
     - Where <pom file> is defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or to a directory containing it.
     - Where <version> is controlled by 'application-version' defined in 'dsb-build-envs'.
+    - Where <local image tag> is a random alpha generic string (created by this action) which identifies the built image locally.
   Maven invocations can be overriden:
-    Note before overriding:
-      - Make sure that the local OCI image built by the maven invocation is tagged as 'local-spring-boot-image:v0'. Failure to fullfill this will result
-        in the tagging and pushing step of this action to fail.
     Invocation #1:
       - If 'spring-boot-build-image-version-command' is defined in 'dsb-build-envs', this will be used (replaces the whole maven invocation command).
         With the exception that the version number is hardcoded. Ie. all invocations will have the following argument prepended: '-DnewVersion=<version>'
@@ -20,7 +18,9 @@ description: |
           'spring-boot-build-image-version-arguments' will be used.
         - When specific goals and/or arguments are defined the pom file reference will still be added to the final maven invocation. The resulting
           maven invocation command is: mvn <arguments> --file <pom file> <goals>
-    Invocation #2 - Similar logic as #1 without <version> and different fields of 'dsb-build-envs':
+    Invocation #2 - Similar logic as #1 with <local image tag> instead of <version> and different fields of 'dsb-build-envs':
+      The argument of the maven invocation defining the local image name and tag is hardcoded in this action. Ie. all invocations will have the
+      following argument prepended: '-Dspring-boot.build-image.imageName=local-spring-boot-image:<local image tag>'
       - If 'spring-boot-build-image-command' is defined in 'dsb-build-envs', this will be used (replaces the whole maven invocation command).
       - If 'spring-boot-build-image-command' is NOT defined in 'dsb-build-envs':
         - And 'spring-boot-build-image-goals' is defined in 'dsb-build-envs', goals from 'spring-boot-build-image-version-goals' will be used.
@@ -155,11 +155,16 @@ runs:
       run: |
         # Define maven commands
 
+        # Used to identify local image uniquely
+        LOCAL_IMAGE_TAG=$(head --bytes 1024 /dev/urandom | tr -dc 'a-z0-9' | fold -w 8 | head -n 1)
+        LOCAL_IMAGE_ID="local-spring-boot-image:${LOCAL_IMAGE_TAG}"
+
         # Defaults
         MVN_VERSION_ARGUMENTS_DEFAULT='-B'
         MVN_VERSION_GOALS_DEFAULT='versions:set'
-        MVN_ARGUMENTS_DEFAULT='-B -DskipTests -Dspring-boot.build-image.imageName=local-spring-boot-image:v0'
+        MVN_ARGUMENTS_DEFAULT='-B -DskipTests'
         MVN_GOALS_DEFAULT='spring-boot:build-image'
+        MVN_IMAGE_REF_ARGUMENT="-Dspring-boot.build-image.imageName=${LOCAL_IMAGE_ID}"
 
         BUILD_ENVS=$(cat <<'EOF'
         ${{ inputs.dsb-build-envs }}
@@ -224,8 +229,13 @@ runs:
           fi
           MVN_CMD="mvn ${MVN_ARGUMENTS} --file ${POM_FILE} ${MVN_GOALS}"
         fi
+
+        # Always add local image id
+        MVN_CMD="${MVN_CMD} ${MVN_IMAGE_REF_ARGUMENT}"
+
         echo "build-spring-boot-image: Maven build command: '${MVN_CMD}'"
         echo "::set-output name=mvn-cmd::${MVN_CMD}"
+        echo "::set-output name=local-image-id::${LOCAL_IMAGE_ID}"
 
     # build docker image
     - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
@@ -247,7 +257,7 @@ runs:
         IMAGE_TAGS=$(echo "${IMAGE_TAGS_RAW}" | tr "\n" " ")
         for IMAGE_SPEC in ${IMAGE_TAGS}; do
           echo "::group::build-spring-boot-image: Tagging and pushing image '${IMAGE_SPEC}'"
-          docker tag local-spring-boot-image:v0 "${IMAGE_SPEC}"
+          docker tag ${{ steps.mvn-cmd.outputs.local-image-id }} "${IMAGE_SPEC}"
           docker push "${IMAGE_SPEC}"
           echo "::endgroup::"
         done
