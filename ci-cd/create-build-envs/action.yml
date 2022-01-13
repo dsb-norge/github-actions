@@ -95,10 +95,16 @@ inputs:
     default: ''
   static-deploy-environments:
     description: |
-      Comma separated list of static environments to deploy to when building from main.
+      Comma separated list of static environments to deploy to.
       Application configuration for these must be defined in 'app-config-repo'.
     required: false
     default: dev, test
+  static-deploy-from-default-branch-only:
+    description: |
+      Set this to 'false' to allow deploying to static environments from other branches than the default branch.
+      The default is to allow only deploys from the default branch.
+    required: false
+    default: 'true'
   pr-deploy-app-config-branch:
     description: |
       Name of branch in "app-config-repo" potentially containing modified app config used during deploy to ephemeral

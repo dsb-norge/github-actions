@@ -136,10 +136,8 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🐙 Deploy to static environment(s)
-        # Skip step when closing a PR, and only run for vue apps
-        if: |
-          github.ref == 'refs/heads/main' &&
-          ( github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
+        # Skip step for PRs, action will check if triggered from main branch
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: dsb-norge/github-actions/ci-cd/deploy-to-static@v1
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}

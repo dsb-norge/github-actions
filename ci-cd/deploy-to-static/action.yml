@@ -7,7 +7,12 @@ description: |
 author: 'Peder Schmedling'
 inputs:
   dsb-build-envs:
-    description: 'DSB build environment variables JSON.'
+    description: |
+      DSB build environment variables JSON.
+      Required fields:
+        See first step.
+      Optional fields:
+        None.
     required: true
 runs:
   using: 'composite'
@@ -22,6 +27,25 @@ runs:
           app-config-repo
           app-config-repo-token
           static-deploy-environments
+          static-deploy-from-default-branch-only
+
+    # check what branch we are deploying from
+    - shell: bash
+      run: |
+        # Verify deploy is allowed from calling branch
+
+        echo "deploy-to-static: Action called from branch '${{ github.ref_name }}'"
+        REPO_DEFAULT_BRANCH=$(curl -s https://api.github.com/repos/${{ github.repository }} -H "Authorization: bearer ${{ github.token }}" | jq -r .default_branch)
+        echo "deploy-to-static: Default branch of repo is '${REPO_DEFAULT_BRANCH}'"
+
+        if [ "${{ github.ref_name }}" == "${REPO_DEFAULT_BRANCH}" ]; then
+          echo "deploy-to-static: OK: deploy from default branch is allowed."
+        elif [ "${{ fromJSON(inputs.dsb-build-envs).static-deploy-from-default-branch-only }}" == 'false' ]; then
+          echo "deploy-to-static: OK: deploy from non-default branch is allowed as 'dsb-build-envs.static-deploy-from-default-branch-only' is set to 'false'."
+        else
+          echo "ERROR: deploy-to-static: deploy from non-default branch is NOT allowed because 'dsb-build-envs.static-deploy-from-default-branch-only' is set to '${{ fromJSON(inputs.dsb-build-envs).static-deploy-from-default-branch-only }}'."
+          exit 1
+        fi
 
     # checkout config repo
     - uses: actions/checkout@v2
