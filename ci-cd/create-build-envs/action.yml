@@ -75,7 +75,7 @@ inputs:
   java-distribution:
     description: 'Distribution of Java specified when calling actions/setup-java'
     required: false
-    default: adopt
+    default: temurin
   nodejs-version:
     description: 'Version of Node.js specified when calling actions/setup-node'
     required: false
