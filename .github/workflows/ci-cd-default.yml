@@ -78,7 +78,8 @@ jobs:
 
       - name: 🎰 Generate DSB build variables
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1
+        # TODO change '@v1.6' to '@v1' before merge to main
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1.6
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           maven-repo-username: ${{ secrets.maven-repo-username }}
@@ -136,11 +137,10 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🐙 Deploy to static environment(s)
-        # Skip step when closing a PR, and only run for vue apps
-        if: |
-          github.ref == 'refs/heads/main' &&
-          ( github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
-        uses: dsb-norge/github-actions/ci-cd/deploy-to-static@v1
+        # Skip step for PRs, action will check if triggered from main branch
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        # TODO change '@v1.6' to '@v1' before merge to main
+        uses: dsb-norge/github-actions/ci-cd/deploy-to-static@v1.6
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
