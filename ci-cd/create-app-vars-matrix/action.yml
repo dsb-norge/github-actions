@@ -201,7 +201,8 @@ runs:
                   echo "WARN: create-app-vars-matrix: Unable to use given 'application-source-path', '${SRC_PATH}' was empty."
                 else
                   if [ "${APP_TYPE}" == 'spring-boot' ]; then
-                    APP_DESC=$(echo "${SRC_DATA}" | grep -oPm1 "(?<=<description>)[^<]+") \
+                    # grep from '<description>' to next '<', replace newlines with spaces, replace spaces
+                    APP_DESC=$(echo "${SRC_DATA}" | grep -zoPm1 "(?<=<description>)[^<]+" | tr '\n' ' ' | awk '{$1=$1};1') \
                     || echo "WARN: create-app-vars-matrix: Unable to parse file '${SRC_PATH}' as XML or '<description>' field is missing."
                   elif [ "${APP_TYPE}" == 'vue' ]; then
                     APP_DESC=$(echo "${SRC_DATA}" | jq -r '.["description"] | select( . != null )') \
