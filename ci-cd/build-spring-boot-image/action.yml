@@ -237,13 +237,36 @@ runs:
         echo "::set-output name=mvn-cmd::${MVN_CMD}"
         echo "::set-output name=local-image-id::${LOCAL_IMAGE_ID}"
 
+    # filter dsb-build-envs
+    - id: filter-build-envs
+      shell: bash
+      run: |
+        # Make sure build-maven-project action does not attempt to deploy maven artifacts
+
+        BUILD_ENVS=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs }}
+        EOF
+        )
+
+        # Helper functions
+        # Add/overwrite fields in BUILD_ENVS safely
+        function set-field { BUILD_ENVS=$(echo "${BUILD_ENVS}" | jq --arg name "$1" --arg value "$2" '.[$name] = $value') ; }
+
+        set-field 'maven-build-project-deploy-release-artifacts'  'false'
+        set-field 'maven-build-project-deploy-snapshot-artifacts' 'false'
+
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        BUILD_ENVS_ESC=$(escape-for-output "${BUILD_ENVS}")
+        echo "::set-output name=dsb-build-envs::${BUILD_ENVS_ESC}"
+
     # build docker image
     - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
       with:
         mvn-version-cmd: ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
         mvn-cmd: ${{ steps.mvn-cmd.outputs.mvn-cmd }}
         set-extra-envs: ${{ steps.extra-envs.outputs.json }}
-        dsb-build-envs: ${{ inputs.dsb-build-envs }}
+        dsb-build-envs: ${{ steps.filter-build-envs.outputs.dsb-build-envs }}
 
     # tag and push docker image
     - shell: bash
