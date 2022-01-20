@@ -364,12 +364,18 @@ runs:
         EOF
         )
 
-        # Github matrix is on format '{"include":[]}', reshape IN_JSON to conform to this:
-        # Each element in the array will have one field 'app-vars' containing all app vars
-        OUT_JSON=$(echo "${IN_JSON}" | jq 'map({ "app-vars": . }) | { "include": . }')
+        # Reshape JSON to conform to github matrix format:
+        #{
+        #  "application-name":["name"],
+        #  "include":[
+        #    {"application-name":"name","app-vars":{}}
+        #  ]
+        #}
+        # Each element in the array will have one field 'app-vars' containing all app vars for a given app
+        OUT_JSON=$(echo "${IN_JSON}" | jq '{ "application-name": map( .["application-name"]), "include": map({ "application-name": .["application-name"], "app-vars": . }) }')
 
         # Log the result
-        echo "::group::create-app-vars-matrix-matrix: app vars JSON re-formated for Github matrix job"
+        echo "::group::create-app-vars-matrix: app vars JSON re-formated for Github matrix job"
         echo "${OUT_JSON}"
         echo "::endgroup::"
 
