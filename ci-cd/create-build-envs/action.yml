@@ -221,6 +221,9 @@ runs:
           application-source-revision
           docker-image-prune-keep-min-images
           docker-image-prune-keep-num-days
+          caller-repo-default-branch
+          caller-repo-calling-branch
+          caller-repo-is-on-default-branch
         )
 
         # Helper functions
@@ -295,12 +298,22 @@ runs:
           done
         fi
 
+        # Calling repo branches information
+        REPO_DEFAULT_BRANCH=$(curl -s https://api.github.com/repos/${{ github.repository }} -H "Authorization: bearer ${{ github.token }}" | jq -r .default_branch)
+        REPO_CURERNT_BRANCH_IS_DEFAULT=false
+        if [ "${{ github.ref_name }}" == "${REPO_DEFAULT_BRANCH}" ]; then
+          REPO_CURERNT_BRANCH_IS_DEFAULT=true
+        fi
+
         # Generated fields, not possible to override from app vars
         IMAGE_ID="$(get-val 'docker-image-registry')/$(get-val 'docker-image-repo')/$(get-val 'application-image-name')"
-        set-field "application-image-id"        "${IMAGE_ID}"
-        set-field "pr-deploy-app-config-branch" '${{ steps.checkout-config-branch.outputs.ref }}'
-        set-field "application-source"          '${{ github.server_url }}/${{ github.repository }}'
-        set-field "application-source-revision" '${{ github.sha }}'
+        set-field "application-image-id"              "${IMAGE_ID}"
+        set-field "pr-deploy-app-config-branch"       '${{ steps.checkout-config-branch.outputs.ref }}'
+        set-field "application-source"                '${{ github.server_url }}/${{ github.repository }}'
+        set-field "application-source-revision"       '${{ github.sha }}'
+        set-field "caller-repo-default-branch"        "${REPO_DEFAULT_BRANCH}"
+        set-field "caller-repo-calling-branch"        "${{ github.ref_name }}"
+        set-field "caller-repo-is-on-default-branch"  "${REPO_CURERNT_BRANCH_IS_DEFAULT}"
 
         echo "create-build-envs: Number of envs: $(echo ${OUTPUT_ENV_JSON} | jq 'length')"
 
