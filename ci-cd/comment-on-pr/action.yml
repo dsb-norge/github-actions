@@ -1,0 +1,96 @@
+name: 'Add/update PR comment'
+description: |
+  Add a comment to PR that called this action.
+  Can only be called from a workflow triggered from a PR and not from a closing PR action.
+author: 'Peder Schmedling'
+inputs:
+  pr-comment-text:
+    description: Body of comment to add to PR.
+    required: true
+  delete-comments-starting-with:
+    description: |
+      CAUTION: Comments on the PR starting with this string will be deleted.
+      Use this if your comment should supercede a previous comment.
+      If left empty no comments will be deleted.
+    default: ''
+    required: false
+runs:
+  using: 'composite'
+  steps:
+    # require pull request for this action to run
+    - shell: bash
+      run: |
+        # Check if triggered by pull request event, and not a closing action
+
+        EXIT_CODE=0
+
+        [ ! '${{ github.event_name }}' == 'pull_request' ] \
+          && echo 'ERROR: comment-on-pr: This action should only be called by pull request events!' \
+          && EXIT_CODE=1 || :
+
+        [ '${{ github.event.action }}' == 'closed' ] \
+          && echo 'ERROR: comment-on-pr: This action should not be called by event action 'closed'!' \
+          && EXIT_CODE=1 || :
+
+        exit ${EXIT_CODE}
+
+    # log action inputs
+    - shell: bash
+      run: |
+        # Log inputs
+
+        COMMENT_TEXT=$(cat <<'EOF'
+        ${{ inputs.pr-comment-text }}
+        EOF
+        )
+        DELETE_COMMENTS_WITH_PREFIX=$(cat <<'EOF'
+        ${{ inputs.delete-comments-starting-with }}
+        EOF
+        )
+
+        echo "comment-on-pr: Adding comment to PR #${{ github.event.number }}"
+        echo "::group::comment-on-pr: Comment body"
+        echo "${COMMENT_TEXT}"
+        echo "::endgroup::"
+        if [ ! -z "${DELETE_COMMENTS_WITH_PREFIX}" ]; then
+          echo "comment-on-pr: Comments starting with '${DELETE_COMMENTS_WITH_PREFIX}' will be removed from the PR."
+        else
+          echo "comment-on-pr: No comments will be removed from the PR."
+        fi
+
+    # add comment to PR
+    - uses: actions/github-script@v5
+      env:
+        NEW_COMMENT_BODY: ${{ inputs.pr-comment-text }}
+        DELETE_COMMENTS_WITH_PREFIX: ${{ inputs.delete-comments-starting-with }}
+      with:
+        script: |
+          const { DELETE_COMMENTS_WITH_PREFIX, NEW_COMMENT_BODY } = process.env
+          if (DELETE_COMMENTS_WITH_PREFIX.trim().length > 0) {
+              const opts = github.rest.issues.listComments.endpoint.merge({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo
+              })
+              const comments = await github.paginate(opts)
+              for (const comment of comments) {
+                  if (comment.body.startsWith(`${DELETE_COMMENTS_WITH_PREFIX}`)) {
+                      console.log('deploy-to-ephemeral: Deleting comment -> id: ' + comment.id + ', body: ' + comment.body.slice(0,100))
+                      github.rest.issues.deleteComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          comment_id: comment.id
+                      });
+                  }
+              }
+          }
+          if (NEW_COMMENT_BODY.trim().length <= 0) {
+              return false;
+          } else {
+              return github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: `${NEW_COMMENT_BODY}`
+              });
+          }
