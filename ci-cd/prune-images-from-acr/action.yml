@@ -9,7 +9,8 @@ inputs:
       Required fields:
         See first step.
       Optional fields:
-        None.
+        acr-service-principal
+          If set will be used for logging into Azure CLI. Can be skipped if already logged into ACR.
     required: true
 runs:
   using: 'composite'
@@ -19,7 +20,6 @@ runs:
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
-          acr-service-principal
           docker-image-registry
           docker-image-repo
           application-image-name
@@ -28,6 +28,7 @@ runs:
 
     # log into Azure CLI with service principal
     - uses: azure/login@v1
+      if: fromJSON(inputs.dsb-build-envs).acr-service-principal != ''
       with:
         creds: ${{ fromJSON(inputs.dsb-build-envs).acr-service-principal }}
         allow-no-subscriptions: true
