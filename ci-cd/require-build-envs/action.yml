@@ -12,7 +12,17 @@ inputs:
         Depends on 'input.require'.
       Optional fields:
         None.
-    required: true
+    default: ''
+    required: false
+  dsb-build-envs-array:
+    description: |
+      DSB build environment variables JSON array.
+      Required fields:
+        Depends on 'input.require'.
+      Optional fields:
+        None.
+    default: ''
+    required: false
   require:
     description: 'Newline delimited string of variable names to test.'
     required: true
@@ -28,6 +38,12 @@ runs:
         EOF
         )
 
+        # Exit early if no input given
+        if [ -z "${JSON_CONFIG}" ]; then
+          echo "require-build-envs: 'dsb-build-envs' not supplied, nothing to check."
+          exit 0
+        fi
+
         REQUIRED_KEYS=($(cat <<'EOF'
         ${{ inputs.require }}
         EOF
@@ -42,6 +58,47 @@ runs:
             echo "ERROR: require-build-envs: It is required that build env '${KEY}' is set to a value, an empty string was found in 'dsb-build-envs' JSON."
             EXIT_CODE=1
           fi
+        done
+
+        exit ${EXIT_CODE}
+
+    - shell: bash
+      run: |
+        # Test build envs array
+
+        JSON_CONFIG=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs-array }}
+        EOF
+        )
+
+        # Exit early if no input given
+        if [ -z "${JSON_CONFIG}" ]; then
+          echo "require-build-envs: 'dsb-build-envs-array' not supplied, nothing to check."
+          exit 0
+        fi
+
+        REQUIRED_KEYS=($(cat <<'EOF'
+        ${{ inputs.require }}
+        EOF
+        ))
+
+        # Helper functions
+        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
+        function has-field { if [[ "$(echo "${JSON_OBJ}" | jq --arg name "${1}" 'has($name)')" == 'true' ]]; then true; else false; fi; }
+        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "${1}" '.[$name] | select( . != null )'; }
+
+        EXIT_CODE=0
+        for OBJ in $(echo "${JSON_CONFIG}" | jq -r '.[] | @base64'); do
+          JSON_OBJ="$(_jq '.')"
+          for KEY in "${REQUIRED_KEYS[@]}"; do
+          if ! has-field "${KEY}"; then
+            echo "ERROR: require-build-envs: Build env '${KEY}' is required but was not found for the app '$( get-val 'application-name')' in 'dsb-build-envs-array' JSON."
+            EXIT_CODE=1
+          elif [ "$( get-val "${KEY}")" == '' ]; then
+            echo "ERROR: require-build-envs: It is required that build env '${KEY}' is set to a value, an empty string was found for the app '$( get-val 'application-name')' in 'dsb-build-envs-array' JSON."
+            EXIT_CODE=1
+          fi
+          done
         done
 
         exit ${EXIT_CODE}
