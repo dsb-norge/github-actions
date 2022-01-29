@@ -164,20 +164,6 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: 🐙 Deploy to static environment(s)
-        # Run step when:
-        #   - push or manual on default branch or when specifically allowing deploy from non-default branch
-        if: |
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
-          && (
-            fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
-            || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
-          )
-        # TODO revert to @v1
-        uses: dsb-norge/github-actions/ci-cd/deploy-to-static@my-feature
-        with:
-          dsb-build-envs: ${{ steps.build-env.outputs.json }}
-
       - name: 🗑 Teardown of ephemeral PR environment
         # Step only runs when closing a PR
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
@@ -207,3 +193,30 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@my-feature
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+  deploy-to-static:
+    name: Deploy app(s) to static environments
+    # This job is currently just for deploy to static environments, run when:
+    #   - push or manually triggered
+    if: |
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
+    needs: [create-matrix, build-deploy]
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: 💾 Read build-envs from matrix job(s)
+        id: read-build-envs
+        # TODO revert to @v1
+        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@my-feature
+        with:
+          build-envs-artifact-name: build-envs-${{ needs.create-matrix.outputs.applications-version }}
+
+      - name: 🐙 Deploy apps to static environment(s)
+        # Conditinal if not necessary as the action checks 'static-deploy-from-default-branch-only' before deploying
+        # TODO revert to @v1
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@my-feature
+        with:
+          dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
+          app-config-repo-token: ${{ secrets.app-config-repo-token }}
