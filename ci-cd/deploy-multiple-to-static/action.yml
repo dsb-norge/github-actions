@@ -1,0 +1,203 @@
+name: 'Deploy DSB app(s) to static environment'
+description: |
+  Deploys one or more DSB apps to a static environment.
+  The deploy itself is handled by ArgoCD externally. This action merely bumps the application version(s) for the given environment(s).
+  Application configuration for these must be defined in the repo pointed to by 'app-config-repo' in the 'dsb-build-envs-array' input.
+  Additionally ArgoCD must be set up to watch the configuration repo for the deploy to actually happen.
+author: 'Peder Schmedling'
+inputs:
+  dsb-build-envs-array:
+    description: |
+      DSB build environment variables JSON array.
+      Required fields:
+        See first step.
+      Optional fields:
+        None.
+    required: true
+  app-config-repo-token:
+    description: Token for performing checkout and commits to the above repo during deploy.
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    # verify required inputs exists for all apps
+    # TODO revert to @v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@my-feature
+      with:
+        dsb-build-envs-array: ${{ inputs.dsb-build-envs-array }}
+        require: |
+          application-version
+          application-name
+          app-config-repo
+          static-deploy-environments
+          static-deploy-from-default-branch-only
+          caller-repo-default-branch
+          caller-repo-calling-branch
+          caller-repo-is-on-default-branch
+
+    # check what branch we are deploying from
+    - shell: bash
+      run: |
+        # Verify deploy is allowed from calling branch
+
+        JSON_ARRAY=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs-array }}
+        EOF
+        )
+
+        # Helper functions
+        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
+        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "${1}" '.[$name]'; }
+
+        EXIT_CODE=0
+        for OBJ in $(echo "${JSON_ARRAY}" | jq -r '.[] | @base64'); do
+          JSON_OBJ="$(_jq '.')"
+          if [ ! "$(get-val 'caller-repo-is-on-default-branch')" == 'true' ] \
+            && [ ! "$(get-val 'static-deploy-from-default-branch-only')" == 'false' ]; then
+            echo "ERROR: deploy-multiple-to-static: deploy from non-default branch is NOT allowed for the app '$(get-val 'application-name')' because 'dsb-build-envs.static-deploy-from-default-branch-only' is set to '$(get-val 'static-deploy-from-default-branch-only')'."
+            EXIT_CODE=1
+          fi
+        done
+        if [ ! "${EXIT_CODE}" == '0' ]; then
+          echo "deploy-multiple-to-static: Action called from branch '$(get-val 'caller-repo-calling-branch')'"
+          echo "deploy-multiple-to-static: Default branch of repo is '$(get-val 'caller-repo-default-branch')'"
+        fi
+        exit ${EXIT_CODE}
+
+    # checkout config repo(s)
+    - shell: bash
+      run: |
+        # Checkout config repo(s)
+
+        JSON_ARRAY=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs-array }}
+        EOF
+        )
+
+        GH_TOKEN='${{ inputs.app-config-repo-token }}'
+        GH_TOKEN_SANITIZED=${GH_TOKEN/ }
+        REPOS=$(echo "${JSON_ARRAY}" | jq -r 'unique_by( ."app-config-repo" ) | .[]."app-config-repo"')
+        for REPO in ${REPOS[*]}; do
+            REPO_DIR="${{ github.workspace }}/${REPO////_}"
+            git clone \
+                "https://${GH_TOKEN_SANITIZED}@github.com/${REPO}" \
+                "${REPO_DIR}"
+        done
+
+    # check if expected directory structure and application config exists
+    - shell: bash
+      run: |
+        # Look for files and directories
+
+        JSON_ARRAY=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs-array }}
+        EOF
+        )
+
+        # Helper functions
+        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
+        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "${1}" '.[$name]'; }
+
+        EXIT_CODE=0
+        REPOS=$(echo "${JSON_ARRAY}" | jq -r 'unique_by( ."app-config-repo" ) | .[]."app-config-repo"')
+        for REPO in ${REPOS[*]}; do
+            REPO_DIR="${{ github.workspace }}/${REPO////_}"
+            APPS_DIR="${REPO_DIR}/apps"
+            if [ ! -d "${APPS_DIR}" ]; then
+              echo "ERROR: deploy-multiple-to-static: Unable to find apps directory '${APPS_DIR}' within config repo '${REPO}'!"
+              EXIT_CODE=1
+            fi
+            APPS_IN_REPO_JSON_ARRAY=$(echo "${JSON_ARRAY}" | jq 'del(.[] | select(."app-config-repo" != "'"${REPO}"'"))')
+            for OBJ in $(echo "${APPS_IN_REPO_JSON_ARRAY}" | jq -r '.[] | @base64'); do
+              JSON_OBJ="$(_jq '.')"
+              INPUT_ENVS_STRING="$(get-val 'static-deploy-environments')"
+              DEPLOY_TO_ENVS=(${INPUT_ENVS_STRING//,/ }) # split comma separated list
+              for DEPLOY_TO_ENV in "${DEPLOY_TO_ENVS[@]}"; do
+                ENV_DIR="${APPS_DIR}/${DEPLOY_TO_ENV}"
+                if [ ! -d "${ENV_DIR}" ]; then
+                  echo "ERROR: deploy-multiple-to-static: Unable to find environment directory '${ENV_DIR}' under apps directory '${APPS_DIR} within config repo '${REPO}'!"
+                  EXIT_CODE=1
+                fi
+                VALUES_FILE="${ENV_DIR}/$(get-val 'application-name')/values.yaml"
+                if [ ! -f "${VALUES_FILE}" ]; then
+                  echo "ERROR: deploy-multiple-to-static: Unable to find values file for '$(get-val 'application-name')' in environment '${DEPLOY_TO_ENV}', should exists at '${VALUES_FILE}' within config repo '${REPO}'!"
+                  EXIT_CODE=1
+                fi
+              done # envs
+            done # apps
+        done # repos
+
+        exit ${EXIT_CODE}
+
+    # update application version in given environments, commit and push
+    - shell: bash
+      run: |
+        # Bump versions in git repo
+
+        JSON_ARRAY=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs-array }}
+        EOF
+        )
+
+        # Helper functions
+        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
+        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "$1" '.[$name]'; }
+
+        EXIT_CODE=0
+        CALLER_REPO_FULL='${{ github.repository }}' # owner and repo name,  ex. Codertocat/Hello-World
+        CALLER_REPO="${CALLER_REPO_FULL//${{ github.repository_owner }}\//}" # just repo name,  ex. Hello-World
+        CALLER_REPO_CURRENT_COMMIT_MESSAGE=$(git -C "${{ github.workspace }}" log -1 --pretty=format:"%s")
+
+        # Loop repos
+        REPOS=$(echo "${JSON_ARRAY}" | jq -r 'unique_by( ."app-config-repo" ) | .[]."app-config-repo"')
+        for REPO in ${REPOS[*]}; do
+          echo "deploy-multiple-to-static: Bumping versions in repo '${REPO}':"
+          WS_DIR='${{ github.workspace }}'
+          REPO_DIR="${WS_DIR}/${REPO////_}"
+          APPS_DIR="${REPO_DIR}/apps"
+          APPS_IN_REPO_JSON_ARRAY=$(echo "${JSON_ARRAY}" | jq 'del(.[] | select(."app-config-repo" != "'"${REPO}"'"))')
+
+          # Loop apps in repo
+          for OBJ in $(echo "${APPS_IN_REPO_JSON_ARRAY}" | jq -r '.[] | @base64'); do
+            JSON_OBJ="$(_jq '.')"
+            INPUT_ENVS_STRING="$(get-val 'static-deploy-environments')"
+
+            # Loop over app environments
+            DEPLOY_TO_ENVS=(${INPUT_ENVS_STRING//,/ }) # split comma separated list
+            for DEPLOY_TO_ENV in "${DEPLOY_TO_ENVS[@]}"; do
+              echo "deploy-multiple-to-static: Bumping '$(get-val 'application-name')' in '${DEPLOY_TO_ENV}' to '$(get-val 'application-version')':"
+              ENV_DIR="${APPS_DIR}/${DEPLOY_TO_ENV}"
+              VALUES_FILE="${ENV_DIR}/$(get-val 'application-name')/values.yaml"
+
+              echo "::group::deploy-multiple-to-static: ${VALUES_FILE//$WS_DIR/} before modification:"
+              cat ${VALUES_FILE}
+              echo "::endgroup::"
+
+              sed -i 's/tag: .* # replaced-by-auto-bumper/tag: "'"$(get-val 'application-version')"'" # replaced-by-auto-bumper/' "${VALUES_FILE}"
+
+              echo "::group::deploy-multiple-to-static: ${VALUES_FILE//$WS_DIR/} after modification:"
+              cat ${VALUES_FILE}
+              echo "::endgroup::"
+
+              git -C "${REPO_DIR}" add "${VALUES_FILE}"
+            done # envs
+
+          done # apps
+
+          # Create commit message
+          APPS_IN_REPO_STRING="$(echo "${APPS_IN_REPO_JSON_ARRAY}" | jq -r '. | map( ."application-name" ) | join(", ")')"
+          VERSIONS_IN_REPO_STRING="$(echo "${APPS_IN_REPO_JSON_ARRAY}" | jq -r 'unique_by( ."application-version" ) | . | map( ."application-version" ) | join(", ")')"
+          BUMP_COMMIT_MESSAGE="🆕 ${INPUT_ENVS_STRING}: ${CALLER_REPO} → ${VERSIONS_IN_REPO_STRING}:"
+          BUMP_COMMIT_MESSAGE=$(echo "${BUMP_COMMIT_MESSAGE}" $'\n' "App(s): ${APPS_IN_REPO_STRING}")
+          BUMP_COMMIT_MESSAGE=$(echo "${BUMP_COMMIT_MESSAGE}" $'\n' "Repo: ${CALLER_REPO_FULL}")
+          BUMP_COMMIT_MESSAGE=$(echo "${BUMP_COMMIT_MESSAGE}" $'\n' "Branch: $(get-val 'caller-repo-calling-branch')")
+          BUMP_COMMIT_MESSAGE=$(echo "${BUMP_COMMIT_MESSAGE}" $'\n' "Commit: https://github.com/${CALLER_REPO_FULL}/commit/${{ github.sha }}")
+          BUMP_COMMIT_MESSAGE=$(echo "${BUMP_COMMIT_MESSAGE}" $'\n' "Commit message: ${CALLER_REPO_CURRENT_COMMIT_MESSAGE}")
+
+          # Git operations
+          git -C "${REPO_DIR}" config user.email "noreply@dsb.no"
+          git -C "${REPO_DIR}" config user.name "Auto Bumper"
+          git -C "${REPO_DIR}" commit -m "$BUMP_COMMIT_MESSAGE"
+          git -C "${REPO_DIR}" push
+
+        done # repos
