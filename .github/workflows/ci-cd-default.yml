@@ -107,10 +107,20 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: '🐳 Spring Boot app: Build, tag and push docker image'
-        # Skip step when closing a PR, and only run for spring-boot apps
+        # Run step when:
+        #   - app is spring-boot
+        #   - running from PRa nd not closing
+        #   - push or manual on default branch or when specifically allowing deploy from non-default branch
         if: |
-          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
-          && matrix.app-vars.application-type == 'spring-boot'
+          matrix.app-vars.application-type == 'spring-boot'
+          && (
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' )
+            || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
+              && (
+                fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
+                || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
+          )))
+
         # TODO revert to @v1
         uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@my-feature
         with:
@@ -127,17 +137,26 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: '🐳 Vue.js app: Build, tag and push docker image for vue'
-        # Skip step when closing a PR, and only run for vue apps
+        # Run step when:
+        #   - app is vue
+        #   - running from PRa nd not closing
+        #   - push or manual on default branch or when specifically allowing deploy from non-default branch
         if: |
-          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
-          && matrix.app-vars.application-type == 'vue'
+          matrix.app-vars.application-type == 'vue'
+          && (
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' )
+            || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
+              && (
+                fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
+                || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
+          )))
         # TODO revert to @v1
         uses: dsb-norge/github-actions/ci-cd/build-docker-image@my-feature
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🐙 Deploy to ephemeral PR environment
-        # Skip step when closing a PR and when building main
+        # Run only on PR, skip when closing PR
         if: github.event_name == 'pull_request' && github.event.action != 'closed'
         # TODO revert to @v1
         uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@my-feature
@@ -145,8 +164,14 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🐙 Deploy to static environment(s)
-        # Skip step for PRs, action will check if triggered from main branch
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        # Run step when:
+        #   - push or manual on default branch or when specifically allowing deploy from non-default branch
+        if: |
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
+          && (
+            fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
+            || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
+          )
         # TODO revert to @v1
         uses: dsb-norge/github-actions/ci-cd/deploy-to-static@my-feature
         with:
@@ -161,9 +186,14 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🗑 Prune application docker images from ACR
-        # Skip step when closing a PR
+        # Run step when:
+        #   - push or manual on default branch or when specifically allowing deploy from non-default branch
         if: |
-          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
+          && (( fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch )
+            || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
+          )
+
         # TODO revert to @v1
         uses: dsb-norge/github-actions/ci-cd/prune-images-from-acr@my-feature
         with:
