@@ -1,0 +1,47 @@
+name: 'Collect common DSB CI/CD variables stored as github workflow artifacts'
+description: |
+  This will collect common DSB build environment variables from previously completed paralell build jobs.
+  Build-envs for each job are uploaded as github workflow artifacts in JSON format by the create-build-envs action.
+  This action pulls down the JSON files, merges them and returns them as output.
+author: 'Peder Schmedling'
+inputs:
+  build-envs-artifact-name:
+    description: Artifact name used when uploading to github in create-build-envs action.
+    default: build-envs
+    required: false
+outputs:
+  json-array:
+    description: 'Envs from all build jobs as JSON array.'
+    value: ${{ steps.collect-build-envs.outputs.json }}
+
+runs:
+  using: 'composite'
+  steps:
+    # download artifact
+    - id: download-artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: ${{ inputs.build-envs-artifact-name }}
+        path: ./_collect-build-envs
+
+    # merge json files
+    - id: collect-build-envs
+      shell: bash
+      working-directory: ${{ steps.download-artifact.outputs.download-path }}
+      run: |
+        # Read and merge JSON files
+
+        echo "::group::collect-build-envs: Files received from artifact '${{ inputs.build-envs-artifact-name }}'"
+        ls -lah
+        echo "::endgroup::"
+
+        OUTPUT_ENV_JSON=$(jq -s '.' *.json)
+        echo "collect-build-envs: Found $(echo "${OUTPUT_ENV_JSON}" | jq 'length') set(s) of build-envs."
+        echo "::group::collect-build-envs: Output JSON array"
+        echo "${OUTPUT_ENV_JSON}"
+        echo "::endgroup::"
+
+        # Escape (%, linefeed and carriage return) and return data
+        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
+        OUTPUT_ENV_JSON_ESC=$(escape-for-output "${OUTPUT_ENV_JSON}")
+        echo "::set-output name=json::${OUTPUT_ENV_JSON_ESC}"

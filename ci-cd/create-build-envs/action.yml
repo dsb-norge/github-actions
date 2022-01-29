@@ -226,6 +226,59 @@ runs:
           caller-repo-is-on-default-branch
         )
 
+        # These does not contain any secrets and are safe to share
+        # with other jobs and upload to github in a build artifact
+        ENVS_WITHOUT_SECRETS=(
+          app-config-repo
+          application-build-timestamp
+          application-description
+          application-image-id
+          application-image-name
+          application-name
+          application-source
+          application-source-path
+          application-source-revision
+          application-type
+          application-vendor
+          application-version
+          caller-repo-calling-branch
+          caller-repo-default-branch
+          caller-repo-is-on-default-branch
+          docker-image-prune-keep-min-images
+          docker-image-prune-keep-num-days
+          docker-image-registry
+          docker-image-repo
+          java-distribution
+          java-version
+          maven-build-project-arguments
+          maven-build-project-command
+          maven-build-project-deploy-release-artifacts
+          maven-build-project-deploy-snapshot-artifacts
+          maven-build-project-goals
+          maven-build-project-version-arguments
+          maven-build-project-version-command
+          maven-build-project-version-goals
+          maven-repo-pom-id
+          nodejs-version
+          pr-deploy-additional-helm-values
+          pr-deploy-aks-cluster-name
+          pr-deploy-aks-resource-group
+          pr-deploy-app-config-branch
+          pr-deploy-argo-applications-url
+          pr-deploy-comment-additional-text
+          pr-deploy-comment-prefix
+          pr-deploy-k8s-application-name
+          pr-deploy-k8s-namespace
+          spring-boot-build-image-arguments
+          spring-boot-build-image-command
+          spring-boot-build-image-goals
+          spring-boot-build-image-version-arguments
+          spring-boot-build-image-version-command
+          spring-boot-build-image-version-goals
+          static-deploy-environments
+          static-deploy-from-default-branch-only
+        )
+
         # Helper functions
         # Add/overwrite fields in OUTPUT_ENV_JSON safely
         function set-field { OUTPUT_ENV_JSON=$(echo "${OUTPUT_ENV_JSON}" | jq --arg name "$1" --arg value "$2" '.[$name] = $value') ; }
@@ -317,7 +370,31 @@ runs:
 
         echo "create-build-envs: Number of envs: $(echo ${OUTPUT_ENV_JSON} | jq 'length')"
 
+        # Separate output JSON not contain any secrets. Considered safe
+        # to share with other jobs and upload to github in a build artifact
+        ENVS_WITHOUT_SECRETS_STRING=${ENVS_WITHOUT_SECRETS[*]}
+        JQ_SELECT_FIELDS_FORMAT="{\"${ENVS_WITHOUT_SECRETS_STRING// /\",\"}\"}"
+        OUTPUT_ENV_JSON_NOT_SECRET=$(echo "${OUTPUT_ENV_JSON}" | jq "${JQ_SELECT_FIELDS_FORMAT}")
+
+        OUT_DIR=./_create-build-envs
+        OUT_JSON_FILE="${OUT_DIR}/$(get-val 'application-name').json"
+        echo "create-build-envs: $(echo "${OUTPUT_ENV_JSON_NOT_SECRET}" | jq 'length') non-secret envs will be saved to file: ${OUT_JSON_FILE}"
+        mkdir -p ${OUT_DIR}
+        echo "::group::create-build-envs: non-secret envs JSON"
+        echo "${OUTPUT_ENV_JSON_NOT_SECRET}" | tee "${OUT_JSON_FILE}"
+        echo "::endgroup::"
+
+        echo "::set-output name=json-without-secrets-path::${OUT_JSON_FILE}"
+        echo "::set-output name=build-envs-artifact-name::build-envs-$(get-val 'application-version')"
+
         # Escape (%, linefeed and carriage return) and return data
         function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
         OUTPUT_ENV_JSON_ESC=$(escape-for-output "${OUTPUT_ENV_JSON}")
         echo "::set-output name=json::${OUTPUT_ENV_JSON_ESC}"
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.build-env.outputs.build-envs-artifact-name }}
+        path: ${{ steps.build-env.outputs.json-without-secrets-path }}
+        if-no-files-found: error
+        retention-days: 1
