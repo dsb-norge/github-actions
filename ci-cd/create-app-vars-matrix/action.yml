@@ -23,6 +23,9 @@ outputs:
   app-vars:
     description: Updated specification of applications to build and/or deploy, JSON array (as string).
     value: ${{ steps.make-matrix-compatible.outputs.app-vars }}
+  applications-version:
+    description: App version is common for all apps. Return version as spearate output for convenience.
+    value: ${{ steps.create-app-vars-matrix.outputs.applications-version }}
 runs:
   using: 'composite'
   steps:
@@ -312,15 +315,17 @@ runs:
         EOF
         )
 
-        # Add static app vars to all elements in array
-        function add-to-all { echo "${1}" | jq --arg name "${2}" --arg value "${3}" '.[] += {($name): $value}' ; }
+        # Version and date
         APP_BUILDTIME="$(date -u +'%Y-%m-%dT%H:%M:%S.%3NZ')"
         APP_VERSION="$( date +%Y.%m.%d ).$(( $( date "+%s" ) - $( date -d 'today 00:00:00' "+%s" ) ))"
         if [ '${{ github.event_name }}' == 'pull_request' ]; then
           APP_VERSION="pr-${{ github.event.number }}-${APP_VERSION}"
         fi
-        IN_JSON=$(add-to-all "${IN_JSON}" "application-version"         "${APP_VERSION}")
-        IN_JSON=$(add-to-all "${IN_JSON}" "application-build-timestamp" "${APP_BUILDTIME}")
+
+        # Add static app vars to all elements in array
+        function add-to-all { IN_JSON="$(echo "${IN_JSON}" | jq --arg name "${1}" --arg value "${2}" '.[] += {($name): $value}')" ; }
+        add-to-all "application-version"                "${APP_VERSION}"
+        add-to-all "application-build-timestamp"        "${APP_BUILDTIME}"
 
         # Helper functions
         function _jq { echo ${APP_VARS} | base64 --decode | jq -r ${*} ; }
@@ -352,6 +357,8 @@ runs:
         function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
         OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
         echo "::set-output name=app-vars::${OUT_JSON_ESC}"
+
+        echo "::set-output name=applications-version::${APP_VERSION}"
 
     - shell: bash
       id: make-matrix-compatible
