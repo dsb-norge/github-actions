@@ -43,6 +43,7 @@ jobs:
         shell: bash
     outputs:
       app-vars-matrix: ${{ steps.create-matrix.outputs.app-vars }}
+      applications-version: ${{ steps.create-matrix.outputs.applications-version }}
 
     steps:
       # The create-app-vars-matrix action requires source code to be available
