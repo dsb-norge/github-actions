@@ -34,21 +34,21 @@ For documentation refer to the `description` section of each specific actions as
     - Find: `(^\s*)((- ){0,1}uses: dsb-norge/github-actions/.*@)v1`
     - Replace: `$1# TODO revert to @v1\n$1$2my-feature`
 
-1. Make your changes and commit your changes on a branch, for example `my-feature-branch`.
-2. Tag latest commit on you branch:
+2. Make your changes and commit your changes on a branch, for example `my-feature-branch`.
+3. Tag latest commit on you branch:
    ```bash
    git tag -f -a 'my-feature'
    git push -f --tags
    ```
-3. To try out your changes, in the calling repo change the calling workflow to call using your **branch name**. Ex. with a dev branch named `my-feature-branch`:
+4. To try out your changes, in the calling repo change the calling workflow to call using your **branch name**. Ex. with a dev branch named `my-feature-branch`:
    ```yaml
     jobs:
         ci-cd:
             # TODO revert to '@v1'
             uses: dsb-norge/github-actions/.github/workflows/ci-cd-default.yml@my-feature-branch
    ```
-4. Test your changes from the calling repo. Make changes and remember to always move your tag `my-feature` to the latest commit.
-5. When ready remove your temporary tag:
+5. Test your changes from the calling repo. Make changes and remember to always move your tag `my-feature` to the latest commit.
+6. When ready remove your temporary tag:
    ```bash
    git tag --delete 'my-feature'
    git push --delete origin 'my-feature'
@@ -58,7 +58,7 @@ For documentation refer to the `description` section of each specific actions as
     Replace regex pattern for vscode:
     - Find: `(^\s*# TODO revert to @v1\n)(^\s*)((- )?uses: dsb-norge/github-actions/.*@)my-feature`
     - Replace: `$2$3v1`
-6. Create PR and merge to main.
+7. Create PR and merge to main.
 
 ### Release
 
@@ -72,7 +72,7 @@ Example with release `v1.8`:
 ```bash
 git checkout origin/main
 git pull origin main
-git tag -a 'v1.8'
+git tag -a 'v1.11'
 # you are promted for the tag annotation (change description)
 git tag -f -a 'v1'
 # you are promted for the tag annotation, ammend the change description
