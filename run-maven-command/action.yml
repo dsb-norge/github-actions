@@ -1,0 +1,86 @@
+name: 'Configure Java and run maven command'
+description: |
+  Given the required input this action configures the specified version of java and runs a given maven command.
+  Before maven is invoked the version and distribution of JDK specified in 'dsb-build-envs' is installed.
+  Required inputs:
+    - 'dsb-build-envs': JSON structure. Field 'application-source-path' should point to the pom.xml to use, or to a directory containing it.
+  Optional inputs:
+    - 'goals': list of goals to run. Defaults to 'clean verify install'.
+    - 'arguments': list of arguments, e.g. '-DskipTests'
+  The resulting maven invocation command is: mvn <arguments> --file <pom file> <goals>
+inputs:
+  dsb-build-envs:
+    description: |
+      DSB build environment variables JSON.
+      Required fields:
+          See first step.
+    required: true
+  goals:
+    description: 'Override goals to run when invoking maven.'
+    required: false
+    default: 'clean verify install'
+  arguments:
+    description: 'Set arguments to use when invoking maven.'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    # Verify we have required inputs in order to avoid blank labels/tags
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+      with:
+        dsb-build-envs: ${{ inputs.dsb-build-envs }}
+        require: |
+          application-source-path
+          java-distribution
+          java-version
+          maven-repo-pom-id
+          maven-repo-token
+          maven-repo-username
+    # Determine maven command
+    - id: mvn-cmd
+      shell: bash
+      run: |
+        # Defaults
+        MVN_DEFAULT_GOALS='clean verify install'
+        MVN_DEFAULT_ARGUMENTS=''
+
+        BUILD_ENVS=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs }}
+        EOF
+        )
+
+        # Locate pom.xml
+        POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
+        [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
+        [ ! -f "${POM_FILE}" ] && \
+          echo "ERROR: run-maven-command: Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
+          exit 1
+
+        # Determine maven command
+        MVN_CMD="mvn ${{ inputs.arguments }} --file ${POM_FILE} ${{ inputs.goals }}"
+        echo "run-maven-command: Maven command: '${MVN_CMD}'"
+        echo "::set-output name=mvn-cmd::${MVN_CMD}"
+
+    # Set up JDK
+    - uses: actions/setup-java@v2
+      with:
+        distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
+        java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
+        server-id: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id }} # Value of the repository/id field of the pom.xml
+        # Jenkins user in repo.dsb.no. Pwd for login to repo.dsb.no found in keepass
+        server-username: DSB_MAVEN_REPO_USER_NAME
+        server-password: DSB_MAVEN_REPO_TOKEN
+        overwrite-settings: true
+
+    # Invoke maven
+    - shell: bash
+      run: |
+        echo "::group::run-maven-command: Invoke maven with goals"
+        echo "run-maven-project: command string: '${{ steps.mvn-cmd.outputs.mvn-cmd }}'"
+        ${{ steps.mvn-cmd.outputs.mvn-cmd }}
+        echo "::endgroup::"
+      env:
+        DSB_MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-token }}
+        DSB_MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-username }}
