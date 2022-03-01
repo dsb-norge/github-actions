@@ -1,0 +1,95 @@
+name: 'Update third party dependencies and create pull request'
+
+on:
+  workflow_call:
+    inputs:
+      apps:
+        type: string
+        description: |
+          YAML list (as string) with specification of applications to update.
+          Required fields are:
+            - application-name        - string
+        required: true
+    secrets:
+      maven-repo-username:
+        required: true
+      maven-repo-token:
+        required: true
+
+jobs:
+  create-matrix:
+    name: Create build matrix
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      app-vars-matrix: ${{ steps.create-matrix.outputs.app-vars }}
+
+    steps:
+      # The create-app-vars-matrix action requires source code to be available
+      - name: 🧹 Clean workspace
+        uses: dsb-norge/github-actions/directory-recreate@v1
+      - name: ⬇ Checkout working branch
+        uses: actions/checkout@v2
+
+      - name: 🎰 Create app vars build matrix
+        id: create-matrix
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v1
+        with:
+          apps: ${{ inputs.apps }}
+
+  update-dependencies:
+    name: Update third party dependencies & create pull request
+    needs: create-matrix
+    runs-on: self-hosted
+    strategy:
+      matrix: ${{ fromJSON(needs.create-matrix.outputs.app-vars-matrix) }}
+      fail-fast: false # allow all parallel jobs to continue even if one fails
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: 🧹 Clean workspace
+        uses: dsb-norge/github-actions/directory-recreate@v1
+
+      - name: ⬇ Checkout working branch
+        uses: actions/checkout@v2
+
+      - name: 🎰 Generate DSB build variables
+        id: build-env
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1
+        with:
+          app-vars: ${{ toJSON(matrix.app-vars) }}
+          maven-repo-username: ${{ secrets.maven-repo-username }}
+          maven-repo-token: ${{ secrets.maven-repo-token }}
+
+      - name: '⚒ Spring Boot app: Run Maven command'
+        # only run for spring-boot apps
+        if: matrix.app-vars.application-type == 'spring-boot'
+        uses: dsb-norge/github-actions/run-maven-command@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+          goals: versions:update-properties versions:update-parent
+          arguments: -DgenerateBackupPoms=false
+
+      - name: 🧹 Remove build info (so it won't be committed)
+        run: |
+          rm -rf _create-build-envs
+
+      - name: 🌱 Commit to new branch (or update existing) & create pull request
+        # Will update branch if it already exists.
+        # See https://github.com/peter-evans/create-pull-request for details.
+        uses: peter-evans/create-pull-request@18f7dc018cc2cd597073088f7c7591b9d1c02672 # 3.14.0
+        with:
+          commit-message: Updating third party dependencies
+          committer: Auto maven versions update <noreply@dsb.no>
+          author: Auto maven versions update <noreply@dsb.no>
+          branch: automatic-maven-versions-update_${{ matrix.app-vars.application-name }}
+          delete-branch: true
+          title: Automatic dependency update
+          body: Automatic update of third party dependencies
+          labels: |
+            automatic dependency update

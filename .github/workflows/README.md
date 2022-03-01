@@ -4,11 +4,11 @@ Collection of DSB custom github reusable workflows.
 ## Index
 ```
 .github/workflows/
-└───ci-cd-default.yml --> Default CI/CD workflow, see doc below.
+└───ci-cd-default.yml             --> Default CI/CD workflow, see doc below.
+└───update-deps-and-create-pr.yml --> Automatic update of third party dependencies, see doc below.
 ```
 
-## Usage and doc
-### Workflow: ci-cd-default.yml
+## Workflow: ci-cd-default.yml
 
 Default DSB CI/CD workflow that performs various operations depending on from what github event it was called:
 - Event `pull_request` for all actions except `closed`:
@@ -144,4 +144,56 @@ jobs:
         - application-name: my-backend-app
           application-source-path: ./backend
           java-version: '16'
+```
+## Workflow: update-deps-and-create-pr.yml
+A workflow for automatic update of third party dependencies for a backend maven project.
+
+### **Inputs**
+
+#### **`apps`**
+
+Specification of applications to build and/or deploy.
+YAML list (as string) with specifications of applications to build and/or deploy.
+
+**Required fields are:**
+- **`application-name`** - string
+
+#### **`Build and deploy secrets`**
+
+The following secrets are required input parameters, see `inputs` definition in [ci-cd/create-build-envs/action.yml](../ci-cd/create-build-envs/action.yml) for documentation of these:
+- `maven-repo-username`
+- `maven-repo-token`
+
+### **Example usage**
+
+Basic example of how to add automatic dependency update to a github repo containing a spring-boot backend (under `./backend`).
+
+The following would be saved as `.github/workflows/autobump-deps.yml` in the application repo.
+
+```yaml
+name: 'Autobump deps'
+
+on:
+  # Allow manual build
+  workflow_dispatch:
+  # Trigger at set times, e.g. '5 6 * * *' triggers every day at 06:05
+  schedule:
+    - cron: '5 6 * * *'
+
+# a single branch/tag should only run one workflow at a time
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  autobump:
+    name: Bump versions
+    uses: dsb-norge/github-actions/workflows/update-deps-and-create-pr.yml@v1
+    secrets:
+      maven-repo-username: ${{ secrets.JENKINS_REPO_USERNAME }}
+      maven-repo-token: ${{ secrets.JENKINS_REPO_TOKEN }}
+    with:
+      # Note: 'application-name' becomes part of the branch name for the bumping. If you have more than one
+      # maven app within the same github repos, each app must be listed here with a unique 'application-name'.
+      apps: |
+        - application-name: my-backend-app
+          application-source-path: ./backend
 ```
