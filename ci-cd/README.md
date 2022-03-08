@@ -22,7 +22,7 @@ ci-cd/
 
 These actions are used by the CI/CD workflow(s) in [./workflows](../workflows). For example usage see their usage in those workflows.
 
-For documentation refer to the `description` section of each specific actions as well as comments within their defintion.
+For documentation refer to the `description` section of each specific actions as well as comments within their definition.
 
 ## Maintenance
 
@@ -53,7 +53,7 @@ For documentation refer to the `description` section of each specific actions as
    git tag --delete 'my-feature'
    git push --delete origin 'my-feature'
    ```
-    and revert from using the temporary tag to the version-tag for your release in actions, ie. `@my-feature` becomes `@v1` or `@v2` or wahtever.
+    and revert from using the temporary tag to the version-tag for your release in actions, i.e. `@my-feature` becomes `@v1` or `@v2` or whatever.
 
     Replace regex pattern for vscode:
     - Find: `(^\s*# TODO revert to @v1\n)(^\s*)((- )?uses: dsb-norge/github-actions/.*@)my-feature`
@@ -66,30 +66,30 @@ After merge to main use tags to release.
 
 #### Minor release
 
-Ex. for smaller backwards compatible changes. Add a new minor version tag ex `v1.8` with a description of the changes and ammend the description to the major version tag.
+Ex. for smaller backwards compatible changes. Add a new minor version tag ex `v1.8` with a description of the changes and amend the description to the major version tag.
 
-Example with release `v1.8`:
+Example for release `v1.8`:
 ```bash
 git checkout origin/main
 git pull origin main
-git tag -a 'v1.11'
-# you are promted for the tag annotation (change description)
+git tag -a 'v1.8'
+# you are prompted for the tag annotation (change description)
 git tag -f -a 'v1'
-# you are promted for the tag annotation, ammend the change description
+# you are prompted for the tag annotation, amend the change description
 git push -f --tags
 ```
 
 #### Major release
 
-Same as minor release only the major version tag is a new one. Ie. we do not need to force tag/push.
+Same as minor release except that the major version tag is a new one. I.e. we do not need to force tag/push.
 
-Example with release `v2`:
+Example for release `v2`:
 ```bash
 git checkout origin/main
 git pull origin main
 git tag -a 'v2.0'
-# you are promted for the tag annotation (change description)
+# you are prompted for the tag annotation (change description)
 git tag -a 'v2'
-# you are promted for the tag annotation
+# you are prompted for the tag annotation
 git push --tags
 ```
