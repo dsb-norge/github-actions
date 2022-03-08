@@ -42,15 +42,6 @@ runs:
     - id: mvn-cmd
       shell: bash
       run: |
-        # Defaults
-        MVN_DEFAULT_GOALS='clean verify install'
-        MVN_DEFAULT_ARGUMENTS=''
-
-        BUILD_ENVS=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs }}
-        EOF
-        )
-
         # Locate pom.xml
         POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
         [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
