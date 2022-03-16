@@ -95,6 +95,16 @@ runs:
           maven-repo-username
           caller-repo-calling-branch
           caller-repo-is-on-default-branch
+          docker-image-registry
+          acr-username
+          acr-password
+
+    # log into azure container registry (ACR) to enable maven to access internal images
+    - uses: azure/docker-login@v1
+      with:
+        login-server: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
+        username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
+        password: ${{ fromJSON(inputs.dsb-build-envs).acr-password }}
 
     # locate pom.xml and define maven commands
     - id: mvn-cmd
