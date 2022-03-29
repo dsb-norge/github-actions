@@ -206,9 +206,9 @@ jobs:
           app-config-repo-token: ${{ secrets.app-config-repo-token }}
 
       #tag git commit
-      - uses: actions/github-script@v5
+      - uses: actions/github-script@v6
         env:
-          tag: ${{ format('refs/tags/{0}', fromJSON(steps.read-build-envs.outputs.json-array).application-version) }}
+          tag: ${{ format('refs/tags/{0}', fromJSON(needs.create-matrix.outputs.app-vars-matrix).application-version) }}
         with:
           script: |
             github.rest.git.createRef({
