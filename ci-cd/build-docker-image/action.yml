@@ -85,16 +85,3 @@ runs:
         context: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-
-    #tag git commit
-    - uses: actions/github-script@v5
-      env:
-        tag: ${{ format('refs/tags/{0}', fromJSON(inputs.dsb-build-envs).application-version) }}
-      with:
-        script: |
-          github.rest.git.createRef({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: process.env.tag,
-            sha: context.sha
-          })

@@ -204,3 +204,16 @@ jobs:
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
           app-config-repo-token: ${{ secrets.app-config-repo-token }}
+
+      #tag git commit
+      - uses: actions/github-script@v5
+        env:
+          tag: ${{ format('refs/tags/{0}', fromJSON(steps.read-build-envs.outputs.json-array).application-version) }}
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: process.env.tag,
+              sha: context.sha
+            })
