@@ -208,7 +208,7 @@ jobs:
       #tag git commit
       - uses: actions/github-script@v6
         env:
-          tag: ${{ format('refs/tags/{0}', fromJSON(needs.create-matrix.outputs.app-vars-matrix).application-version) }}
+          tag: ${{ format('refs/tags/{0}', needs.create-matrix.outputs.applications-version) }}
         with:
           script: |
             github.rest.git.createRef({
