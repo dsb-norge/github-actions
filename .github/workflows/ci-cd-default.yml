@@ -48,13 +48,13 @@ jobs:
     steps:
       # The create-app-vars-matrix action requires source code to be available
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v1
+        uses: dsb-norge/github-actions/directory-recreate@tag-version
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v2
 
       - name: 🎰 Create app vars build matrix
         id: create-matrix
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v1
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@tag-version
         with:
           apps: ${{ inputs.apps }}
 
@@ -72,14 +72,14 @@ jobs:
 
     steps:
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v1
+        uses: dsb-norge/github-actions/directory-recreate@tag-version
 
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v2
 
       - name: 🎰 Generate DSB build variables
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@tag-version
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           maven-repo-username: ${{ secrets.maven-repo-username }}
@@ -98,7 +98,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@tag-version
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -116,7 +116,7 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@v1
+        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@tag-version
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -125,7 +125,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
-        uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@v1
+        uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@tag-version
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -143,21 +143,21 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        uses: dsb-norge/github-actions/ci-cd/build-docker-image@v1
+        uses: dsb-norge/github-actions/ci-cd/build-docker-image@tag-version
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🐙 Deploy to ephemeral PR environment
         # Run only on PR, skip when closing PR
         if: github.event_name == 'pull_request' && github.event.action != 'closed'
-        uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@v1
+        uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@tag-version
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🗑 Teardown of ephemeral PR environment
         # Step only runs when closing a PR
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
-        uses: dsb-norge/github-actions/ci-cd/teardown-pr-environment@v1
+        uses: dsb-norge/github-actions/ci-cd/teardown-pr-environment@tag-version
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -169,14 +169,14 @@ jobs:
           && (( fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch )
             || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )
-        uses: dsb-norge/github-actions/ci-cd/prune-images-from-acr@v1
+        uses: dsb-norge/github-actions/ci-cd/prune-images-from-acr@tag-version
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🗑 Delete PR docker images from ACR
         # Step only runs when closing a PR
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
-        uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@v1
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@tag-version
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -194,13 +194,13 @@ jobs:
     steps:
       - name: 💾 Read build-envs from matrix job(s)
         id: read-build-envs
-        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v1
+        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@tag-version
         with:
           build-envs-artifact-name: build-envs-${{ needs.create-matrix.outputs.applications-version }}
 
       - name: 🐙 Deploy apps to static environment(s)
         # Conditinal if not necessary as the action checks 'static-deploy-from-default-branch-only' before deploying
-        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@v1
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@tag-version
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
           app-config-repo-token: ${{ secrets.app-config-repo-token }}
