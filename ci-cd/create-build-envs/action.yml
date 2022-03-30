@@ -392,7 +392,7 @@ runs:
         OUTPUT_ENV_JSON_ESC=$(escape-for-output "${OUTPUT_ENV_JSON}")
         echo "::set-output name=json::${OUTPUT_ENV_JSON_ESC}"
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: ${{ steps.build-env.outputs.build-envs-artifact-name }}
         path: ${{ steps.build-env.outputs.json-without-secrets-path }}
