@@ -205,15 +205,13 @@ jobs:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
           app-config-repo-token: ${{ secrets.app-config-repo-token }}
 
-      #tag git commit
-      - uses: actions/github-script@v6
-        env:
-          tag: ${{ format('refs/tags/{0}', needs.create-matrix.outputs.applications-version) }}
+      - name: 🏷️ Tag current git commit with application version
+        uses: actions/github-script@v6
         with:
           script: |
             github.rest.git.createRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: process.env.tag,
+              ref: 'refs/tags/${{ needs.create-matrix.outputs.applications-version) }}',
               sha: context.sha
             })
