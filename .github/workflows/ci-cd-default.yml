@@ -212,6 +212,6 @@ jobs:
             github.rest.git.createRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: 'refs/tags/${{ needs.create-matrix.outputs.applications-version) }}',
+              ref: 'refs/tags/${{ needs.create-matrix.outputs.applications-version }}',
               sha: context.sha
             })
