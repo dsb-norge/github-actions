@@ -16,7 +16,7 @@ runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@tag-version
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
