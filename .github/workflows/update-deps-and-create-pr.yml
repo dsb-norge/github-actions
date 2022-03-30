@@ -31,7 +31,7 @@ jobs:
       - name: 🧹 Clean workspace
         uses: dsb-norge/github-actions/directory-recreate@tag-version
       - name: ⬇ Checkout working branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: 🎰 Create app vars build matrix
         id: create-matrix
@@ -56,7 +56,7 @@ jobs:
         uses: dsb-norge/github-actions/directory-recreate@tag-version
 
       - name: ⬇ Checkout working branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: 🎰 Generate DSB build variables
         id: build-env
