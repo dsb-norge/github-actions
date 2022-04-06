@@ -84,6 +84,8 @@ jobs:
         # See https://github.com/peter-evans/create-pull-request for details.
         uses: peter-evans/create-pull-request@18f7dc018cc2cd597073088f7c7591b9d1c02672 # 3.14.0
         with:
+          # Pull requests created by the action using the default GITHUB_TOKEN cannot trigger other workflows.
+          # So, to trigger CI/CD (which verifies that the app can be built and deployed), we use a repo scoped personal access token (PAT).
           token: ${{ secrets.GITOPS_TAG_BUMPER_TOKEN }}
           commit-message: Updating third party dependencies
           committer: Auto maven versions update <noreply@dsb.no>
