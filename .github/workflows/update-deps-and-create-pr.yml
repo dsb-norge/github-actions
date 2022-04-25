@@ -15,6 +15,8 @@ on:
         required: true
       maven-repo-token:
         required: true
+      gitops-tag-bumper-token:
+        required: true
 
 jobs:
   create-matrix:
@@ -86,7 +88,7 @@ jobs:
         with:
           # Pull requests created by the action using the default GITHUB_TOKEN cannot trigger other workflows.
           # So, to trigger CI/CD (which verifies that the app can be built and deployed), we use a repo scoped personal access token (PAT).
-          token: ${{ secrets.GITOPS_TAG_BUMPER_TOKEN }}
+          token: ${{ secrets.gitops-tag-bumper-token }}
           commit-message: Updating third party dependencies
           committer: Auto maven versions update <noreply@dsb.no>
           author: Auto maven versions update <noreply@dsb.no>
