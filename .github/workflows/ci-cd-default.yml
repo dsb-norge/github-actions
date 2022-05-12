@@ -175,7 +175,8 @@ jobs:
 
       - name: 🗑 Delete PR docker images from ACR
         # Step only runs when closing a PR
-        if: github.event_name == 'pull_request' && github.event.action == 'closed'
+        # Step runs even if previous steps have failed, with the exception of 'build-env' which is required
+        if: github.event_name == 'pull_request' && github.event.action == 'closed' && always() && steps.build-env.outcome == 'success'
         uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@v1
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
