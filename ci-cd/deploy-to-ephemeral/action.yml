@@ -167,32 +167,7 @@ runs:
         echo "::set-output name=comment::${COMMENT_TEXT_ESC}"
 
     # add comment to PR
-    - uses: actions/github-script@v5
-      env:
-        DELETE_COMMENTS_WITH_PREFIX: ${{ steps.create-comment.outputs.prefix }}
-        NEW_COMMENT_BODY: ${{ steps.create-comment.outputs.comment }}
+    - uses: dsb-norge/github-actions/ci-cd/comment-on-pr@v1
       with:
-        script: |
-          const { DELETE_COMMENTS_WITH_PREFIX, NEW_COMMENT_BODY } = process.env
-          const opts = github.rest.issues.listComments.endpoint.merge({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo
-          })
-          const comments = await github.paginate(opts)
-          for (const comment of comments) {
-              if (comment.body.startsWith(`${DELETE_COMMENTS_WITH_PREFIX}`)) {
-                  console.log('deploy-to-ephemeral: Deleting comment -> id: ' + comment.id + ', body: ' + comment.body.slice(0,100))
-                  github.rest.issues.deleteComment({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      comment_id: comment.id
-                  });
-              }
-          }
-          return github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `${NEW_COMMENT_BODY}`
-          });
+        pr-comment-text: ${{ steps.create-comment.outputs.comment }}
+        delete-comments-starting-with: ${{ steps.create-comment.outputs.prefix }}
