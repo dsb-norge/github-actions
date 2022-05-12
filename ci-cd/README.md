@@ -1,7 +1,7 @@
 # DSBs github CI/CD actions
 Collection of DSB custom github actions for CI/CD.
 
-## Index
+## File index
 ```
 ci-cd/
 ├───build-docker-image        --> Build, tag and push docker image
@@ -79,6 +79,8 @@ git tag -f -a 'v1'
 git push -f --tags
 ```
 
+**Note:** If you are having problems pulling main after a release, try to force fetch the tags: `git fetch --tags -f`.
+
 #### Major release
 
 Same as minor release except that the major version tag is a new one. I.e. we do not need to force tag/push.
@@ -93,3 +95,5 @@ git tag -a 'v2'
 # you are prompted for the tag annotation
 git push --tags
 ```
+
+**Note:** If you are having problems pulling main after a release, try to force fetch the tags: `git fetch --tags -f`.
