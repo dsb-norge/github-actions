@@ -21,7 +21,7 @@ on:
 jobs:
   create-matrix:
     name: Create build matrix
-    runs-on: self-hosted
+    runs-on: [self-hosted, dsb-builder, linux, x64]
     defaults:
       run:
         shell: bash
@@ -44,7 +44,7 @@ jobs:
   update-dependencies:
     name: Update third party dependencies & create pull request
     needs: create-matrix
-    runs-on: self-hosted
+    runs-on: [self-hosted, dsb-builder, linux, x64]
     strategy:
       matrix: ${{ fromJSON(needs.create-matrix.outputs.app-vars-matrix) }}
       fail-fast: false # allow all parallel jobs to continue even if one fails
