@@ -37,7 +37,7 @@ on:
 jobs:
   create-matrix:
     name: Create build matrix
-    runs-on: self-hosted
+    runs-on: [self-hosted, dsb-builder, linux, x64]
     defaults:
       run:
         shell: bash
@@ -61,7 +61,7 @@ jobs:
   build-deploy:
     name: Build and deploy
     needs: create-matrix
-    runs-on: self-hosted
+    runs-on: [self-hosted, dsb-builder, linux, x64]
     strategy:
       matrix: ${{ fromJSON(needs.create-matrix.outputs.app-vars-matrix) }}
       fail-fast: false # allow all paralell jobs to continiue even if one fails
@@ -188,7 +188,7 @@ jobs:
     if: |
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
     needs: [create-matrix, build-deploy]
-    runs-on: self-hosted
+    runs-on: [self-hosted, dsb-builder, linux, x64]
     defaults:
       run:
         shell: bash
