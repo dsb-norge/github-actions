@@ -19,7 +19,7 @@ runs:
   using: 'composite'
   steps:
     # we need to verify inputs since they are optional input to create-build-envs action
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@npm-e2e
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -167,7 +167,7 @@ runs:
         echo "::set-output name=comment::${COMMENT_TEXT_ESC}"
 
     # add comment to PR
-    - uses: dsb-norge/github-actions/ci-cd/comment-on-pr@v1
+    - uses: dsb-norge/github-actions/ci-cd/comment-on-pr@npm-e2e
       with:
         pr-comment-text: ${{ steps.create-comment.outputs.comment }}
         delete-comments-starting-with: ${{ steps.create-comment.outputs.prefix }}
