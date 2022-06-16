@@ -49,7 +49,7 @@ runs:
         echo "::group::build-nodejs-project: npm run lint"
         npm run lint
         echo "::endgroup::"
-        if [ '${{ fromJSON(inputs.dsb-build-envs).npm-test-e2e }}' == 'true' ]; then
+        if [ '${{ fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test }}' == 'true' ]; then
           echo "::group::build-nodejs-project: npm run test:e2e:ci"
           npm run test:e2e:ci
           echo "::endgroup::"
