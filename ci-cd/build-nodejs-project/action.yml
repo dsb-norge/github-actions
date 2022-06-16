@@ -3,6 +3,9 @@ description: |
   Given the required input this action configures the specified version of node and builds a given project.
   Before npm is invoked the version Node.js specified in 'dsb-build-envs' is installed.
   As for working directory the field 'application-source-path' of 'dsb-build-envs' should point to the base directory of the project.
+  E2E-Testing:
+    - 'nodejs-build-project-perform-e2e-test'
+      - Will run 'npm run test:e2e:ci' as part of the building of the app
 author: 'Peder Schmedling'
 inputs:
   dsb-build-envs:
@@ -17,10 +20,11 @@ runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@npm-e2e
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
+          nodejs-build-project-perform-e2e-test
           nodejs-version
           application-source-path
 
@@ -31,7 +35,7 @@ runs:
 
     # npm install, build
     - shell: bash
-      run: |
+      run: |  
         echo "build-nodejs-project: Looking for project to build ..."
         WORK_DIR=${{ github.workspace }}/${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
         [ -d "${WORK_DIR}" ] \
@@ -49,3 +53,11 @@ runs:
         npm run build
         echo "::endgroup::"
         popd >/dev/null
+
+    - uses: cypress-io/github-action@v4.1.0
+      if: fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == 'true'
+      with:
+        build: npm run build
+        start: npm run preview
+        wait-on: 'http://localhost:8081/'
+

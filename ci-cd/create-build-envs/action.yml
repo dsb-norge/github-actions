@@ -80,6 +80,10 @@ inputs:
     description: 'Version of Node.js specified when calling actions/setup-node'
     required: false
     default: '16'
+  nodejs-build-project-perform-e2e-test:
+    description: 'Indicates if it should run "npm run test:e2e:ci" before building the frontend project failing build if end-to-end tests fail'
+    required: false
+    default: 'false'
   github-repo-token:
     description: 'Github repo token is required by: 1) Maven Sonar plugin to get PR information; 2) Adding comments from actions to github PRs.'
     required: true
@@ -260,6 +264,7 @@ runs:
           maven-build-project-version-goals
           maven-repo-pom-id
           nodejs-version
+          nodejs-build-project-perform-e2e-test
           pr-deploy-additional-helm-values
           pr-deploy-aks-cluster-name
           pr-deploy-aks-resource-group
