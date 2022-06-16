@@ -52,12 +52,12 @@ runs:
         echo "::group::build-nodejs-project: npm run build"
         npm run build
         echo "::endgroup::"
-        if [ '${{ fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test }}' == 'true' ]; then
-          echo "::group::build-nodejs-project: install cypress binary"
-          npm install cypress --save-dev
-          echo "::endgroup::"
-          echo "::group::build-nodejs-project: npm run test:e2e:ci"
-          npm run test:e2e:ci
-          echo "::endgroup::"
-        fi
         popd >/dev/null
+
+    - uses: cypress-io/github-action@v4.1.0
+      if: fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == 'true'
+      with:
+        build: npm run build
+        start: npm run preview
+        wait-on: 'http://localhost:8081/'
+
