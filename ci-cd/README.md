@@ -38,7 +38,7 @@ For documentation refer to the `description` section of each specific actions as
 3. Tag latest commit on you branch:
    ```bash
    git tag -f -a 'my-feature'
-   git push -f --tags
+   git push -f origin 'refs/tags/my-feature'
    ```
 4. To try out your changes, in the calling repo change the calling workflow to call using your **branch name**. Ex. with a dev branch named `my-feature-branch`:
    ```yaml
@@ -76,7 +76,8 @@ git tag -a 'v1.8'
 # you are prompted for the tag annotation (change description)
 git tag -f -a 'v1'
 # you are prompted for the tag annotation, amend the change description
-git push -f --tags
+git push -f origin 'refs/tags/v1.8'
+git push -f origin 'refs/tags/v1'
 ```
 
 **Note:** If you are having problems pulling main after a release, try to force fetch the tags: `git fetch --tags -f`.
@@ -93,7 +94,8 @@ git tag -a 'v2.0'
 # you are prompted for the tag annotation (change description)
 git tag -a 'v2'
 # you are prompted for the tag annotation
-git push --tags
+git push -f origin 'refs/tags/v2.0'
+git push -f origin 'refs/tags/v2'
 ```
 
 **Note:** If you are having problems pulling main after a release, try to force fetch the tags: `git fetch --tags -f`.
