@@ -54,6 +54,7 @@ runs:
         echo "::endgroup::"
         if [ '${{ fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test }}' == 'true' ]; then
           echo "::group::build-nodejs-project: npm run test:e2e:ci"
+          npm install cypress --save-dev
           npm run test:e2e:ci
           echo "::endgroup::"
         fi
