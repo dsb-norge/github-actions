@@ -14,7 +14,7 @@ inputs:
       Required fields:
         See first step.
       Optional fields:
-        nodejs-build-project-perform-e2e-test
+        None.
     required: true
 runs:
   using: 'composite'
