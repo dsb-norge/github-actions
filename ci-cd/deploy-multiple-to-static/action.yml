@@ -29,39 +29,7 @@ runs:
           application-name
           app-config-repo
           static-deploy-environments
-          static-deploy-from-default-branch-only
-          caller-repo-default-branch
           caller-repo-calling-branch
-          caller-repo-is-on-default-branch
-
-    # check what branch we are deploying from
-    - shell: bash
-      run: |
-        # Verify deploy is allowed from calling branch
-
-        JSON_ARRAY=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs-array }}
-        EOF
-        )
-
-        # Helper functions
-        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
-        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "${1}" '.[$name]'; }
-
-        EXIT_CODE=0
-        for OBJ in $(echo "${JSON_ARRAY}" | jq -r '.[] | @base64'); do
-          JSON_OBJ="$(_jq '.')"
-          if [ ! "$(get-val 'caller-repo-is-on-default-branch')" == 'true' ] \
-            && [ ! "$(get-val 'static-deploy-from-default-branch-only')" == 'false' ]; then
-            echo "ERROR: deploy-multiple-to-static: deploy from non-default branch is NOT allowed for the app '$(get-val 'application-name')' because 'dsb-build-envs.static-deploy-from-default-branch-only' is set to '$(get-val 'static-deploy-from-default-branch-only')'."
-            EXIT_CODE=1
-          fi
-        done
-        if [ ! "${EXIT_CODE}" == '0' ]; then
-          echo "deploy-multiple-to-static: Action called from branch '$(get-val 'caller-repo-calling-branch')'"
-          echo "deploy-multiple-to-static: Default branch of repo is '$(get-val 'caller-repo-default-branch')'"
-        fi
-        exit ${EXIT_CODE}
 
     # checkout config repo(s)
     - shell: bash

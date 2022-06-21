@@ -212,14 +212,24 @@ jobs:
         with:
           build-envs-artifact-name: build-envs-${{ needs.create-matrix.outputs.applications-version }}
 
+      - name: ✔ Check if deploy is allowed from calling branch
+        id: deploy-static-check
+        # This check is required to block deploys when workflow is manually triggered from a non-default branch
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@v1
+        with:
+          dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
+
       - name: 🐙 Deploy apps to static environment(s)
-        # Conditinal if not necessary as the action checks 'static-deploy-from-default-branch-only' before deploying
+        # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
+        if: steps.deploy-static-check.outputs.result == 'true'
         uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@v1
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
           app-config-repo-token: ${{ secrets.app-config-repo-token }}
 
       - name: 🏷️ Tag current git commit with application version
+        # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
+        if: steps.deploy-static-check.outputs.result == 'true'
         uses: actions/github-script@v6
         with:
           script: |
