@@ -132,7 +132,7 @@ jobs:
       - name: '🐳 Vue.js app: Build, tag and push docker image for vue'
         # Run step when:
         #   - app is vue
-        #   - running from PRa nd not closing
+        #   - running from PR and not closing
         #   - push or manual on default branch or when specifically allowing deploy from non-default branch
         if: |
           matrix.app-vars.application-type == 'vue'
@@ -148,8 +148,15 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🐙 Deploy to ephemeral PR environment
-        # Run only on PR, skip when closing PR
-        if: github.event_name == 'pull_request' && github.event.action != 'closed'
+        # Run step when:
+        #   - on PR
+        #     - but not when closing PR
+        #     - and not when event was triggered by renovate-bot
+        #   (allows deploy when a user pushes to PR branch created by renovate-bot, as github.event.action is then the user)
+        if: |
+          github.event_name == 'pull_request'
+          && github.event.action != 'closed'
+          && github.actor != 'renovate[bot]'
         uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@v1
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
