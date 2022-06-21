@@ -200,6 +200,12 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: 🧹 Clean workspace
+        uses: dsb-norge/github-actions/directory-recreate@v1
+
+      - name: ⬇ Checkout working branch
+        uses: actions/checkout@v3
+
       - name: 💾 Read build-envs from matrix job(s)
         id: read-build-envs
         uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v1
