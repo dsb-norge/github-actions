@@ -132,7 +132,7 @@ jobs:
       - name: '🐳 Vue.js app: Build, tag and push docker image for vue'
         # Run step when:
         #   - app is vue
-        #   - running from PRa nd not closing
+        #   - running from PR and not closing
         #   - push or manual on default branch or when specifically allowing deploy from non-default branch
         if: |
           matrix.app-vars.application-type == 'vue'
@@ -148,8 +148,15 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🐙 Deploy to ephemeral PR environment
-        # Run only on PR, skip when closing PR
-        if: github.event_name == 'pull_request' && github.event.action != 'closed'
+        # Run step when:
+        #   - on PR
+        #     - but not when closing PR
+        #     - and not when event was triggered by renovate-bot
+        #   (allows deploy when a user pushes to PR branch created by renovate-bot, as github.event.action is then the user)
+        if: |
+          github.event_name == 'pull_request'
+          && github.event.action != 'closed'
+          && github.actor != 'renovate[bot]'
         uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@npm-e2e
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
@@ -193,20 +200,36 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: 🧹 Clean workspace
+        uses: dsb-norge/github-actions/directory-recreate@v1
+
+      - name: ⬇ Checkout working branch
+        uses: actions/checkout@v3
+
       - name: 💾 Read build-envs from matrix job(s)
         id: read-build-envs
         uses: dsb-norge/github-actions/ci-cd/collect-build-envs@npm-e2e
         with:
           build-envs-artifact-name: build-envs-${{ needs.create-matrix.outputs.applications-version }}
 
+      - name: ✔ Check if deploy is allowed from calling branch
+        id: deploy-static-check
+        # This check is required to block deploys when workflow is manually triggered from a non-default branch
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@v1
+        with:
+          dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
+
       - name: 🐙 Deploy apps to static environment(s)
-        # Conditinal if not necessary as the action checks 'static-deploy-from-default-branch-only' before deploying
+        # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
+        if: steps.deploy-static-check.outputs.result == 'true'
         uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@npm-e2e
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
           app-config-repo-token: ${{ secrets.app-config-repo-token }}
 
       - name: 🏷️ Tag current git commit with application version
+        # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
+        if: steps.deploy-static-check.outputs.result == 'true'
         uses: actions/github-script@v6
         with:
           script: |

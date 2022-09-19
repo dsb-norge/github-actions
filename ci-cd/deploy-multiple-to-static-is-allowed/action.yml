@@ -1,0 +1,68 @@
+name: 'Check if deploy of DSB app(s) to static environment is allowed'
+description: |
+  Performs a check if deploy of one or more DSB apps to a static environment is allowed based on branch rules and input parameters.
+  The deploy itself is performed by the action deploy-multiple-to-static, this actions just performs a check.
+  The default is that apps can only be deployed to static environment(s) from the application repo default branch.
+  This behavior can be modified by setting 'dsb-build-envs.static-deploy-from-default-branch-only' to 'false' (default is 'true') in the calling workflow.
+author: 'Peder Schmedling'
+inputs:
+  dsb-build-envs-array:
+    description: |
+      DSB build environment variables JSON array.
+      Required fields:
+        See first step.
+      Optional fields:
+        None.
+    required: true
+outputs:
+  result:
+    description: The result of evaluating if deploy is allowed ('true' or 'false').
+    value: ${{ steps.evaluate.outputs.result }}
+runs:
+  using: 'composite'
+  steps:
+    # verify required inputs exists for all apps
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+      with:
+        dsb-build-envs-array: ${{ inputs.dsb-build-envs-array }}
+        require: |
+          application-name
+          static-deploy-from-default-branch-only
+          caller-repo-default-branch
+          caller-repo-calling-branch
+          caller-repo-is-on-default-branch
+
+    # check what branch we are deploying from
+    - id: evaluate
+      shell: bash
+      run: |
+        # Verify deploy is allowed from calling branch
+
+        JSON_ARRAY=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs-array }}
+        EOF
+        )
+
+        # Helper functions
+        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
+        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "${1}" '.[$name]'; }
+
+        echo "::group::deploy-multiple-to-static-is-allowed: details"
+        IS_ALLOWED='true'
+
+        for OBJ in $(echo "${JSON_ARRAY}" | jq -r '.[] | @base64'); do
+          JSON_OBJ="$(_jq '.')"
+          if [ ! "$(get-val 'caller-repo-is-on-default-branch')" == 'true' ] \
+            && [ ! "$(get-val 'static-deploy-from-default-branch-only')" == 'false' ]; then
+            echo "deploy-multiple-to-static-is-allowed: deploy from non-default branch is NOT allowed for the app '$(get-val 'application-name')' because 'dsb-build-envs.static-deploy-from-default-branch-only' is set to '$(get-val 'static-deploy-from-default-branch-only')'."
+            IS_ALLOWED='false'
+          else
+            echo "deploy-multiple-to-static-is-allowed: deploy from non-default branch is allowed for the app '$(get-val 'application-name')'."
+          fi
+          echo "deploy-multiple-to-static-is-allowed: Action called from branch '$(get-val 'caller-repo-calling-branch')'"
+          echo "deploy-multiple-to-static-is-allowed: Default branch of repo is '$(get-val 'caller-repo-default-branch')'"
+        done # Loop apps
+        echo "::endgroup::"
+
+        echo "deploy-multiple-to-static-is-allowed: conclusion: '${IS_ALLOWED}'"
+        echo "::set-output name=result::${IS_ALLOWED}"

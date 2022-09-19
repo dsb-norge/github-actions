@@ -29,39 +29,7 @@ runs:
           application-name
           app-config-repo
           static-deploy-environments
-          static-deploy-from-default-branch-only
-          caller-repo-default-branch
           caller-repo-calling-branch
-          caller-repo-is-on-default-branch
-
-    # check what branch we are deploying from
-    - shell: bash
-      run: |
-        # Verify deploy is allowed from calling branch
-
-        JSON_ARRAY=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs-array }}
-        EOF
-        )
-
-        # Helper functions
-        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
-        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "${1}" '.[$name]'; }
-
-        EXIT_CODE=0
-        for OBJ in $(echo "${JSON_ARRAY}" | jq -r '.[] | @base64'); do
-          JSON_OBJ="$(_jq '.')"
-          if [ ! "$(get-val 'caller-repo-is-on-default-branch')" == 'true' ] \
-            && [ ! "$(get-val 'static-deploy-from-default-branch-only')" == 'false' ]; then
-            echo "ERROR: deploy-multiple-to-static: deploy from non-default branch is NOT allowed for the app '$(get-val 'application-name')' because 'dsb-build-envs.static-deploy-from-default-branch-only' is set to '$(get-val 'static-deploy-from-default-branch-only')'."
-            EXIT_CODE=1
-          fi
-        done
-        if [ ! "${EXIT_CODE}" == '0' ]; then
-          echo "deploy-multiple-to-static: Action called from branch '$(get-val 'caller-repo-calling-branch')'"
-          echo "deploy-multiple-to-static: Default branch of repo is '$(get-val 'caller-repo-default-branch')'"
-        fi
-        exit ${EXIT_CODE}
 
     # checkout config repo(s)
     - shell: bash
@@ -181,9 +149,10 @@ runs:
               git -C "${REPO_DIR}" add "${VALUES_FILE}"
             done # envs
 
-          done # apps
+          done # Loop apps
 
           # Create commit message
+          echo "deploy-multiple-to-static: Creating commit message for repo '${REPO}' ..."
           APPS_IN_REPO_STRING="$(echo "${APPS_IN_REPO_JSON_ARRAY}" | jq -r '. | map( ."application-name" ) | join(", ")')"
           VERSIONS_IN_REPO_STRING="$(echo "${APPS_IN_REPO_JSON_ARRAY}" | jq -r 'unique_by( ."application-version" ) | . | map( ."application-version" ) | join(", ")')"
           BUMP_COMMIT_MESSAGE="🆕 ${INPUT_ENVS_STRING}: ${CALLER_REPO} → ${VERSIONS_IN_REPO_STRING}:"
@@ -194,9 +163,16 @@ runs:
           BUMP_COMMIT_MESSAGE=$(echo "${BUMP_COMMIT_MESSAGE}" $'\n' "Commit message: ${CALLER_REPO_CURRENT_COMMIT_MESSAGE}")
 
           # Git operations
+          echo "deploy-multiple-to-static: Committing version changes for repo '${REPO}' ..."
           git -C "${REPO_DIR}" config user.email "noreply@dsb.no"
           git -C "${REPO_DIR}" config user.name "Auto Bumper"
           git -C "${REPO_DIR}" commit -m "$BUMP_COMMIT_MESSAGE"
           git -C "${REPO_DIR}" push
 
-        done # repos
+          # Cleanup
+          echo "deploy-multiple-to-static: Cleanup: removing '${REPO_DIR}' ..."
+          rm -rf "${REPO_DIR}" \
+            && echo "deploy-multiple-to-static: Cleanup: Done." \
+            || echo "ERROR: deploy-multiple-to-static: Cleanup: Failed to remove repo directory!"
+
+        done # Loop repos
