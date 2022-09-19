@@ -54,10 +54,13 @@ runs:
         echo "::endgroup::"
         popd >/dev/null
 
-    - uses: cypress-io/github-action@v4.1.0
-      if: fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == 'true'
+    - uses: cypress-io/github-action@30008f1458a5a2c97054bfe118fe33d75976c482
+      if: |
+        fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == 'true'
+        || fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == true
       with:
         build: npm run build
         start: npm run preview
+        working-directory: ${{ github.workspace }}/${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
         wait-on: 'http://localhost:8081/'
 
