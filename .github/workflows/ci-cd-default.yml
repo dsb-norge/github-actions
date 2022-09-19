@@ -215,7 +215,7 @@ jobs:
       - name: ✔ Check if deploy is allowed from calling branch
         id: deploy-static-check
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
-        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@v1
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@npm-e2e
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
 
