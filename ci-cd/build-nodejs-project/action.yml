@@ -54,6 +54,23 @@ runs:
         echo "::endgroup::"
         popd >/dev/null
 
+    - shell: bash
+      if: |
+        fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == 'true'
+        || fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == true
+      run: |
+        echo "build-nodejs-project: Installing cypress binary ..."
+        WORK_DIR=${{ github.workspace }}/${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
+        [ -d "${WORK_DIR}" ] \
+          && echo "build-nodejs-project: Found project at '${WORK_DIR}'" \
+          || echo "ERROR: build-nodejs-project: given 'application-source-path' does not exist: '${WORK_DIR}'" \
+          || exit 1
+        pushd "${WORK_DIR}" >/dev/null
+        echo "::group::install-cypress-binary: npm install"
+        npm i cypress@10.6.0
+        echo "::endgroup::"
+        popd >/dev/null
+
     - uses: cypress-io/github-action@30008f1458a5a2c97054bfe118fe33d75976c482
       env:
         DEBUG: '@cypress/github-action'
@@ -61,7 +78,7 @@ runs:
         fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == 'true'
         || fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == true
       with:
-        build: npm run build
+        #build: npm run build
         start: npm run preview
         working-directory: ${{ github.workspace }}/${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
         wait-on: 'http://localhost:8081/'
