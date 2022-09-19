@@ -62,5 +62,7 @@ runs:
         build: npm run build
         start: npm run preview
         working-directory: ${{ github.workspace }}/${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
+        env:
+          DEBUG: '@cypress/github-action'
         wait-on: 'http://localhost:8081/'
 
