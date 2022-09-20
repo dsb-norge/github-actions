@@ -61,7 +61,7 @@ runs:
         fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == 'true'
         || fromJSON(inputs.dsb-build-envs).nodejs-build-project-perform-e2e-test == true
       with:
-        build: npx cypress info
+        build: npm install cypress && npx cypress info
         start: npm run preview
         working-directory: ${{ github.workspace }}/${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
         wait-on: 'http://localhost:8081/'
