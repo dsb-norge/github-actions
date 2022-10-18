@@ -384,9 +384,7 @@ runs:
         echo "${OUTPUT_ENV_JSON_NOT_SECRET}" | tee "${OUT_JSON_FILE}"
         echo "::endgroup::"
 
-        echo 'json-without-secrets-path<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${OUT_JSON_FILE}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "json-without-secrets-path=${OUT_JSON_FILE}" >> $GITHUB_OUTPUT
 
         echo "build-envs-artifact-name=build-envs-$(get-val 'application-version')"  >> $GITHUB_OUTPUT
 
