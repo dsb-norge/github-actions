@@ -17,7 +17,8 @@ runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+    # TODO revert to @v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@tuin-143
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -25,7 +26,7 @@ runs:
           application-source-path
 
     # set up Node.js
-    - uses: actions/setup-node@v1
+    - uses: actions/setup-node@v3
       with:
         node-version:  ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
 

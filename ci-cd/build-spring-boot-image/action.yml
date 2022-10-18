@@ -47,7 +47,8 @@ runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+    # TODO revert to @v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@tuin-143
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -107,10 +108,9 @@ runs:
         echo "${IMAGE_LABELS}"
         echo "::endgroup::"
 
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        IMAGE_LABELS_ESC=$(escape-for-output "${IMAGE_LABELS}")
-        echo "::set-output name=labels::${IMAGE_LABELS_ESC}"
+        echo 'labels<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${IMAGE_LABELS}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     # generate JSON with extra envs for maven
     - id: extra-envs
@@ -143,11 +143,9 @@ runs:
         echo "${OUT_JSON}"
         echo "::endgroup::"
 
-        # Return JSON object to pass to maven action
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
-        echo "::set-output name=json::${OUT_JSON_ESC}"
+        echo 'json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${OUT_JSON}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     # define maven commands
     - id: mvn-cmd
@@ -206,7 +204,7 @@ runs:
           MVN_VERSION_CMD="mvn ${MVN_VERSION_ARGUMENTS} --file ${POM_FILE} ${MVN_VERSION_GOALS}"
         fi
         echo "build-spring-boot-image: maven version command: '${MVN_VERSION_CMD}'"
-        echo "::set-output name=mvn-version-cmd::${MVN_VERSION_CMD}"
+        echo "mvn-version-cmd=${MVN_VERSION_CMD}" >> $GITHUB_OUTPUT
 
         # Determine maven command for second invocation
         if has-field 'spring-boot-build-image-command'; then
@@ -234,8 +232,8 @@ runs:
         MVN_CMD="${MVN_CMD} ${MVN_IMAGE_REF_ARGUMENT}"
 
         echo "build-spring-boot-image: Maven build command: '${MVN_CMD}'"
-        echo "::set-output name=mvn-cmd::${MVN_CMD}"
-        echo "::set-output name=local-image-id::${LOCAL_IMAGE_ID}"
+        echo "mvn-cmd=${MVN_CMD}" >> $GITHUB_OUTPUT
+        echo "local-image-id=${LOCAL_IMAGE_ID}" >> $GITHUB_OUTPUT
 
     # filter dsb-build-envs
     - id: filter-build-envs
@@ -255,13 +253,13 @@ runs:
         set-field 'maven-build-project-deploy-release-artifacts'  'false'
         set-field 'maven-build-project-deploy-snapshot-artifacts' 'false'
 
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        BUILD_ENVS_ESC=$(escape-for-output "${BUILD_ENVS}")
-        echo "::set-output name=dsb-build-envs::${BUILD_ENVS_ESC}"
+        echo 'dsb-build-envs<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${BUILD_ENVS}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     # build docker image
-    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
+    # TODO revert to @v1
+    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@tuin-143
       with:
         mvn-version-cmd: ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
         mvn-cmd: ${{ steps.mvn-cmd.outputs.mvn-cmd }}

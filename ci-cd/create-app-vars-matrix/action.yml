@@ -55,10 +55,9 @@ runs:
         echo "${JSON_CONFIG}"
         echo "::endgroup::"
 
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        JSON_CONFIG_ESC=$(escape-for-output "${JSON_CONFIG}")
-        echo "::set-output name=app-vars::${JSON_CONFIG_ESC}"
+        echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${JSON_CONFIG}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     - shell: bash
       run: |
@@ -149,10 +148,9 @@ runs:
         echo "${OUT_JSON}"
         echo "::endgroup::"
 
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
-        echo "::set-output name=app-vars::${OUT_JSON_ESC}"
+        echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${OUT_JSON}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     - shell: bash
       id: get-description
@@ -233,10 +231,9 @@ runs:
         echo "${OUT_JSON}"
         echo "::endgroup::"
 
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
-        echo "::set-output name=app-vars::${OUT_JSON_ESC}"
+        echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${OUT_JSON}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     - shell: bash
       run: |
@@ -353,12 +350,11 @@ runs:
         echo "${OUT_JSON}"
         echo "::endgroup::"
 
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
-        echo "::set-output name=app-vars::${OUT_JSON_ESC}"
+        echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${OUT_JSON}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
-        echo "::set-output name=applications-version::${APP_VERSION}"
+        echo "applications-version=${APP_VERSION}" >> $GITHUB_OUTPUT
 
     - shell: bash
       id: make-matrix-compatible
@@ -386,7 +382,6 @@ runs:
         echo "${OUT_JSON}"
         echo "::endgroup::"
 
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        OUT_JSON_ESC=$(escape-for-output "${OUT_JSON}")
-        echo "::set-output name=app-vars::${OUT_JSON_ESC}"
+        echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${OUT_JSON}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
