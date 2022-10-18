@@ -92,9 +92,9 @@ runs:
         echo "::endgroup::"
 
         if [ -z "$(cat ${VALUES_FILE})" ]; then
-          echo "commandline-parameter" >> GITHUB_OUTPUT
+          echo "commandline-parameter" >> $GITHUB_OUTPUT
         else
-          echo "commandline-parameter=--values ${VALUES_FILE}" >> GITHUB_OUTPUT
+          echo "commandline-parameter=--values ${VALUES_FILE}" >> $GITHUB_OUTPUT
         fi
 
     # set target kubernetes cluster to
