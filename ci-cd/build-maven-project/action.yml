@@ -161,7 +161,7 @@ runs:
           MVN_VERSION_CMD="mvn ${MVN_VERSION_ARGUMENTS} --file ${POM_FILE} ${MVN_VERSION_GOALS} -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }}"
         fi
         echo "build-dsb-maven-project: maven version command: '${MVN_VERSION_CMD}'"
-        echo "::set-output name=mvn-version-cmd::${MVN_VERSION_CMD}"
+        echo "mvn-version-cmd=${MVN_VERSION_CMD}" >> $GITHUB_OUTPUT
 
         # Determine maven command for second invocation
         if [ ! -z '${{ inputs.mvn-cmd }}' ]; then
@@ -188,10 +188,10 @@ runs:
           MVN_CMD="mvn ${MVN_ARGUMENTS} --file ${POM_FILE} ${MVN_GOALS}"
         fi
         echo "build-dsb-maven-project: Maven build command: '${MVN_CMD}'"
-        echo "::set-output name=mvn-cmd::${MVN_CMD}"
+        echo "mvn-cmd=${MVN_CMD}" >> $GITHUB_OUTPUT
 
     # set up JDK
-    - uses: actions/setup-java@v2
+    - uses: actions/setup-java@v3
       with:
         distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}

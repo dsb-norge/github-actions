@@ -25,7 +25,7 @@ runs:
           application-source-path
 
     # set up Node.js
-    - uses: actions/setup-node@v1
+    - uses: actions/setup-node@v3
       with:
         node-version:  ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
 

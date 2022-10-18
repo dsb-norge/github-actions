@@ -163,9 +163,9 @@ runs:
           --branch '${{ inputs.pr-deploy-app-config-branch }}' \
           "https://${GH_TOKEN_SANITIZED}@github.com/${{ inputs.app-config-repo }}" \
           ${TMP_FILE} \
-          && echo "::set-output name=ref::${{ inputs.pr-deploy-app-config-branch }}" \
+          && echo "ref=${{ inputs.pr-deploy-app-config-branch }}" >> $GITHUB_OUTPUT \
           && echo 'create-build-envs: ref "${{ inputs.pr-deploy-app-config-branch }}" exist in "${{ inputs.app-config-repo }}" and will be used for PR deploys.' \
-          || echo "::set-output name=ref::main" \
+          || echo "ref=main" >> $GITHUB_OUTPUT \
           || echo 'create-build-envs: ref "${{ inputs.pr-deploy-app-config-branch }}" does not exist in "${{ inputs.app-config-repo }}", using "main" for PR deploys.'
         rm -rf ${TMP_FILE}
 
@@ -384,13 +384,13 @@ runs:
         echo "${OUTPUT_ENV_JSON_NOT_SECRET}" | tee "${OUT_JSON_FILE}"
         echo "::endgroup::"
 
-        echo "::set-output name=json-without-secrets-path::${OUT_JSON_FILE}"
-        echo "::set-output name=build-envs-artifact-name::build-envs-$(get-val 'application-version')"
+        echo "json-without-secrets-path=${OUT_JSON_FILE}" >> $GITHUB_OUTPUT
 
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        OUTPUT_ENV_JSON_ESC=$(escape-for-output "${OUTPUT_ENV_JSON}")
-        echo "::set-output name=json::${OUTPUT_ENV_JSON_ESC}"
+        echo "build-envs-artifact-name=build-envs-$(get-val 'application-version')"  >> $GITHUB_OUTPUT
+
+        echo 'json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${OUTPUT_ENV_JSON}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     - uses: actions/upload-artifact@v3
       with:

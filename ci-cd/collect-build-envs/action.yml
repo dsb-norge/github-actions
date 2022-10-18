@@ -41,7 +41,6 @@ runs:
         echo "${OUTPUT_ENV_JSON}"
         echo "::endgroup::"
 
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        OUTPUT_ENV_JSON_ESC=$(escape-for-output "${OUTPUT_ENV_JSON}")
-        echo "::set-output name=json::${OUTPUT_ENV_JSON_ESC}"
+        echo 'json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${OUTPUT_ENV_JSON}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT

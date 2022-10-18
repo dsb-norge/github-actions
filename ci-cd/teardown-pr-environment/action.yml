@@ -57,7 +57,7 @@ runs:
           EXIT_CODE=$?
           echo "ERROR: teardown-pr-environment: 'helm uninstall' did not complete successfully, exit code '${EXIT_CODE}'. Note that this can be expected (e.g. PRs from renovate-bot)."
         fi
-        echo "::set-output name=result::${RESULT}"
+        echo "result=${RESULT}" >> $GITHUB_OUTPUT
 
     - shell: bash
       id: kubectl-delete-namespace
@@ -72,7 +72,7 @@ runs:
           EXIT_CODE=$?
           echo "ERROR: teardown-pr-environment: 'kubectl delete namespace' did not complete successfully, exit code '${EXIT_CODE}'. Note that this can be expected (e.g. PRs from renovate-bot)."
         fi
-        echo "::set-output name=result::${RESULT}"
+        echo "result=${RESULT}" >> $GITHUB_OUTPUT
 
     - shell: bash
       run: |
