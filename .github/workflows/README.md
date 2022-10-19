@@ -103,7 +103,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   ci-cd:
-    uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@v1
+    # TODO revert to @v1
+    uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@tuin-144
     secrets:
       # All required secrets are passed to the workflow here
       maven-repo-username: ${{ secrets.JENKINS_REPO_USERNAME }}
@@ -186,7 +187,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   autobump:
     name: Bump versions
-    uses: dsb-norge/github-actions/workflows/update-deps-and-create-pr.yml@v1
+    # TODO revert to @v1
+    uses: dsb-norge/github-actions/workflows/update-deps-and-create-pr.yml@tuin-144
     secrets:
       maven-repo-username: ${{ secrets.JENKINS_REPO_USERNAME }}
       maven-repo-token: ${{ secrets.JENKINS_REPO_TOKEN }}
