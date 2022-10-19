@@ -22,8 +22,7 @@ runs:
   using: 'composite'
   steps:
     # verify required inputs exists for all apps
-    # TODO revert to @v1
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@tuin-144
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
       with:
         dsb-build-envs-array: ${{ inputs.dsb-build-envs-array }}
         require: |
