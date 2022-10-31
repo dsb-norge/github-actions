@@ -253,7 +253,11 @@ runs:
           maven-build-project-arguments
           maven-build-project-command
           maven-build-project-deploy-release-artifacts
+          maven-build-project-deploy-release-version-command
+          maven-build-project-deploy-release-deploy-command
           maven-build-project-deploy-snapshot-artifacts
+          maven-build-project-deploy-snapshot-version-command
+          maven-build-project-deploy-snapshot-deploy-command
           maven-build-project-goals
           maven-build-project-version-arguments
           maven-build-project-version-command
