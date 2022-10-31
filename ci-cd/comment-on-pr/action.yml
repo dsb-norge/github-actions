@@ -10,7 +10,7 @@ inputs:
   delete-comments-starting-with:
     description: |
       CAUTION: Comments on the PR starting with this string will be deleted.
-      Use this if your comment should supercede a previous comment.
+      Use this if your comment should supersede a previous comment.
       If left empty no comments will be deleted.
     default: ''
     required: false

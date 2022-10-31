@@ -166,7 +166,7 @@ runs:
         echo "prefix=${COMMENT_PREFIX}" >> $GITHUB_OUTPUT
 
         echo 'comment<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${COMMENT_CONTENT}" >> $GITHUB_OUTPUT
+        echo "${COMMENT_TEXT}" >> $GITHUB_OUTPUT
         echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     # add comment to PR
