@@ -3,6 +3,9 @@ description: |
   Given a yaml array of application specifications this action will:
     - Convert yaml input to JSON.
     - Attempt to detect application type for each app, where type is missing, based on input.
+      - 'spring-boot' will be set if pom.xml is found.
+      - 'vue' will be set if package.json is found (and pom.xml is not found).
+      - 'maven-library' has to be set explicitly as there is no auto-detection for this.
     - Attempt to read application description for each app, where description is missing, based on input.
     - Validate the app vars structure.
     - Generate some additional dynamic app vars and add them to all apps:
@@ -77,7 +80,7 @@ runs:
           echo "create-app-vars-matrix: [OK] The specification is an array."
         fi
 
-        # Make sure at least one app vars specifiction is given
+        # Make sure at least one app vars specification is given
         NUM_APPS=$( echo "${JSON_CONFIG}" | jq -r '. | length' )
         if [ ${NUM_APPS} -le 0 ]; then
           echo "ERROR: create-app-vars-matrix: The specification is an empty array!"
@@ -201,7 +204,7 @@ runs:
                 if [ -z "${SRC_DATA}" ]; then
                   echo "WARN: create-app-vars-matrix: Unable to use given 'application-source-path', '${SRC_PATH}' was empty."
                 else
-                  if [ "${APP_TYPE}" == 'spring-boot' ]; then
+                  if [ "${APP_TYPE}" == 'spring-boot' ] || [ "${APP_TYPE}" == 'maven-library' ]; then
                     # grep from '<description>' to next '<', replace newlines with spaces, replace spaces
                     APP_DESC=$(echo "${SRC_DATA}" | grep -zoPm1 "(?<=<description>)[^<]+" | tr '\n' ' ' | awk '{$1=$1};1') \
                     || echo "WARN: create-app-vars-matrix: Unable to parse file '${SRC_PATH}' as XML or '<description>' field is missing."
@@ -256,6 +259,7 @@ runs:
         APP_TYPE_ALLOWED_VALUES=(
           'vue'
           'spring-boot'
+          'maven-library'
         )
 
         # Check that app vars is of type array
@@ -266,7 +270,7 @@ runs:
           echo "create-app-vars-matrix: [OK] The specification is an array."
         fi
 
-        # Make sure at least one app vars specifiction is given
+        # Make sure at least one app vars specification is given
         NUM_APPS=$( echo "${JSON_CONFIG}" | jq -r '. | length' )
         if [ ${NUM_APPS} -le 0 ]; then
           echo "ERROR: create-app-vars-matrix: The specification is an empty array!"
