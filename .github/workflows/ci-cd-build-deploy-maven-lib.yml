@@ -1,0 +1,93 @@
+name: 'DSB Build and deploy Maven artefact'
+
+on:
+  workflow_call:
+    inputs:
+      apps:
+        type: string
+        description: |
+          specification of app to build and deploy to artifact repo.
+          YAML list (as string) with specifications of applications to build and/or deploy.
+          Required fields are:
+            - application-name        - string
+          For optional fields see possible inputs to the create-build-envs action.
+        required: true
+    secrets:
+      maven-repo-username:
+        required: true
+      maven-repo-token:
+        required: true
+      sonarqube-token:
+        required: true
+      jasypt-password:
+        required: true
+      github-repo-token:
+        required: true
+      acr-username:
+        required: true
+      acr-password:
+        required: true
+
+
+jobs:
+    create-matrix:
+      name: Create build matrix
+      runs-on: [self-hosted, dsb-builder, linux, x64]
+      defaults:
+        run:
+          shell: bash
+      outputs:
+        app-vars-matrix: ${{ steps.create-matrix.outputs.app-vars }}
+        applications-version: ${{ steps.create-matrix.outputs.applications-version }}
+
+      steps:
+        # The create-app-vars-matrix action requires source code to be available
+        - name: 🧹 Clean workspace
+          uses: dsb-norge/github-actions/directory-recreate@v1
+        - name: ⬇ Checkout working branch
+          uses: actions/checkout@v3
+
+        - name: 🎰 Create app vars build matrix
+          id: create-matrix
+          uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v1
+          with:
+            apps: ${{ inputs.apps }}
+
+    build-and-deploy:
+      name: Build and deploy to artifact repo
+      needs: create-matrix
+      runs-on: [self-hosted, dsb-builder, linux, x64]
+      strategy:
+        matrix: ${{ fromJSON(needs.create-matrix.outputs.app-vars-matrix) }}
+
+      defaults:
+        run:
+          shell: bash
+
+      steps:
+        - name: 🧹 Clean workspace
+          uses: dsb-norge/github-actions/directory-recreate@v1
+
+        - name: ⬇ Checkout working branch
+          uses: actions/checkout@v3
+
+        - name: 🎰 Generate DSB build variables
+          id: build-env
+          uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1
+          with:
+            app-vars: ${{ toJSON(matrix.app-vars) }}
+            maven-repo-username: ${{ secrets.maven-repo-username }}
+            maven-repo-token: ${{ secrets.maven-repo-token }}
+            sonarqube-token: ${{ secrets.sonarqube-token }}
+            jasypt-password: ${{ secrets.jasypt-password }}
+            github-repo-token: ${{ secrets.github-repo-token }}
+            acr-username: ${{ secrets.acr-username }}
+            acr-password: ${{ secrets.acr-password }}
+
+        - name: '⚒ Library: Build and analyze with Maven'
+          if: |
+            ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+            && matrix.app-vars.application-type == 'maven-library'
+          uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
+          with:
+            dsb-build-envs: ${{ steps.build-env.outputs.json }}
