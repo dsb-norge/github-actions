@@ -10,6 +10,7 @@ on:
           YAML list (as string) with specifications of applications to build and/or deploy.
           Required fields are:
             - application-name        - string
+            - application-type        - string, always 'maven-library'
           For optional fields see possible inputs to the create-build-envs action.
         required: true
     secrets:
