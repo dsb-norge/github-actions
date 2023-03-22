@@ -263,6 +263,10 @@ runs:
           maven-build-project-version-command
           maven-build-project-version-goals
           maven-repo-pom-id
+          nodejs-build-project-custom-command-pre-npm-ci
+          nodejs-build-project-custom-command-pre-npm-run-lint
+          nodejs-build-project-custom-command-pre-npm-run-build
+          nodejs-build-project-custom-command-final
           nodejs-version
           pr-deploy-additional-helm-values
           pr-deploy-aks-cluster-name
