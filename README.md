@@ -30,13 +30,15 @@ This action removes and a directory including all files and sub-directories with
 ### **Example: Clean the workspace directory**
 Removes and re-creates the github workspace directory.
 ```yaml
-- uses: dsb-norge/github-actions/directory-recreate@v1
+# TODO revert to @v1
+- uses: dsb-norge/github-actions/directory-recreate@prescript
 ```
 
 ### **Example: Remove a specific directory**
 Removes `my-cache-dir` (in the current working directory) and does not re-create it.
 ```yaml
-- uses: dsb-norge/github-actions/directory-recreate@v1
+# TODO revert to @v1
+- uses: dsb-norge/github-actions/directory-recreate@prescript
   with:
     directory: ./my-cache-dir
     recreate: false

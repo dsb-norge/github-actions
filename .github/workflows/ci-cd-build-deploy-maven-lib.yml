@@ -44,13 +44,15 @@ jobs:
       steps:
         # The create-app-vars-matrix action requires source code to be available
         - name: 🧹 Clean workspace
-          uses: dsb-norge/github-actions/directory-recreate@v1
+          # TODO revert to @v1
+          uses: dsb-norge/github-actions/directory-recreate@prescript
         - name: ⬇ Checkout working branch
           uses: actions/checkout@v3
 
         - name: 🎰 Create app vars build matrix
           id: create-matrix
-          uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v1
+          # TODO revert to @v1
+          uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@prescript
           with:
             apps: ${{ inputs.apps }}
 
@@ -67,14 +69,16 @@ jobs:
 
       steps:
         - name: 🧹 Clean workspace
-          uses: dsb-norge/github-actions/directory-recreate@v1
+          # TODO revert to @v1
+          uses: dsb-norge/github-actions/directory-recreate@prescript
 
         - name: ⬇ Checkout working branch
           uses: actions/checkout@v3
 
         - name: 🎰 Generate DSB build variables
           id: build-env
-          uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1
+          # TODO revert to @v1
+          uses: dsb-norge/github-actions/ci-cd/create-build-envs@prescript
           with:
             app-vars: ${{ toJSON(matrix.app-vars) }}
             maven-repo-username: ${{ secrets.maven-repo-username }}
@@ -89,6 +93,7 @@ jobs:
           if: |
             ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
             && matrix.app-vars.application-type == 'maven-library'
-          uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
+          # TODO revert to @v1
+          uses: dsb-norge/github-actions/ci-cd/build-maven-project@prescript
           with:
             dsb-build-envs: ${{ steps.build-env.outputs.json }}
