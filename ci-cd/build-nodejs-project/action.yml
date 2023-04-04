@@ -114,7 +114,7 @@ runs:
 
         popd >/dev/null
 
-    - uses: cypress-io/github-action@30008f1458a5a2c97054bfe118fe33d75976c482
+    - uses: cypress-io/github-action@a29a621b736c9a8547ba0236cc9cee1e49725bd5
       env:
         DEBUG: '@cypress/github-action'
       if: |
