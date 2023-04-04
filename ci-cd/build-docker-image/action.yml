@@ -38,7 +38,7 @@ runs:
         password: ${{ fromJSON(inputs.dsb-build-envs).acr-password }}
 
     # generate tags and labels
-    - uses: docker/metadata-action@v3
+    - uses: docker/metadata-action@v4
       id: meta
       with:
         images: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}
@@ -77,7 +77,7 @@ runs:
         EOF
 
     # build, tag and push docker image
-    - uses: docker/build-push-action@v2
+    - uses: docker/build-push-action@v3
       with:
         pull: true
         push: true

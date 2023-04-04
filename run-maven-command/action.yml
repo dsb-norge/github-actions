@@ -52,10 +52,10 @@ runs:
         # Determine maven command
         MVN_CMD="mvn ${{ inputs.arguments }} --file ${POM_FILE} ${{ inputs.goals }}"
         echo "run-maven-command: Maven command: '${MVN_CMD}'"
-        echo "::set-output name=mvn-cmd::${MVN_CMD}"
+        echo "mvn-cmd=${MVN_CMD}" >> $GITHUB_OUTPUT
 
     # Set up JDK
-    - uses: actions/setup-java@v2
+    - uses: actions/setup-java@v3
       with:
         distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}

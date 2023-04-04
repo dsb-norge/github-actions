@@ -14,7 +14,10 @@ inputs:
       Required fields:
         See first step.
       Optional fields:
-        None.
+        nodejs-build-project-custom-command-pre-npm-ci
+        nodejs-build-project-custom-command-pre-npm-run-lint
+        nodejs-build-project-custom-command-pre-npm-run-build
+        nodejs-build-project-custom-command-final
     required: true
 runs:
   using: 'composite'
@@ -29,29 +32,86 @@ runs:
           application-source-path
 
     # set up Node.js
-    - uses: actions/setup-node@v1
+    - uses: actions/setup-node@v3
       with:
         node-version:  ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
 
     # npm install, build
     - shell: bash
-      run: |  
-        echo "build-nodejs-project: Looking for project to build ..."
+      run: |
+        # npm install, build with support for additional custom commands
+
+        BUILD_ENVS=$(cat <<'EOF'
+        ${{ inputs.dsb-build-envs }}
+        EOF
+        )
+
+        # Helper functions
+        # Check if field exists in BUILD_ENVS safely
+        function has-field { if [[ "$(echo "${BUILD_ENVS}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
+        # Get field value from BUILD_ENVS safely
+        function get-val { echo "${BUILD_ENVS}" | jq -r --arg name "$1" '.[$name]'; }
+        function log-info { echo "build-nodejs-project: $*"; }
+        function log-error { echo "ERROR: build-nodejs-project: $*"; }
+        function start-group { echo "::group::build-nodejs-project: $*"; }
+        function end-group { echo "::endgroup::"; }
+
+        log-info "Looking for project to build ..."
         WORK_DIR=${{ github.workspace }}/${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
         [ -d "${WORK_DIR}" ] \
-          && echo "build-nodejs-project: Found project at '${WORK_DIR}'" \
-          || echo "ERROR: build-nodejs-project: given 'application-source-path' does not exist: '${WORK_DIR}'" \
+          && log-info "Found project at '${WORK_DIR}'" \
+          || log-error "given 'application-source-path' does not exist: '${WORK_DIR}'" \
           || exit 1
         pushd "${WORK_DIR}" >/dev/null
-        echo "::group::build-nodejs-project: npm ci --ignore-scripts"
+
+        if has-field 'nodejs-build-project-custom-command-pre-npm-ci'; then
+          start-group "Custom command: pre npm ci"
+          log-info "Command string: '$(get-val 'nodejs-build-project-custom-command-pre-npm-ci')'"
+          eval "$(get-val 'nodejs-build-project-custom-command-pre-npm-ci')"
+          end-group
+        else
+          log-info "Skipping custom pre npm ci command, not defined"
+        fi
+
+        start-group "npm ci --ignore-scripts"
         npm ci --ignore-scripts
-        echo "::endgroup::"
-        echo "::group::build-nodejs-project: npm run lint"
+        end-group
+
+        if has-field 'nodejs-build-project-custom-command-pre-npm-run-lint'; then
+          start-group "Custom command: pre npm run lint"
+          log-info "Command string: '$(get-val 'nodejs-build-project-custom-command-pre-npm-run-lint')'"
+          eval "$(get-val 'nodejs-build-project-custom-command-pre-npm-run-lint')"
+          end-group
+        else
+          log-info "Skipping custom pre npm run lint command, not defined"
+        fi
+
+        start-group "npm run lint"
         npm run lint
-        echo "::endgroup::"
-        echo "::group::build-nodejs-project: npm run build"
+        end-group
+
+        if has-field 'nodejs-build-project-custom-command-pre-npm-run-build'; then
+          start-group "Custom command: pre npm run build"
+          log-info "Command string: '$(get-val 'nodejs-build-project-custom-command-pre-npm-run-build')'"
+          eval "$(get-val 'nodejs-build-project-custom-command-pre-npm-run-build')"
+          end-group
+        else
+          log-info "Skipping custom pre npm run build command, not defined"
+        fi
+
+        start-group "npm run build"
         npm run build
-        echo "::endgroup::"
+        end-group
+
+        if has-field 'nodejs-build-project-custom-command-final'; then
+          start-group "Custom command: final"
+          log-info "Command string: '$(get-val 'nodejs-build-project-custom-command-final')'"
+          eval "$(get-val 'nodejs-build-project-custom-command-final')"
+          end-group
+        else
+          log-info "Skipping custom final command, not defined"
+        fi
+
         popd >/dev/null
 
     - uses: cypress-io/github-action@30008f1458a5a2c97054bfe118fe33d75976c482

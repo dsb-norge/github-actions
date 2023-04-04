@@ -65,4 +65,4 @@ runs:
         echo "::endgroup::"
 
         echo "deploy-multiple-to-static-is-allowed: conclusion: '${IS_ALLOWED}'"
-        echo "::set-output name=result::${IS_ALLOWED}"
+        echo "result=${IS_ALLOWED}" >> $GITHUB_OUTPUT

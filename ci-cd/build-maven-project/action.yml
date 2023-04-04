@@ -23,6 +23,8 @@ description: |
         - The pom file used will be the one defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing
           pom.xml or to a directory containing it.
         - The resulting maven invocation command is: mvn <arguments> --file <pom file> <goals>
+          - Where <pom file> is defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or
+            to a directory containing it.
   Second part inputs:
     If the 'mvn-cmd' input is set this will be used (replaces the whole maven invocation command).
     If the 'mvn-cmd' input is empty:
@@ -32,19 +34,47 @@ description: |
           default goals will be used: 'clean verify install org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'.
         - And 'maven-build-project-arguments' is defined in 'dsb-build-envs', arguments from 'maven-build-project-arguments' will be used.
           Otherwise default argument will be used: '-B'.
-        - The pom file used will be the one defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or to a directory containing it.
+        - The pom file used will be the one defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing
+          pom.xml or to a directory containing it.
         - The resulting maven invocation command is: mvn <arguments> --file <pom file> <goals>
+          - Where <pom file> is defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or to a
+            directory containing it.
   Deploy of build artifacts:
-    - Configure repos in the pom.xml and set one ore both of the following to 'true':
-      - 'maven-build-project-deploy-release-artifacts'
-        - Will deploy artifacts with 'mvn deploy -DskipTests'
-        - To the maven repo configured under <distributionManagement><repository>
-        - Will only deploy artifacts when building from default branch of repo (normally main).
-      - 'maven-build-project-deploy-snapshot-artifacts'
-        - Will invoke 'mvn versions:set -DnewVersion=<version>-SNAPSHOT'
-        - Will deploy artifacts with 'mvn deploy -DskipTests'
-        - To the maven repo configured under <distributionManagement><snapshotRepository>
-        - Will only deploy artifacts when building from PR.
+    - Configure repos in the <pom file> and set one ore both of the following to 'true':
+      - If the 'maven-build-project-deploy-release-artifacts' is set to 'true':
+        - The following items only applies when building from default branch of repo (normally main), ie. only deploy release from main:
+          - And 'maven-build-project-deploy-release-version-command' is defined in 'dsb-build-envs':
+            - This command will be used to set version prior to deploying release artifacts, should normally not be used as version is
+              already set correctly in the build step.
+            - Note that the argument defining the version number is hardcoded. Ie. all invocations will have '-DnewVersion=<version>' appended.
+          - And 'maven-build-project-deploy-release-version-command' is NOT defined in 'dsb-build-envs':
+            - Will not explicitly set version with maven as version is already set correctly in the build step
+          - And 'maven-build-project-deploy-release-deploy-command' is defined in 'dsb-build-envs':
+            - This command will be used to deploy artifacts.
+          - And 'maven-build-project-deploy-release-deploy-command' is NOT defined in 'dsb-build-envs':
+            - Will deploy artifacts with 'mvn -B --file <pom file> deploy -DskipTests'
+              - Where <pom file> is defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or
+                to a directory containing it.
+            - To the maven repo configured under <distributionManagement><repository>
+      - If the 'maven-build-project-deploy-snapshot-artifacts' is set to 'true':
+        - The following items only applies when building from pull request and for other actions than 'closed', ie. only deploy snapshot
+          artifacts from PRs:
+          - And 'maven-build-project-deploy-snapshot-version-command' is defined in 'dsb-build-envs':
+            - This command will be used to set version prior to deploying snapshot artifacts.
+            - Note that the argument defining the version number is hardcoded. Ie. all invocations will have
+              '-DnewVersion=pr-<pr number>-SNAPSHOT' appended. Where <pr number> is defined by github.
+          - And 'maven-build-project-deploy-snapshot-version-command' is NOT defined in 'dsb-build-envs':
+            - Will set version prior to deploying artifacts with 'mvn -B --file <pom file> versions:set -DnewVersion=pr-<pr number>-SNAPSHOT'
+              - Where <pom file> is defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or
+                to a directory containing it.
+              - Where <pr number> is defined by github
+          - And 'maven-build-project-deploy-snapshot-deploy-command' is defined in 'dsb-build-envs':
+            - This command will be used to deploy artifacts.
+          - And 'maven-build-project-deploy-snapshot-deploy-command' is NOT defined in 'dsb-build-envs':
+            - Will deploy artifacts with 'mvn -B --file <pom file> deploy -DskipTests'
+              - Where <pom file> is defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or
+                to a directory containing it.
+            - To the maven repo configured under <distributionManagement><snapshotRepository>
 author: 'Peder Schmedling'
 inputs:
   mvn-version-cmd:
@@ -72,7 +102,11 @@ inputs:
         maven-build-project-goals
         maven-build-project-arguments
         maven-build-project-deploy-release-artifacts
+        maven-build-project-deploy-release-version-command
+        maven-build-project-deploy-release-deploy-command
         maven-build-project-deploy-snapshot-artifacts
+        maven-build-project-deploy-snapshot-version-command
+        maven-build-project-deploy-snapshot-deploy-command
     required: true
 
 runs:
@@ -128,70 +162,72 @@ runs:
         function has-field { if [[ "$(echo "${BUILD_ENVS}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
         # Get field value from BUILD_ENVS safely
         function get-val { echo "${BUILD_ENVS}" | jq -r --arg name "$1" '.[$name]'; }
+        function log-info { echo "build-dsb-maven-project: $*"; }
+        function log-error { echo "ERROR: build-dsb-maven-project: $*"; }
 
         # Locate pom.xml
         POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
         [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
         [ ! -f "${POM_FILE}" ] && \
-          echo "ERROR: build-dsb-maven-project: Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
+          echo log-error "Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
           exit 1
 
         # Determine maven command for first invocation
         if [ ! -z '${{ inputs.mvn-version-cmd }}' ]; then
-          echo "build-dsb-maven-project: using maven version command from 'inputs.mvn-version-cmd'."
+          log-info "using maven version command from 'inputs.mvn-version-cmd'."
           MVN_VERSION_CMD='${{ inputs.mvn-version-cmd }} -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }}'
         elif has-field 'maven-build-project-version-command'; then
-          echo "build-dsb-maven-project: using maven version command from 'inputs.dsb-build-envs.maven-build-project-version-command'."
+          log-info "using maven version command from 'inputs.dsb-build-envs.maven-build-project-version-command'."
           MVN_VERSION_CMD="$(get-val 'maven-build-project-version-command') -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }}"
         else
           if has-field 'maven-build-project-version-goals'; then
-            echo "build-dsb-maven-project: using maven version goals from 'inputs.dsb-build-envs.maven-build-project-version-goals'."
+            log-info "using maven version goals from 'inputs.dsb-build-envs.maven-build-project-version-goals'."
             MVN_VERSION_GOALS="$(get-val 'maven-build-project-version-goals')"
           else
-            echo "build-dsb-maven-project: using default maven version goals."
+            log-info "using default maven version goals."
             MVN_VERSION_GOALS="${MVN_VERSION_GOALS_DEFAULT}"
           fi
           if has-field 'maven-build-project-version-arguments'; then
-            echo "build-dsb-maven-project: using maven version arguments from 'inputs.dsb-build-envs.maven-build-project-version-arguments'."
+            log-info "using maven version arguments from 'inputs.dsb-build-envs.maven-build-project-version-arguments'."
             MVN_VERSION_ARGUMENTS="$(get-val 'maven-build-project-version-arguments')"
           else
-            echo "build-dsb-maven-project: using default maven version arguments."
+            log-info "using default maven version arguments."
             MVN_VERSION_ARGUMENTS="${MVN_VERSION_ARGUMENTS_DEFAULT}"
           fi
           MVN_VERSION_CMD="mvn ${MVN_VERSION_ARGUMENTS} --file ${POM_FILE} ${MVN_VERSION_GOALS} -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }}"
         fi
-        echo "build-dsb-maven-project: maven version command: '${MVN_VERSION_CMD}'"
-        echo "::set-output name=mvn-version-cmd::${MVN_VERSION_CMD}"
+        log-info "maven version command: '${MVN_VERSION_CMD}'"
+        echo "mvn-version-cmd=${MVN_VERSION_CMD}" >> $GITHUB_OUTPUT
 
         # Determine maven command for second invocation
         if [ ! -z '${{ inputs.mvn-cmd }}' ]; then
-          echo "build-dsb-maven-project: using maven command from 'inputs.mvn-cmd'."
+          log-info "using maven command from 'inputs.mvn-cmd'."
           MVN_CMD='${{ inputs.mvn-cmd }}'
         elif has-field 'maven-build-project-command'; then
-          echo "build-dsb-maven-project: using maven command from 'inputs.dsb-build-envs.maven-build-project-command'."
+          log-info "using maven command from 'inputs.dsb-build-envs.maven-build-project-command'."
           MVN_CMD="$(get-val 'maven-build-project-command')"
         else
           if has-field 'maven-build-project-goals'; then
-            echo "build-dsb-maven-project: using maven goals from 'inputs.dsb-build-envs.maven-build-project-goals'."
+            log-info "using maven goals from 'inputs.dsb-build-envs.maven-build-project-goals'."
             MVN_GOALS="$(get-val 'maven-build-project-goals')"
           else
-            echo "build-dsb-maven-project: using default maven goals."
+            log-info "using default maven goals."
             MVN_GOALS="${MVN_GOALS_DEFAULT}"
           fi
           if has-field 'maven-build-project-arguments'; then
-            echo "build-dsb-maven-project: using maven arguments from 'inputs.dsb-build-envs.maven-build-project-arguments'."
+            log-info "using maven arguments from 'inputs.dsb-build-envs.maven-build-project-arguments'."
             MVN_ARGUMENTS="$(get-val 'maven-build-project-arguments')"
           else
-            echo "build-dsb-maven-project: using default maven arguments."
+            log-info "using default maven arguments."
             MVN_ARGUMENTS="${MVN_ARGUMENTS_DEFAULT}"
           fi
           MVN_CMD="mvn ${MVN_ARGUMENTS} --file ${POM_FILE} ${MVN_GOALS}"
         fi
-        echo "build-dsb-maven-project: Maven build command: '${MVN_CMD}'"
-        echo "::set-output name=mvn-cmd::${MVN_CMD}"
+        log-info "Maven build command: '${MVN_CMD}'"
+        echo "mvn-cmd=${MVN_CMD}" >> $GITHUB_OUTPUT
 
     # set up JDK
-    - uses: actions/setup-java@v2
+    - uses: actions/setup-java@v3
       with:
         distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
@@ -248,44 +284,71 @@ runs:
         )
 
         # Helper functions
+        # Check if field exists in BUILD_ENVS safely
+        function has-field { if [[ "$(echo "${BUILD_ENVS}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
         # Get field value from BUILD_ENVS safely
         function get-val { echo "${BUILD_ENVS}" | jq -r --arg name "$1" '.[$name]'; }
+        function log-info { echo "build-dsb-maven-project: Deploy artifacts: $*"; }
+        function log-error { echo "ERROR: build-dsb-maven-project: Deploy artifacts: $*"; }
 
         # Locate pom.xml
         POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
         [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
         [ ! -f "${POM_FILE}" ] && \
-          echo "ERROR: build-dsb-maven-project: Deploy artifacts: Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
+          log-error "Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
           exit 1
 
         # Determine if we are deploying and with what commands
         if [ '${{ github.event_name }}' == 'pull_request' ]; then
           if [ '${{ github.event.action }}' == 'closed' ]; then
-            echo "build-dsb-maven-project: Deploy artifacts: Maven snapshot artifacts will not be deployed when closing PR."
+            log-info "Maven snapshot artifacts will not be deployed when closing PR."
             exit 0
           elif [ ! "$(get-val 'maven-build-project-deploy-snapshot-artifacts')" == 'true' ]; then
-            echo "build-dsb-maven-project: Deploy artifacts: Deployment of maven snapshot artifacts not requested."
+            log-info "Deployment of maven snapshot artifacts not requested."
             exit 0
           else
-            echo "build-dsb-maven-project: Deploy artifacts: Will deploy maven snapshot artifacts as requested."
-            MVN_VERSION_CMD="mvn -B --file ${POM_FILE} versions:set -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT"
-            MVN_CMD="mvn -B --file ${POM_FILE} deploy -DskipTests"
+            log-info "Will deploy maven snapshot artifacts as requested."
+            if has-field 'maven-build-project-deploy-snapshot-version-command'; then
+              log-info "using maven version command from 'inputs.dsb-build-envs.maven-build-project-deploy-snapshot-version-command'."
+              MVN_VERSION_CMD="$(get-val 'maven-build-project-deploy-snapshot-version-command') -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT"
+            else
+              log-info "using default maven version command."
+              MVN_VERSION_CMD="mvn -B --file ${POM_FILE} versions:set -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT"
+            fi
+            if has-field 'maven-build-project-deploy-snapshot-deploy-command'; then
+              log-info "using maven deploy command from 'inputs.dsb-build-envs.maven-build-project-deploy-snapshot-deploy-command'."
+              MVN_CMD="$(get-val 'maven-build-project-deploy-snapshot-deploy-command')"
+            else
+              log-info "using default maven deploy command."
+              MVN_CMD="mvn -B --file ${POM_FILE} deploy -DskipTests"
+            fi
           fi
         elif [ '${{ github.event_name }}' == 'push' ] || [ '${{ github.event_name }}' == 'workflow_dispatch' ]; then
           if [ ! '${{ fromJSON(inputs.dsb-build-envs).caller-repo-is-on-default-branch }}' == 'true' ]; then
-            echo "build-dsb-maven-project: Deploy artifacts: Maven release artifacts will not be deployed as current branch '${{ fromJSON(inputs.dsb-build-envs).caller-repo-calling-branch }}' is not the default of this repo."
+            log-info "Maven release artifacts will not be deployed as current branch '${{ fromJSON(inputs.dsb-build-envs).caller-repo-calling-branch }}' is not the default of this repo."
             exit 0
           elif [ ! "$(get-val 'maven-build-project-deploy-release-artifacts')" == 'true' ]; then
-            echo "build-dsb-maven-project: Deploy artifacts: Deployment of maven release artifacts not requested."
+            log-info "Deployment of maven release artifacts not requested."
             exit 0
           else
-            echo "build-dsb-maven-project: Deploy artifacts: Will deploy maven release artifacts as requested."
-            # Version is already set corretly in build step
-            MVN_VERSION_CMD=
-            MVN_CMD="mvn -B --file ${POM_FILE} deploy -DskipTests"
+            log-info "Will deploy maven release artifacts as requested."
+            if has-field 'maven-build-project-deploy-release-version-command'; then
+              log-info "using maven version command from 'inputs.dsb-build-envs.maven-build-project-deploy-release-version-command'."
+              MVN_VERSION_CMD="$(get-val 'maven-build-project-deploy-release-version-command') -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }}"
+            else
+              log-info "not setting version with maven as version was already set correctly in the build step."
+              MVN_VERSION_CMD=
+            fi
+            if has-field 'maven-build-project-deploy-release-deploy-command'; then
+              log-info "using maven deploy command from 'inputs.dsb-build-envs.maven-build-project-deploy-release-deploy-command'."
+              MVN_CMD="$(get-val 'maven-build-project-deploy-release-deploy-command')"
+            else
+              log-info "using default maven deploy command."
+              MVN_CMD="mvn -B --file ${POM_FILE} deploy -DskipTests"
+            fi
           fi
         else
-          echo "ERROR: build-dsb-maven-project: Deploy artifacts: unsupported github.event_name '${{ github.event_name }}' with github.event.action '${{ github.event.action }}'!"
+          log-error "unsupported github.event_name '${{ github.event_name }}' with github.event.action '${{ github.event.action }}'!"
           exit 1
         fi
 
@@ -306,16 +369,20 @@ runs:
         fi
 
         if [ -z "${MVN_VERSION_CMD}" ]; then
-          echo "build-dsb-maven-project: Deploy artifacts: Project version already set by maven."
+          log-info "Project version already set by maven."
         else
+          # Expand any bash variables in maven command string
+          MVN_VERSION_CMD=$(eval "echo $MVN_VERSION_CMD")
           echo "::group::build-dsb-maven-project: Setting maven project version for deployment of artifacts"
-          echo "build-dsb-maven-project: Deploy artifacts: command string: '${MVN_VERSION_CMD}'"
+          log-info "command string: '${MVN_VERSION_CMD}'"
           ${MVN_VERSION_CMD}
           echo "::endgroup::"
         fi
 
+        # Expand any bash variables in maven command string
+        MVN_CMD=$(eval "echo $MVN_CMD")
         echo "::group::build-dsb-maven-project: Deploy artifacts: Invoke maven"
-        echo "build-dsb-maven-project: Deploy artifacts: command string: '${MVN_CMD}'"
+        log-info "command string: '${MVN_CMD}'"
         ${MVN_CMD}
         echo "::endgroup::"
       env:

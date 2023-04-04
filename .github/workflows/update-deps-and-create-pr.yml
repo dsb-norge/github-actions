@@ -84,7 +84,7 @@ jobs:
       - name: 🌱 Commit to new branch (or update existing) & create pull request
         # Will update branch if it already exists.
         # See https://github.com/peter-evans/create-pull-request for details.
-        uses: peter-evans/create-pull-request@bd72e1b7922d417764d27d30768117ad7da78a0e # 4.0.2
+        uses: peter-evans/create-pull-request@b4d51739f96fca8047ad065eccef63442d8e99f7 # 4.2.0
         with:
           # Pull requests created by the action using the default GITHUB_TOKEN cannot trigger other workflows.
           # So, to trigger CI/CD (which verifies that the app can be built and deployed), we use a repo scoped personal access token (PAT).

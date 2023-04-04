@@ -91,17 +91,21 @@ runs:
         echo "::endgroup::"
 
         if [ -z "$(cat ${VALUES_FILE})" ]; then
-          echo "::set-output name=commandline-parameter::"
+          echo "commandline-parameter=" >> $GITHUB_OUTPUT
         else
-          echo "::set-output name=commandline-parameter::--values ${VALUES_FILE}"
+          echo "commandline-parameter=--values ${VALUES_FILE}" >> $GITHUB_OUTPUT
         fi
 
-    # set target kubernetes cluster to
-    - uses: azure/aks-set-context@v1
+
+    - uses: azure/login@v1
       with:
         creds: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-aks-creds }}
+    # set target kubernetes cluster to
+    - uses: azure/aks-set-context@v3
+      with:
         cluster-name: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-aks-cluster-name }}
         resource-group: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-aks-resource-group }}
+        admin: 'true'
 
     # install app in ephemeral environment
     - shell: bash
@@ -159,12 +163,11 @@ runs:
         echo "${COMMENT_TEXT}"
         echo "::endgroup::"
 
-        # Escape (%, linefeed and carriage return) and return data
-        function escape-for-output { local ESCAPED="${1//'%'/'%25'}"; ESCAPED="${ESCAPED//$'\n'/'%0A'}"; ESCAPED="${ESCAPED//$'\r'/'%0D'}"; echo "${ESCAPED}" ; }
-        COMMENT_TEXT_ESC=$(escape-for-output "${COMMENT_TEXT}")
-        COMMENT_PREFIX_ESC=$(escape-for-output "${COMMENT_PREFIX}")
-        echo "::set-output name=prefix::${COMMENT_PREFIX_ESC}"
-        echo "::set-output name=comment::${COMMENT_TEXT_ESC}"
+        echo "prefix=${COMMENT_PREFIX}" >> $GITHUB_OUTPUT
+
+        echo 'comment<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${COMMENT_TEXT}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     # add comment to PR
     - uses: dsb-norge/github-actions/ci-cd/comment-on-pr@npm-e2e
