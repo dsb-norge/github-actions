@@ -112,8 +112,7 @@ jobs:
               --url "https://api.github.com/app/installations/${GH_APP_INSTALL_ID}/access_tokens" \
               --header "Accept: application/vnd.github+json" \
               --header "Authorization: Bearer ${JWT}" \
-              --header "X-GitHub-Api-Version: 2022-11-28" \
-              -d '{"repository":"test-application","permissions":{"contents":"write","pull-requests":"write"}}'
+              --header "X-GitHub-Api-Version: 2022-11-28"
           )
 
           echo "DEBUG: auth-as-github-app: exit code: $?"
