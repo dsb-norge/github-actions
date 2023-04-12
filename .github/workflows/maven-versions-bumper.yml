@@ -113,7 +113,7 @@ jobs:
               --header "Accept: application/vnd.github+json" \
               --header "Authorization: Bearer ${JWT}" \
               --header "X-GitHub-Api-Version: 2022-11-28" \
-              -d '{"repository":"${{ github.repository }}","permissions":{"contents":"write","pull-requests":"read"}}'
+              -d '{"repository":"${{ github.repository }}","permissions":{"contents":"write","pull-requests":"write"}}'
           )
 
           echo "DEBUG: auth-as-github-app: exit code: $?"
