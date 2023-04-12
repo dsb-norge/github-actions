@@ -34,6 +34,8 @@ runs:
     - id: get-token
       shell: bash
       run: |
+        # Auth as GiHub App and retreive GitHub App installation access token.
+
         # Helper functions
         function log-info { echo "get-github-app-installation-token: $*"; }
 
@@ -42,7 +44,7 @@ runs:
         JWT_HEADER_64=$(echo -n "${JWT_HEADER}" | openssl enc -base64 | tr -d '=' | tr '/+' '_-' | tr -d '\n')
         JWT_PAYLOAD=$(jq -c -r . <<<"{\"exp\": $(date +%s -d +10minutes), \"iat\": $(date +%s -d -60seconds), \"iss\": \"${{ inputs.github-app-id }}\"}")
         JWT_PAYLOAD_64=$(echo -n "${JWT_PAYLOAD}" | openssl enc -base64 | tr -d '=' | tr '/+' '_-' | tr -d '\n')
-        JWT_SIGN_64=$(printf '%s.%s' "${JWT_HEADER_64}" "${JWT_PAYLOAD_64}" | openssl dgst -sha256 -binary -sign <(printf '%s\n' "${{ inputs.github-app-private-key }}") | openssl enc -base64 | tr -d '=' | tr '/+' '_-' | tr -d '\n')
+        JWT_SIGN_64=$(printf '%s.%s' "${JWT_HEADER_64}" "${JWT_PAYLOAD_64}" | openssl dgst -sha256 -binary -sign <(printf '%s\n' "${GH_APP_KEY}") | openssl enc -base64 | tr -d '=' | tr '/+' '_-' | tr -d '\n')
         JWT=$(echo -n "${JWT_HEADER_64}.${JWT_PAYLOAD_64}.${JWT_SIGN_64}")
         unset JWT_HEADER JWT_HEADER_64 JWT_PAYLOAD JWT_PAYLOAD_64 JWT_SIGN_64 GH_APP_KEY
 
@@ -61,3 +63,5 @@ runs:
 
         log-info "Returning the installation access token ..."
         echo "github-token=$(echo "${GH_APP_TOKEN_RESPONSE}" | jq -r '.token')" >> $GITHUB_OUTPUT
+      env:
+        GH_APP_KEY: "${{ inputs.github-app-private-key }}"

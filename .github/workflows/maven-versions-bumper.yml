@@ -109,7 +109,7 @@ jobs:
         uses: peter-evans/create-pull-request@b4d51739f96fca8047ad065eccef63442d8e99f7 # 4.2.0
         with:
           # Pull requests created by the action using the default GITHUB_TOKEN cannot trigger other workflows.
-          # So, to trigger CI/CD (which verifies that the app can be built and deployed), we use the github app installation token.
+          # So to trigger CI/CD (which verifies that the app can be built and deployed), we use the github app installation token.
           token: ${{ steps.auth.outputs.github-token }}
           commit-message: Updating third party dependencies
           committer: Auto maven versions update <noreply@dsb.no>
