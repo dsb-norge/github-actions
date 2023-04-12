@@ -1,0 +1,121 @@
+name: 'Update third party dependencies and create pull request'
+
+# In order to use this workflow a github app must be installed in the calling workflow's organization.
+# The app must at minimum have 'contents: write' and 'pull-requests: write' permissions in the repo of the calling workflow.
+#
+# The following variables must available in the github 'vars' context:
+#   - vars.ORG_MAVEN_BUMPER_APP_ID              <-- app id from here: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-maven-versions-bumper
+#   - vars.ORG_MAVEN_BUMPER_APP_INSTALLATION_ID <-- app installation id found in url if you "configure" the app 'dsb-norge-maven-versions-bumper' from here: https://github.com/organizations/dsb-norge/settings/installations
+#   - vars.ORG_MAVEN_REPO_USERNAME              <-- user with read and write to maven repo
+#
+# The following secrets must be available in the github 'secrets' context:
+#   - secrets.ORG_MAVEN_BUMPER_APP_PRIVATE_KEY  <-- generated from the app in github: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-maven-versions-bumper
+#   - secrets.ORG_MAVEN_REPO_TOKEN              <-- token for maven repo user
+
+on:
+  workflow_call:
+    inputs:
+      apps:
+        type: string
+        description: |
+          YAML list (as string) with specification of applications to update.
+          Required fields are:
+            - application-name        - string
+        required: true
+
+jobs:
+  create-matrix:
+    name: Create build matrix
+    runs-on: [self-hosted, dsb-builder, linux, x64]
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      app-vars-matrix: ${{ steps.create-matrix.outputs.app-vars }}
+
+    steps:
+      # The create-app-vars-matrix action requires source code to be available
+      - name: 🧹 Clean workspace
+        uses: dsb-norge/github-actions/directory-recreate@v1
+      - name: ⬇ Checkout working branch
+        uses: actions/checkout@v3
+
+      - name: 🎰 Create app vars build matrix
+        id: create-matrix
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v1
+        with:
+          apps: ${{ inputs.apps }}
+
+  update-dependencies:
+    name: Update third party dependencies & create pull request
+    needs: create-matrix
+    runs-on: [self-hosted, dsb-builder, linux, x64]
+    strategy:
+      matrix: ${{ fromJSON(needs.create-matrix.outputs.app-vars-matrix) }}
+      fail-fast: false # allow all parallel jobs to continue even if one fails
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: 🧹 Clean workspace
+        uses: dsb-norge/github-actions/directory-recreate@v1
+
+      - name: ⬇ Checkout working branch
+        uses: actions/checkout@v3
+
+      - name: 🎰 Generate DSB build variables
+        id: build-env
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1
+        with:
+          app-vars: ${{ toJSON(matrix.app-vars) }}
+          maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
+          maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }}
+
+      - name: "⚒ Spring Boot app: Run Maven command"
+        id: maven-bump
+        # only run for spring-boot apps
+        if: matrix.app-vars.application-type == 'spring-boot'
+        uses: dsb-norge/github-actions/run-maven-command@v1
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+          goals: versions:update-properties versions:update-parent
+          arguments: -DgenerateBackupPoms=false
+
+      - name: 🧹 Remove build info (so it won't be committed)
+        # only if maven command was not skipped and completed successfully
+        if: steps.maven-bump.outcome == 'success'
+        run: |
+          rm -rf _create-build-envs
+
+      - name: 🔑 Obtain GitHub app installation access token
+        id: auth
+        # only if maven command was not skipped and completed successfully
+        if: steps.maven-bump.outcome == 'success'
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v1
+        with:
+          github-app-id: ${{ vars.ORG_MAVEN_BUMPER_APP_ID }}
+          github-app-installation-id: ${{ vars.ORG_MAVEN_BUMPER_APP_INSTALLATION_ID }}
+          github-app-private-key: '${{ secrets.ORG_MAVEN_BUMPER_APP_PRIVATE_KEY }}'
+          token-request-body: '{"repository":"${{ github.repository }}","permissions":{"contents":"write","pull_requests":"write"}}'
+
+      - name: 🌱 Commit to new branch (or update existing) & create pull request
+        # only if maven command was not skipped and completed successfully
+        if: steps.maven-bump.outcome == 'success'
+        # Will update branch if it already exists.
+        # See https://github.com/peter-evans/create-pull-request for details.
+        uses: peter-evans/create-pull-request@b4d51739f96fca8047ad065eccef63442d8e99f7 # 4.2.0
+        with:
+          # Pull requests created by the action using the default GITHUB_TOKEN cannot trigger other workflows.
+          # So to trigger CI/CD (which verifies that the app can be built and deployed), we use the github app installation token.
+          token: ${{ steps.auth.outputs.github-token }}
+          commit-message: Updating third party dependencies
+          committer: Auto maven versions update <noreply@dsb.no>
+          author: Auto maven versions update <noreply@dsb.no>
+          branch: automatic-maven-versions-update_${{ matrix.app-vars.application-name }}
+          delete-branch: true
+          title: Automatic dependency update
+          body: Automatic update of third party dependencies
+          labels: |
+            automatic dependency update

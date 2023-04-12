@@ -1,0 +1,67 @@
+name: '🔑 Obtain GitHub app installation access token'
+description: |
+  Given the required input this action returns a GitHub App installation access token that enables a GitHub App to make
+  authenticated API requests for the app's installation on an organization or individual account.
+inputs:
+  github-app-id:
+    description: |
+      Id of a GitHub App.
+      ref. https://github.com/marketplace?type=apps
+    required: true
+  github-app-installation-id:
+    description: 'Unique identifier of the installation of the GitHub App installed on an organization or individual account.'
+    required: true
+  github-app-private-key:
+    description: |
+      The private key to use when authenticating as a GitHub App. This key is used to sign the JWT.
+      ref. https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app
+    required: true
+  token-request-body:
+    description: |
+      Request body of the installation access token POST request. Can be used to scope down the aquired token.
+      ref. https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#create-an-installation-access-token-for-an-app
+    required: false
+    default: ''
+outputs:
+  github-token:
+    description: |
+      The obtained GitHub App installation access token. This can ex. be used to make REST API requests as the App.
+    value: ${{ steps.get-token.outputs.github-token }}
+
+runs:
+  using: 'composite'
+  steps:
+    - id: get-token
+      shell: bash
+      run: |
+        # Auth as GiHub App and retreive GitHub App installation access token.
+
+        # Helper functions
+        function log-info { echo "get-github-app-installation-token: $*"; }
+
+        log-info "Minting JWT ..."
+        JWT_HEADER=$(jq -c -r . <<<"{\"alg\": \"RS256\", \"typ\": \"JWT\"}")
+        JWT_HEADER_64=$(echo -n "${JWT_HEADER}" | openssl enc -base64 | tr -d '=' | tr '/+' '_-' | tr -d '\n')
+        JWT_PAYLOAD=$(jq -c -r . <<<"{\"exp\": $(date +%s -d +10minutes), \"iat\": $(date +%s -d -60seconds), \"iss\": \"${{ inputs.github-app-id }}\"}")
+        JWT_PAYLOAD_64=$(echo -n "${JWT_PAYLOAD}" | openssl enc -base64 | tr -d '=' | tr '/+' '_-' | tr -d '\n')
+        JWT_SIGN_64=$(printf '%s.%s' "${JWT_HEADER_64}" "${JWT_PAYLOAD_64}" | openssl dgst -sha256 -binary -sign <(printf '%s\n' "${GH_APP_KEY}") | openssl enc -base64 | tr -d '=' | tr '/+' '_-' | tr -d '\n')
+        JWT=$(echo -n "${JWT_HEADER_64}.${JWT_PAYLOAD_64}.${JWT_SIGN_64}")
+        unset JWT_HEADER JWT_HEADER_64 JWT_PAYLOAD JWT_PAYLOAD_64 JWT_SIGN_64 GH_APP_KEY
+
+        log-info "Exchanging JWT for a installation access token ..."
+        GH_APP_TOKEN_RESPONSE=$(
+          curl -s --request POST \
+            --url "https://api.github.com/app/installations/${{ inputs.github-app-installation-id }}/access_tokens" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${JWT}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            -d '${{ inputs.token-request-body }}'
+        )
+
+        # echo "DEBUG: get-github-app-installation-token: exit code: $?"
+        # echo "DEBUG: get-github-app-installation-token: response | jq: $(echo "${GH_APP_TOKEN_RESPONSE}" | jq)"
+
+        log-info "Returning the installation access token ..."
+        echo "github-token=$(echo "${GH_APP_TOKEN_RESPONSE}" | jq -r '.token')" >> $GITHUB_OUTPUT
+      env:
+        GH_APP_KEY: "${{ inputs.github-app-private-key }}"
