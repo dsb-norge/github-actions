@@ -73,7 +73,8 @@ jobs:
           maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
           maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }}
 
-      - name: '⚒ Spring Boot app: Run Maven command'
+      - name: "⚒ Spring Boot app: Run Maven command"
+        id: maven-bump
         # only run for spring-boot apps
         if: matrix.app-vars.application-type == 'spring-boot'
         uses: dsb-norge/github-actions/run-maven-command@v1
@@ -83,16 +84,16 @@ jobs:
           arguments: -DgenerateBackupPoms=false
 
       - name: 🧹 Remove build info (so it won't be committed)
+        # only if maven command was not skipped and completed successfully
+        if: steps.maven-bump.outcome == 'success'
         run: |
           rm -rf _create-build-envs
 
 # TODO should be separate action
-# TODO get token
-# permissions:
-#   contents: write
-#   pull-requests: write
-      - name: get token
+      - name: "🪙 Obtain github app installation access token"
         id: auth-as-github-app
+        # only if maven command was not skipped and completed successfully
+        if: steps.maven-bump.outcome == 'success'
         run: |
           # Helper functions
           function log-info { echo "auth-as-github-app: $*"; }
@@ -116,12 +117,10 @@ jobs:
               -d '{"repository":"${{ github.repository }}","permissions":{"contents":"write","pull_requests":"write"}}'
           )
 
-          echo "DEBUG: auth-as-github-app: exit code: $?"
-          echo "DEBUG: auth-as-github-app: response: ""$GH_APP_TOKEN_RESPONSE"
-          echo "DEBUG: auth-as-github-app: response | jq: $(echo "${GH_APP_TOKEN_RESPONSE}" | jq)"
-          echo "DEBUG: auth-as-github-app: token: $(echo "${GH_APP_TOKEN_RESPONSE}" | jq -r '.token')"
+          # echo "DEBUG: auth-as-github-app: exit code: $?"
+          # echo "DEBUG: auth-as-github-app: response | jq: $(echo "${GH_APP_TOKEN_RESPONSE}" | jq)"
 
-          log-info "Returning the installation access token"
+          log-info "Returning the installation access token ..."
           echo "github-token=$(echo "${GH_APP_TOKEN_RESPONSE}" | jq -r '.token')" >> $GITHUB_OUTPUT
         env:
           GH_APP_ID: "${{ vars.ORG_MAVEN_BUMPER_APP_ID }}"
@@ -129,6 +128,8 @@ jobs:
           GH_APP_KEY: "${{ secrets.ORG_MAVEN_BUMPER_APP_PRIVATE_KEY }}"
 
       - name: 🌱 Commit to new branch (or update existing) & create pull request
+        # only if maven command was not skipped and completed successfully
+        if: steps.maven-bump.outcome == 'success'
         # Will update branch if it already exists.
         # See https://github.com/peter-evans/create-pull-request for details.
         uses: peter-evans/create-pull-request@b4d51739f96fca8047ad065eccef63442d8e99f7 # 4.2.0
