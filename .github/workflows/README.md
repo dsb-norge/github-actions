@@ -65,14 +65,12 @@ For other optional fields and their defaults see `inputs` of the [create-build-e
 #### **`Build and deploy secrets`**
 
 The following secrets are required input parameters, see `inputs` definition in [ci-cd/create-build-envs/action.yml](../ci-cd/create-build-envs/action.yml) for documentation of these:
-- `maven-repo-username`
+TODO:
 - `maven-repo-token`
 - `sonarqube-token`
 - `jasypt-password`
 - `acr-username`
 - `acr-password`
-- `github-repo-token`
-- `app-config-repo-token`
 - `pr-deploy-aks-creds`
 - `acr-service-principal`
 
@@ -104,18 +102,6 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   ci-cd:
     uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@v1
-    secrets:
-      # All required secrets are passed to the workflow here
-      maven-repo-username: ${{ secrets.JENKINS_REPO_USERNAME }}
-      maven-repo-token: ${{ secrets.JENKINS_REPO_TOKEN }}
-      sonarqube-token: ${{ secrets.SONAR_TOKEN }}
-      jasypt-password: ${{ secrets.JASYPT_LOCAL_ENCRYPTOR_PASSWORD }}
-      acr-username: ${{ secrets.AZ_CR_USER }}
-      acr-password: ${{ secrets.AZ_CR_SECRET }}
-      github-repo-token: ${{ secrets.GITHUB_TOKEN }}
-      app-config-repo-token: ${{ secrets.GITOPS_TAG_BUMPER_TOKEN }}
-      pr-deploy-aks-creds: ${{ secrets.KUBERNETES_ADMIN }}
-      acr-service-principal: ${{ secrets.AZ_CR_SP }}
     with:
       # Github requires inputs of type string, ultimately this will be parsed as yaml list
       apps: |
@@ -161,7 +147,7 @@ YAML list (as string) with specifications of applications to build and/or deploy
 #### **`Build and deploy secrets`**
 
 The following secrets are required input parameters, see `inputs` definition in [ci-cd/create-build-envs/action.yml](../ci-cd/create-build-envs/action.yml) for documentation of these:
-- `maven-repo-username`
+TODO:
 - `maven-repo-token`
 
 ### **Example usage**
@@ -187,9 +173,6 @@ jobs:
   autobump:
     name: Bump versions
     uses: dsb-norge/github-actions/workflows/update-deps-and-create-pr.yml@v1
-    secrets:
-      maven-repo-username: ${{ secrets.JENKINS_REPO_USERNAME }}
-      maven-repo-token: ${{ secrets.JENKINS_REPO_TOKEN }}
     with:
       # Note: 'application-name' becomes part of the branch name for the bumping. If you have more than one
       # maven app within the same github repos, each app must be listed here with a unique 'application-name'.
