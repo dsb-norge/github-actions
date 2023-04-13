@@ -1,4 +1,4 @@
-name: 'Update third party dependencies and create pull request'
+name: "Update third party dependencies and create pull request"
 
 # In order to use this workflow a github app must be installed in the calling workflow's organization.
 # The app must at minimum have 'contents: write' and 'pull-requests: write' permissions in the repo of the calling workflow.
@@ -36,13 +36,13 @@ jobs:
     steps:
       # The create-app-vars-matrix action requires source code to be available
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v1
+        uses: dsb-norge/github-actions/directory-recreate@v2
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
       - name: 🎰 Create app vars build matrix
         id: create-matrix
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v1
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2
         with:
           apps: ${{ inputs.apps }}
 
@@ -60,14 +60,14 @@ jobs:
 
     steps:
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v1
+        uses: dsb-norge/github-actions/directory-recreate@v2
 
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
       - name: 🎰 Generate DSB build variables
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
@@ -77,7 +77,7 @@ jobs:
         id: maven-bump
         # only run for spring-boot apps
         if: matrix.app-vars.application-type == 'spring-boot'
-        uses: dsb-norge/github-actions/run-maven-command@v1
+        uses: dsb-norge/github-actions/run-maven-command@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
           goals: versions:update-properties versions:update-parent
@@ -93,11 +93,11 @@ jobs:
         id: auth
         # only if maven command was not skipped and completed successfully
         if: steps.maven-bump.outcome == 'success'
-        uses: dsb-norge/github-actions/get-github-app-installation-token@v1
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v2
         with:
           github-app-id: ${{ vars.ORG_MAVEN_BUMPER_APP_ID }}
           github-app-installation-id: ${{ vars.ORG_MAVEN_BUMPER_APP_INSTALLATION_ID }}
-          github-app-private-key: '${{ secrets.ORG_MAVEN_BUMPER_APP_PRIVATE_KEY }}'
+          github-app-private-key: "${{ secrets.ORG_MAVEN_BUMPER_APP_PRIVATE_KEY }}"
           token-request-body: '{"repository":"${{ github.repository }}","permissions":{"contents":"write","pull_requests":"write"}}'
 
       - name: 🌱 Commit to new branch (or update existing) & create pull request

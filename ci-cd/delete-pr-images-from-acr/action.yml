@@ -1,7 +1,7 @@
-name: 'Delete ephemeral PR image repository from ACR'
+name: "Delete ephemeral PR image repository from ACR"
 description: |
   Use Azure CLI to delete images from docker registry (ACR).
-author: 'Peder Schmedling'
+author: "Peder Schmedling"
 inputs:
   dsb-build-envs:
     description: |
@@ -12,10 +12,10 @@ inputs:
         None.
     required: true
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     # we need to verify inputs since they are optional input to create-build-envs action
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |

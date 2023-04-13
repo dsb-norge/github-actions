@@ -124,7 +124,7 @@ inputs:
   pr-deploy-aks-creds:
     description: |
       Credentials to the AKS instance to use during deploy to ephemeral environment. This input is required when
-      deploying to to ephemeral environments.'
+      deploying to to ephemeral environments.
     required: false
     default: ''
   pr-deploy-additional-helm-values:
@@ -194,12 +194,10 @@ runs:
         # These fields will be set by action inputs and values from app vars will be ignored
         PROTECTED_ENVS=(
           acr-password
-          acr-username
           app-config-repo-token
           github-repo-token
           jasypt-password
           maven-repo-token
-          maven-repo-username
           sonarqube-token
           pr-deploy-aks-creds
           acr-service-principal
@@ -229,6 +227,7 @@ runs:
         # These does not contain any secrets and are safe to share
         # with other jobs and upload to github in a build artifact
         ENVS_WITHOUT_SECRETS=(
+          acr-username
           app-config-repo
           application-build-timestamp
           application-description
@@ -263,6 +262,7 @@ runs:
           maven-build-project-version-command
           maven-build-project-version-goals
           maven-repo-pom-id
+          maven-repo-username
           nodejs-build-project-custom-command-pre-npm-ci
           nodejs-build-project-custom-command-pre-npm-run-lint
           nodejs-build-project-custom-command-pre-npm-run-build

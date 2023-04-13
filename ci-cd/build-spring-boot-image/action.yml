@@ -1,4 +1,4 @@
-name: 'Build spring boot OCI image with labels and tags'
+name: "Build spring boot OCI image with labels and tags"
 description: |
   Use spring boot maven plugin to build OCI image from maven project.
   This uses the action dsb-norge/github-actions/ci-cd/build-maven-project to invoke maven.
@@ -28,7 +28,7 @@ description: |
           'spring-boot-build-image-arguments' will be used.
         - When specific goals and/or arguments are defined the pom file reference will still be added to the final maven invocation. The resulting
           maven invocation command is: mvn <arguments> --file <pom file> <goals>
-author: 'Peder Schmedling'
+author: "Peder Schmedling"
 inputs:
   dsb-build-envs:
     description: |
@@ -44,10 +44,10 @@ inputs:
         spring-boot-build-image-arguments
     required: true
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -257,7 +257,7 @@ runs:
         echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     # build docker image
-    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
+    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2
       with:
         mvn-version-cmd: ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
         mvn-cmd: ${{ steps.mvn-cmd.outputs.mvn-cmd }}

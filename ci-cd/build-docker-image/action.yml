@@ -1,8 +1,8 @@
-name: 'Build, tag and push docker image'
+name: "Build, tag and push docker image"
 description: |
   Use standard docker actions to build docker image from Dockerfile.
   Standard DSB tags, labels and runtime environment variables are added before the image is finally pushed.
-author: 'Peder Schmedling'
+author: "Peder Schmedling"
 inputs:
   dsb-build-envs:
     description: |
@@ -13,10 +13,10 @@ inputs:
         None.
     required: true
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |

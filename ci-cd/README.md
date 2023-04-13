@@ -28,11 +28,11 @@ For documentation refer to the `description` section of each specific actions as
 
 ### Development
 
-1. Replace version-tag of all dsb-actions in this repo with a temporary tag, ex. `@v1` becomes `@my-feature`.
+1. Replace version-tag of all dsb-actions in this repo with a temporary tag, ex. `@v2` becomes `@my-feature`.
 
     Replace regex pattern for vscode:
-    - Find: `(^\s*)((- ){0,1}uses: dsb-norge/github-actions/.*@)v1`
-    - Replace: `$1# TODO revert to @v1\n$1$2my-feature`
+    - Find: `(^\s*)((- ){0,1}uses: dsb-norge/github-actions/.*@)v2`
+    - Replace: `$1# TODO revert to @v2\n$1$2my-feature`
 
 2. Make your changes and commit your changes on a branch, for example `my-feature-branch`.
 3. Tag latest commit on you branch:
@@ -44,7 +44,7 @@ For documentation refer to the `description` section of each specific actions as
    ```yaml
     jobs:
         ci-cd:
-            # TODO revert to '@v1'
+            # TODO revert to '@v2'
             uses: dsb-norge/github-actions/.github/workflows/ci-cd-default.yml@my-feature-branch
    ```
 5. Test your changes from the calling repo. Make changes and remember to always move your tag `my-feature` to the latest commit.
@@ -53,11 +53,11 @@ For documentation refer to the `description` section of each specific actions as
    git tag --delete 'my-feature'
    git push --delete origin 'my-feature'
    ```
-    and revert from using the temporary tag to the version-tag for your release in actions, i.e. `@my-feature` becomes `@v1` or `@v2` or whatever.
+    and revert from using the temporary tag to the version-tag for your release in actions, i.e. `@my-feature` becomes `@v2` or `@v3` or whatever.
 
     Replace regex pattern for vscode:
-    - Find: `(^\s*# TODO revert to @v1\n)(^\s*)((- )?uses: dsb-norge/github-actions/.*@)my-feature`
-    - Replace: `$2$3v1`
+    - Find: `(^\s*# TODO revert to @v2\n)(^\s*)((- )?uses: dsb-norge/github-actions/.*@)my-feature`
+    - Replace: `$2$3v2`
 7. Create PR and merge to main.
 
 ### Release
@@ -66,17 +66,17 @@ After merge to main use tags to release.
 
 #### Minor release
 
-Ex. for smaller backwards compatible changes. Add a new minor version tag ex `v1.8` with a description of the changes and amend the description to the major version tag.
+Ex. for smaller backwards compatible changes. Add a new minor version tag ex `v2.1` with a description of the changes and amend the description to the major version tag.
 
-Example for release `v1.8`:
+Example for release `v2.1`:
 ```bash
 git checkout origin/main
 git pull origin main
-git tag -a 'v1.8'
+git tag -a 'v2.1'
 # you are prompted for the tag annotation (change description)
 git tag -f -a 'v1'
 # you are prompted for the tag annotation, amend the change description
-git push -f origin 'refs/tags/v1.8'
+git push -f origin 'refs/tags/v2.1'
 git push -f origin 'refs/tags/v1'
 ```
 
@@ -86,16 +86,16 @@ git push -f origin 'refs/tags/v1'
 
 Same as minor release except that the major version tag is a new one. I.e. we do not need to force tag/push.
 
-Example for release `v2`:
+Example for release `v3`:
 ```bash
 git checkout origin/main
 git pull origin main
-git tag -a 'v2.0'
+git tag -a 'v3.0'
 # you are prompted for the tag annotation (change description)
-git tag -a 'v2'
+git tag -a 'v3'
 # you are prompted for the tag annotation
-git push -f origin 'refs/tags/v2.0'
-git push -f origin 'refs/tags/v2'
+git push -f origin 'refs/tags/v3.0'
+git push -f origin 'refs/tags/v3'
 ```
 
 **Note:** If you are having problems pulling main after a release, try to force fetch the tags: `git fetch --tags -f`.

@@ -1,4 +1,4 @@
-name: 'Configure Java and build maven project'
+name: "Configure Java and build maven project"
 description: |
   Given the required input this action configures the specified version of java and builds a given maven project.
   Before maven is invoked the version and distribution of JDK specified in 'dsb-build-envs' is installed.
@@ -75,20 +75,20 @@ description: |
               - Where <pom file> is defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or
                 to a directory containing it.
             - To the maven repo configured under <distributionManagement><snapshotRepository>
-author: 'Peder Schmedling'
+author: "Peder Schmedling"
 inputs:
   mvn-version-cmd:
-    description: 'Override command string used when invoking maven in the first part.'
+    description: "Override command string used when invoking maven in the first part."
     required: false
-    default: ''
+    default: ""
   mvn-cmd:
-    description: 'Override command string used when invoking maven in the second part.'
+    description: "Override command string used when invoking maven in the second part."
     required: false
-    default: ''
+    default: ""
   set-extra-envs:
-    description: 'JSON object with extra environment variables to set in same scope as maven is invoked.'
+    description: "JSON object with extra environment variables to set in same scope as maven is invoked."
     required: false
-    default: ''
+    default: ""
   dsb-build-envs:
     description: |
       DSB build environment variables JSON.
@@ -110,10 +110,10 @@ inputs:
     required: true
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
