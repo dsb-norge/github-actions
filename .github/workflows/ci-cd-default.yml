@@ -1,4 +1,22 @@
-name: 'DSB Build, push and deploy'
+name: "DSB Build, push and deploy"
+
+# In order to use this workflow a github app must be installed in the calling workflow's organization.
+# The app must at minimum have 'contents: write' permissions in the application config repo(s) of the calling workflow.
+#
+# The following variables must available in the github 'vars' context:
+#   - vars.ORG_MAVEN_REPO_USERNAME            <-- user with read and write to maven repo
+#   - vars.ORG_AZURE_CONTAINER_REGISTRY_USER  <-- username of user with push+pull access to ACR, passed to the azure/docker-login action
+#   - vars.ORG_CICD_APP_ID                    <-- app id from here: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-cicd-access
+#   - vars.ORG_CICD_APP_INSTALLATION_ID       <-- app installation id found in url if you "configure" the app 'dsb-norge-cicd-access' from here: https://github.com/organizations/dsb-norge/settings/installations
+#
+# The following secrets must be available in the github 'secrets' context:
+#   - secrets.ORG_MAVEN_REPO_TOKEN                            <-- token for maven repo user
+#   - secrets.ORG_SONAR_TOKEN                                 <-- token for sonar integration
+#   - secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD             <-- jasypt password for local decryption of secrets during maven operations
+#   - secrets.ORG_AZURE_CONTAINER_REGISTRY_PASSWORD           <-- password of user with push+pull access to ACR, passed to the azure/docker-login action
+#   - secrets.ORG_AZURE_CONTAINER_REGISTRY_SERVICE_PRINCIPAL  <-- service principal of Azure identity with delete access to ACR, passed to the azure/login actions and used for pruning in ACR
+#   - secrets.ORG_AZURE_DEV_AKS_CONTRIBUTOR_SERVICE_PRINCIPAL <-- service principal of Azure identity with contributor access to the AKS instance for ephemeral environments
+#   - secrets.ORG_CICD_APP_PRIVATE_KEY                        <-- generated from the app in github: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-cicd-access
 
 on:
   workflow_call:
@@ -11,27 +29,6 @@ on:
           Required fields are:
             - application-name        - string
           For optional fields see possible inputs to the create-build-envs action.
-        required: true
-    secrets:
-      maven-repo-username:
-        required: true
-      maven-repo-token:
-        required: true
-      sonarqube-token:
-        required: true
-      jasypt-password:
-        required: true
-      acr-username:
-        required: true
-      acr-password:
-        required: true
-      github-repo-token:
-        required: true
-      app-config-repo-token:
-        required: true
-      pr-deploy-aks-creds:
-        required: true
-      acr-service-principal:
         required: true
 
 jobs:
@@ -48,13 +45,13 @@ jobs:
     steps:
       # The create-app-vars-matrix action requires source code to be available
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v1
+        uses: dsb-norge/github-actions/directory-recreate@v2
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
       - name: 🎰 Create app vars build matrix
         id: create-matrix
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v1
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2
         with:
           apps: ${{ inputs.apps }}
 
@@ -72,37 +69,46 @@ jobs:
 
     steps:
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v1
+        uses: dsb-norge/github-actions/directory-recreate@v2
 
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
+      # need this to have access to the configuration repo of the application
+      - name: 🔑 Obtain GitHub app installation access token for the CI/CD app
+        id: auth
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v2
+        with:
+          github-app-id: ${{ vars.ORG_CICD_APP_ID }}
+          github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
+          github-app-private-key: "${{ secrets.ORG_CICD_APP_PRIVATE_KEY }}"
+
       - name: 🎰 Generate DSB build variables
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
-          maven-repo-username: ${{ secrets.maven-repo-username }}
-          maven-repo-token: ${{ secrets.maven-repo-token }}
-          sonarqube-token: ${{ secrets.sonarqube-token }}
-          jasypt-password: ${{ secrets.jasypt-password }}
-          acr-username: ${{ secrets.acr-username }}
-          acr-password: ${{ secrets.acr-password }}
-          github-repo-token: ${{ secrets.github-repo-token }}
-          app-config-repo-token: ${{ secrets.app-config-repo-token }}
-          pr-deploy-aks-creds: ${{ secrets.pr-deploy-aks-creds }}
-          acr-service-principal: ${{ secrets.acr-service-principal }}
+          maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
+          maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }}
+          sonarqube-token: ${{ secrets.ORG_SONAR_TOKEN }}
+          jasypt-password: ${{ secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD }}
+          acr-username: ${{ vars.ORG_AZURE_CONTAINER_REGISTRY_USER }}
+          acr-password: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_PASSWORD }}
+          github-repo-token: ${{ secrets.GITHUB_TOKEN }}
+          app-config-repo-token: ${{ steps.auth.outputs.github-token }}
+          pr-deploy-aks-creds: ${{ secrets.ORG_AZURE_DEV_AKS_CONTRIBUTOR_SERVICE_PRINCIPAL }}
+          acr-service-principal: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_SERVICE_PRINCIPAL }}
 
-      - name: '⚒ Spring Boot app: Build and analyze with Maven'
+      - name: "⚒ Spring Boot app: Build and analyze with Maven"
         # Skip step when closing a PR, and only run for spring-boot apps
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: '🐳 Spring Boot app: Build, tag and push docker image'
+      - name: "🐳 Spring Boot app: Build, tag and push docker image"
         # Run step when:
         #   - app is spring-boot
         #   - running from PRa nd not closing
@@ -116,20 +122,20 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@v1
+        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: '⚒ Vue.js app: Build and test with npm'
+      - name: "⚒ Vue.js app: Build and test with npm"
         # Skip step when closing a PR, and only run for vue apps
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
-        uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@v1
+        uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: '🐳 Vue.js app: Build, tag and push docker image for vue'
+      - name: "🐳 Vue.js app: Build, tag and push docker image for vue"
         # Run step when:
         #   - app is vue
         #   - running from PR and not closing
@@ -143,7 +149,7 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        uses: dsb-norge/github-actions/ci-cd/build-docker-image@v1
+        uses: dsb-norge/github-actions/ci-cd/build-docker-image@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -157,14 +163,14 @@ jobs:
           github.event_name == 'pull_request'
           && github.event.action != 'closed'
           && github.actor != 'renovate[bot]'
-        uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@v1
+        uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🗑 Teardown of ephemeral PR environment
         # Step only runs when closing a PR
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
-        uses: dsb-norge/github-actions/ci-cd/teardown-pr-environment@v1
+        uses: dsb-norge/github-actions/ci-cd/teardown-pr-environment@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -176,7 +182,7 @@ jobs:
           && (( fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch )
             || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )
-        uses: dsb-norge/github-actions/ci-cd/prune-images-from-acr@v1
+        uses: dsb-norge/github-actions/ci-cd/prune-images-from-acr@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -184,7 +190,7 @@ jobs:
         # Step only runs when closing a PR
         # Step runs even if previous steps have failed, with the exception of 'build-env' which is required
         if: github.event_name == 'pull_request' && github.event.action == 'closed' && always() && steps.build-env.outcome == 'success'
-        uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@v1
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -201,31 +207,42 @@ jobs:
         shell: bash
     steps:
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v1
+        uses: dsb-norge/github-actions/directory-recreate@v2
 
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
       - name: 💾 Read build-envs from matrix job(s)
         id: read-build-envs
-        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v1
+        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v2
         with:
           build-envs-artifact-name: build-envs-${{ needs.create-matrix.outputs.applications-version }}
 
       - name: ✔ Check if deploy is allowed from calling branch
         id: deploy-static-check
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
-        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@v1
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@v2
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
+
+      # need this to have access to the configuration repo(s) of the application(s)
+      - name: 🔑 Obtain GitHub app installation access token for the CI/CD app
+        id: auth
+        # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
+        if: steps.deploy-static-check.outputs.result == 'true'
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v2
+        with:
+          github-app-id: ${{ vars.ORG_CICD_APP_ID }}
+          github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
+          github-app-private-key: "${{ secrets.ORG_CICD_APP_PRIVATE_KEY }}"
 
       - name: 🐙 Deploy apps to static environment(s)
         # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
-        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@v1
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@v2
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
-          app-config-repo-token: ${{ secrets.app-config-repo-token }}
+          app-config-repo-token: ${{ steps.auth.outputs.github-token }}
 
       - name: 🏷️ Tag current git commit with application version
         # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed

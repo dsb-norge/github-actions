@@ -4,8 +4,9 @@ Collection of DSB custom github reusable workflows.
 ## Index
 ```
 .github/workflows/
-└───ci-cd-default.yml             --> Default CI/CD workflow, see doc below.
-└───update-deps-and-create-pr.yml --> Automatic update of third party dependencies, see doc below.
+└───ci-cd-build-deploy-maven-lib.yml  --> CI/CD workflow for maven artefacts ie. repos without apps to deploy.
+└───ci-cd-default.yml                 --> Default CI/CD workflow, see doc below.
+└───maven-versions-bumper.yml         --> Automatic update of third party dependencies, see doc below.
 ```
 
 ## Workflow: ci-cd-default.yml
@@ -60,21 +61,11 @@ YAML list (as string) with specifications of applications to build and/or deploy
 
 There are many other possible inputs available. These are not required as they have default values that work out of the box.
 
-For other optional fields and their defaults see `inputs` of the [create-build-envs](../ci-cd/create-build-envs/action.yml) action.
+For other optional fields and their defaults see `inputs` of the [create-build-envs](../../ci-cd/create-build-envs/action.yml) action.
 
-#### **`Build and deploy secrets`**
+#### **`Build and deploy variables and secrets`**
 
-The following secrets are required input parameters, see `inputs` definition in [ci-cd/create-build-envs/action.yml](../ci-cd/create-build-envs/action.yml) for documentation of these:
-- `maven-repo-username`
-- `maven-repo-token`
-- `sonarqube-token`
-- `jasypt-password`
-- `acr-username`
-- `acr-password`
-- `github-repo-token`
-- `app-config-repo-token`
-- `pr-deploy-aks-creds`
-- `acr-service-principal`
+There are github secrets and github variables that are required to be available from the repo calling the workflow. See details in [.github/workflows/ci-cd-default.yml](ci-cd-default.yml).
 
 
 ### **Example usage**
@@ -103,19 +94,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   ci-cd:
-    uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@v1
-    secrets:
-      # All required secrets are passed to the workflow here
-      maven-repo-username: ${{ secrets.JENKINS_REPO_USERNAME }}
-      maven-repo-token: ${{ secrets.JENKINS_REPO_TOKEN }}
-      sonarqube-token: ${{ secrets.SONAR_TOKEN }}
-      jasypt-password: ${{ secrets.JASYPT_LOCAL_ENCRYPTOR_PASSWORD }}
-      acr-username: ${{ secrets.AZ_CR_USER }}
-      acr-password: ${{ secrets.AZ_CR_SECRET }}
-      github-repo-token: ${{ secrets.GITHUB_TOKEN }}
-      app-config-repo-token: ${{ secrets.GITOPS_TAG_BUMPER_TOKEN }}
-      pr-deploy-aks-creds: ${{ secrets.KUBERNETES_ADMIN }}
-      acr-service-principal: ${{ secrets.AZ_CR_SP }}
+    uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@v2
+    secrets: inherit # pass all secrets, ok since we trust our own workflow
     with:
       # Github requires inputs of type string, ultimately this will be parsed as yaml list
       apps: |
@@ -145,7 +125,7 @@ jobs:
           application-source-path: ./backend
           java-version: '16'
 ```
-## Workflow: update-deps-and-create-pr.yml
+## Workflow: maven-versions-bumper.yml
 A workflow for automatic update of third party dependencies for a backend maven project.
 
 ### **Inputs**
@@ -158,11 +138,9 @@ YAML list (as string) with specifications of applications to build and/or deploy
 **Required fields are:**
 - **`application-name`** - string
 
-#### **`Build and deploy secrets`**
+#### **`Build and deploy variables and secrets`**
 
-The following secrets are required input parameters, see `inputs` definition in [ci-cd/create-build-envs/action.yml](../ci-cd/create-build-envs/action.yml) for documentation of these:
-- `maven-repo-username`
-- `maven-repo-token`
+There are github secrets and github variables that are required to be available from the repo calling the workflow. See details in [.github/workflows/maven-versions-bumper.yml](maven-versions-bumper.yml).
 
 ### **Example usage**
 
@@ -174,11 +152,21 @@ The following would be saved as `.github/workflows/autobump-deps.yml` in the app
 name: 'Autobump deps'
 
 on:
-  # Allow manual build
+  # ⬇ Allows workflow to be triggered manually
   workflow_dispatch:
-  # Trigger at set times, e.g. '5 6 * * *' triggers every day at 06:05
   schedule:
-    - cron: '5 6 * * *'
+    # NOTE: Runners are not available in weekends p.t. so should run weekdays only.
+    # Trigger at set times, e.g. '2 2 * * 1-5' triggers every weekday at 02:04 UTC
+    #
+    #        ┌───────────── minute (0-59)
+    #        │ ┌───────────── hour (0-23)
+    #        │ │ ┌───────────── day of the month (1-31)
+    #        │ │ │ ┌───────────── month (1-12 or JAN-DEC)
+    #        │ │ │ │ ┌───────────── day of the week (0-6 or SUN-SAT)
+    #        │ │ │ │ │
+    #        │ │ │ │ │
+    #        │ │ │ │ │
+    - cron: '4 2 * * 1-5'
 
 # a single branch/tag should only run one workflow at a time
 concurrency: ${{ github.workflow }}-${{ github.ref }}
@@ -186,13 +174,11 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   autobump:
     name: Bump versions
-    uses: dsb-norge/github-actions/workflows/update-deps-and-create-pr.yml@v1
-    secrets:
-      maven-repo-username: ${{ secrets.JENKINS_REPO_USERNAME }}
-      maven-repo-token: ${{ secrets.JENKINS_REPO_TOKEN }}
+    uses: dsb-norge/github-actions/workflows/maven-versions-bumper.yml@v2
+    secrets: inherit # pass all secrets, ok since we trust our own workflow
     with:
       # Note: 'application-name' becomes part of the branch name for the bumping. If you have more than one
-      # maven app within the same github repos, each app must be listed here with a unique 'application-name'.
+      # maven app within the same github repo, each app must be listed here with a unique 'application-name'.
       apps: |
         - application-name: my-backend-app
           application-source-path: ./backend
