@@ -29,6 +29,9 @@ runs:
           application-source
           application-source-revision
           application-source-path
+          docker-image-registry
+          acr-username
+          acr-password
 
     # log into azure container registry (ACR)
     - uses: azure/docker-login@v1
