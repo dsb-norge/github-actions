@@ -47,7 +47,7 @@ runs:
         for REPO in ${REPOS[*]}; do
             REPO_DIR="${{ github.workspace }}/${REPO////_}"
             git clone \
-                "https://${GH_TOKEN_SANITIZED}@github.com/${REPO}" \
+                "https://oauth2:${GH_TOKEN_SANITIZED}@github.com/${REPO}" \
                 "${REPO_DIR}"
         done
 

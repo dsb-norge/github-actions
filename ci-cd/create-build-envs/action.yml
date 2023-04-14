@@ -161,7 +161,7 @@ runs:
         TMP_FILE=./not-going-to-use-this
         git clone \
           --branch '${{ inputs.pr-deploy-app-config-branch }}' \
-          "https://${GH_TOKEN_SANITIZED}@github.com/${{ inputs.app-config-repo }}" \
+          "https://oauth2:${GH_TOKEN_SANITIZED}@github.com/${{ inputs.app-config-repo }}" \
           ${TMP_FILE} \
           && echo "ref=${{ inputs.pr-deploy-app-config-branch }}" >> $GITHUB_OUTPUT \
           && echo 'create-build-envs: ref "${{ inputs.pr-deploy-app-config-branch }}" exist in "${{ inputs.app-config-repo }}" and will be used for PR deploys.' \
