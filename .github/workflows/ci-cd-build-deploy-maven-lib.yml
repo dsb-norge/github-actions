@@ -7,9 +7,6 @@ name: "DSB Build and deploy Maven artefact"
 #   secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD
 #   vars.ORG_AZURE_CONTAINER_REGISTRY_USER
 #   secrets.ORG_AZURE_CONTAINER_REGISTRY_PASSWORD
-#   vars.ORG_CICD_APP_ID
-#   vars.ORG_CICD_APP_INSTALLATION_ID
-#   secrets.ORG_CICD_APP_PRIVATE_KEY
 
 on:
   workflow_call:
@@ -39,13 +36,15 @@ jobs:
     steps:
       # The create-app-vars-matrix action requires source code to be available
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v1
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@v2-dev-tag
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
       - name: 🎰 Create app vars build matrix
         id: create-matrix
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v1
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2-dev-tag
         with:
           apps: ${{ inputs.apps }}
 
@@ -62,14 +61,16 @@ jobs:
 
     steps:
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v1
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@v2-dev-tag
 
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
       - name: 🎰 Generate DSB build variables
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2-dev-tag
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
@@ -84,6 +85,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2-dev-tag
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}

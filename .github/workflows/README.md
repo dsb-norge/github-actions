@@ -101,7 +101,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   ci-cd:
-    uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@v1
+    # TODO revert to @v2
+    uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@v2-dev-tag
     with:
       # Github requires inputs of type string, ultimately this will be parsed as yaml list
       apps: |
@@ -172,7 +173,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   autobump:
     name: Bump versions
-    uses: dsb-norge/github-actions/workflows/update-deps-and-create-pr.yml@v1
+    # TODO revert to @v2
+    uses: dsb-norge/github-actions/workflows/update-deps-and-create-pr.yml@v2-dev-tag
     with:
       # Note: 'application-name' becomes part of the branch name for the bumping. If you have more than one
       # maven app within the same github repos, each app must be listed here with a unique 'application-name'.
