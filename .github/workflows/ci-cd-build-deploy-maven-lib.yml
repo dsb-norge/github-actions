@@ -34,7 +34,6 @@ jobs:
     outputs:
       app-vars-matrix: ${{ steps.create-matrix.outputs.app-vars }}
       applications-version: ${{ steps.create-matrix.outputs.applications-version }}
-
     steps:
       # The create-app-vars-matrix action requires source code to be available
       - name: 🧹 Clean workspace
@@ -54,11 +53,9 @@ jobs:
     runs-on: [self-hosted, dsb-builder, linux, x64]
     strategy:
       matrix: ${{ fromJSON(needs.create-matrix.outputs.app-vars-matrix) }}
-
     defaults:
       run:
         shell: bash
-
     steps:
       - name: 🧹 Clean workspace
         uses: dsb-norge/github-actions/directory-recreate@v2
@@ -86,3 +83,23 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+  # create a global result indicating if workflow steps succeeded or not,
+  # handy for branch protection rules
+  ci-cd-conclusion:
+    if: always()
+    name: ci-cd-conclusion
+    needs: [create-matrix, build-and-deploy]
+    runs-on: [self-hosted, dsb-builder, linux, x64]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - run: exit 1
+        # for explanation of '>-' below see https://stackoverflow.com/a/67532120/4907315
+        # job 'result': possible values are 'success', 'failure', 'cancelled', or 'skipped'
+        if: >-
+          ${{
+               contains(needs.*.result, 'failure')
+            || contains(needs.*.result, 'cancelled')
+          }}
