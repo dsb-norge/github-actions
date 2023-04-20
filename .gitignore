@@ -31,3 +31,6 @@
 
 # Intellij idea project files
 .idea/
+
+# files from action test
+ci-cd/create-app-vars-matrix/_*

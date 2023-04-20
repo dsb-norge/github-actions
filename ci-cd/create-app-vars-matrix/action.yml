@@ -2,11 +2,14 @@ name: 'Create build/deploy vars for one or more DSB apps'
 description: |
   Given a yaml array of application specifications this action will:
     - Convert yaml input to JSON.
-    - Attempt to detect application type for each app, where type is missing, based on input.
+    - Attempt to detect application type for each app, where type is not explicitly defined in input.
       - 'spring-boot' will be set if pom.xml is found.
       - 'vue' will be set if package.json is found (and pom.xml is not found).
       - 'maven-library' has to be set explicitly as there is no auto-detection for this.
-    - Attempt to read application description for each app, where description is missing, based on input.
+    - For all application types:
+      - Attempt to read application description for each app, where description is not explicitly defined in input.
+    - For "pom.xml" application types:
+      - Attempt to read java version from pom.xml for each app, where java version is not explicitly defined in input.
     - Validate the app vars structure.
     - Generate some additional dynamic app vars and add them to all apps:
       - application-version           : DSB version string.
@@ -27,7 +30,7 @@ outputs:
     description: Updated specification of applications to build and/or deploy, JSON array (as string).
     value: ${{ steps.make-matrix-compatible.outputs.app-vars }}
   applications-version:
-    description: App version is common for all apps. Return version as spearate output for convenience.
+    description: App version is common for all apps. Return version as separate output for convenience.
     value: ${{ steps.create-app-vars-matrix.outputs.applications-version }}
 runs:
   using: 'composite'
@@ -37,56 +40,64 @@ runs:
       run: |
         # Convert app vars yaml to JSON
 
+        action_helpers_file="${{ github.action_path }}/helpers.sh"
+        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
+        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+
         # Log given yaml
         YAML_CONFIG=$(cat <<'EOF'
         ${{ inputs.apps }}
         EOF
         )
-        echo "::group::create-app-vars-matrix: yaml specification given"
+        start-group "yaml specification given"
         echo "${YAML_CONFIG}"
-        echo "::endgroup::"
+        end-group
 
         # Test if valid yaml
         if ! echo "${YAML_CONFIG}" | yq e 2>/dev/null 1>&2 ; then
-          echo "ERROR: create-app-vars-matrix: The given specification is not valid yaml!"
+          log-error "The given specification is not valid yaml!"
           exit 1
         fi
 
         # Convert yaml to JSON
         JSON_CONFIG=$(echo "${YAML_CONFIG}" | yq e -o=json -)
-        echo "::group::create-app-vars-matrix: specification as JSON"
-        echo "${JSON_CONFIG}"
-        echo "::endgroup::"
+        log-json "specification as JSON" "${JSON_CONFIG}"
 
         echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
         echo "${JSON_CONFIG}" >> $GITHUB_OUTPUT
         echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     - shell: bash
+      id: validate-input
       run: |
         # Validate given app vars structure
 
-        # Load app vars
+        action_helpers_file="${{ github.action_path }}/helpers.sh"
+        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
+        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+
+        # Load and log app vars
         JSON_CONFIG=$(cat <<'EOF'
         ${{ steps.convert.outputs.app-vars }}
         EOF
         )
+        log-json "JSON input received" "${JSON_CONFIG}"
 
         # Check that app vars is of type array
         if [ ! "$( echo "${JSON_CONFIG}" | jq -r '. | type' )" == 'array' ]; then
-          echo "ERROR: create-app-vars-matrix: The specification is not an array!"
+          log-error "The specification is not an array!"
           exit 1
         else
-          echo "create-app-vars-matrix: [OK] The specification is an array."
+          log-info "[OK] The specification is an array."
         fi
 
         # Make sure at least one app vars specification is given
         NUM_APPS=$( echo "${JSON_CONFIG}" | jq -r '. | length' )
         if [ ${NUM_APPS} -le 0 ]; then
-          echo "ERROR: create-app-vars-matrix: The specification is an empty array!"
+          log-error "The specification is an empty array!"
           exit 1
         else
-          echo "create-app-vars-matrix: [OK] The specification is not an empty array."
+          log-info "[OK] The specification is not an empty array."
         fi
 
     - shell: bash
@@ -94,17 +105,16 @@ runs:
       run: |
         # Set application type where not explicitly defined
 
-        # Load app vars
+        action_helpers_file="${{ github.action_path }}/helpers.sh"
+        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
+        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+
+        # Load and log app vars
         IN_JSON=$(cat <<'EOF'
         ${{ steps.convert.outputs.app-vars }}
         EOF
         )
-
-        # Helper functions
-        function _jq { echo ${APP_VARS} | base64 --decode | jq -r ${*} ; }
-        function has-field { if [[ "$(echo "${OUT_OBJ}" | jq --arg name "${1}" 'has($name)')" == 'true' ]]; then true; else false; fi; }
-        function get-val { echo "${OUT_OBJ}" | jq -r --arg name "${1}" '.[$name] | select( . != null )'; }
-        function set-val { OUT_OBJ="$(echo "${OUT_OBJ}" | jq --arg name "${1}" --arg value "${2}" '.[$name] = $value')" ; }
+        log-json "JSON input received" "${IN_JSON}"
 
         # Build output JSON object
         OUT_JSON='[]'
@@ -113,140 +123,158 @@ runs:
           if ! has-field "application-type"; then
             APP_NAME="$(get-val 'application-name')"
 
-            echo "::group::create-app-vars-matrix: Detect 'application-type' for app '${APP_NAME}'"
+            start-group "Detect 'application-type' for app '${APP_NAME}'"
             if ! has-field "application-source-path"; then
-              echo "create-app-vars-matrix: 'application-source-path' not defined, using default."
+              log-info "'application-source-path' not defined, using default."
               set-val "application-source-path" "./" # modifies $OUT_OBJ
             fi
 
             SRC_PATH="$(get-val 'application-source-path')"
             if [ -d "${SRC_PATH}" ]; then
-              echo "create-app-vars-matrix: 'application-source-path' '${SRC_PATH}' is a directory."
+              log-info "'application-source-path' '${SRC_PATH}' is a directory."
               [ -f "${SRC_PATH}/pom.xml" ] && SRC_PATH="${SRC_PATH}/pom.xml" || :
               [ -f "${SRC_PATH}/package.json" ] && SRC_PATH="${SRC_PATH}/package.json" || :
             fi
 
-            echo "create-app-vars-matrix: Using '${SRC_PATH}' as 'application-source-path'."
+            log-info "Using '${SRC_PATH}' as 'application-source-path'."
             if [ -f "${SRC_PATH}" ] && [ "$(basename ${SRC_PATH})" == 'pom.xml' ]; then
-              echo "create-app-vars-matrix: Setting 'application-type' to 'spring-boot' since pom exists at '${SRC_PATH}'"
+              log-info "Setting 'application-type' to 'spring-boot' since pom exists at '${SRC_PATH}'"
               set-val "application-type" "spring-boot" # modifies $OUT_OBJ
             elif [ -f "${SRC_PATH}" ] && [ "$(basename ${SRC_PATH})" == 'package.json' ]; then
-              echo "create-app-vars-matrix: Setting 'application-type' to 'vue' since package.json exists at '${SRC_PATH}'"
+              log-info "Setting 'application-type' to 'vue' since package.json exists at '${SRC_PATH}'"
               set-val "application-type" "vue" # modifies $OUT_OBJ
             elif [ -f "${SRC_PATH}" ]; then
-              echo "WARN: create-app-vars-matrix: Unable to detect 'application-type', file '${SRC_PATH}' is of unknown type!"
+              log-warn "Unable to detect 'application-type', file '${SRC_PATH}' is of unknown type!"
             else
-              echo "WARN: create-app-vars-matrix: Unable to detect 'application-type', '${SRC_PATH}' is not a file!"
+              log-warn "Unable to detect 'application-type', '${SRC_PATH}' is not a file!"
             fi
 
-            echo "::endgroup::"
+            end-group
           fi
 
           # Add JSON object to output JSON
           OUT_JSON=$(echo "${OUT_JSON}" | jq '. += '["${OUT_OBJ}"']')
         done
 
-        # Log the result
-        echo "::group::create-app-vars-matrix: current JSON specification"
-        echo "${OUT_JSON}"
-        echo "::endgroup::"
+        log-json "JSON output returned" "${OUT_JSON}"
 
         echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
         echo "${OUT_JSON}" >> $GITHUB_OUTPUT
         echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     - shell: bash
-      id: get-description
+      id: get-app-meta
       run: |
-        # Attempt to read application description where not explicitly defined
+        # Attempt to read application metadata from pom.xml/package.json for fields that are not explicitly defined in input
 
-        # Load app vars
+        action_helpers_file="${{ github.action_path }}/helpers.sh"
+        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
+        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+
+        # Load and log app vars
         IN_JSON=$(cat <<'EOF'
         ${{ steps.detect-type.outputs.app-vars }}
         EOF
         )
-
-        # Helper functions
-        function _jq { echo ${APP_VARS} | base64 --decode | jq -r ${*} ; }
-        function has-field { if [[ "$(echo "${OUT_OBJ}" | jq --arg name "${1}" 'has($name)')" == 'true' ]]; then true; else false; fi; }
-        function get-val { echo "${OUT_OBJ}" | jq -r --arg name "${1}" '.[$name] | select( . != null )'; }
-        function set-val { OUT_OBJ="$(echo "${OUT_OBJ}" | jq --arg name "${1}" --arg value "${2}" '.[$name] = $value')" ; }
+        log-json "JSON input received" "${IN_JSON}"
 
         # Build output JSON object
         OUT_JSON='[]'
         for APP_VARS in $(echo "${IN_JSON}" | jq -r '.[] | @base64'); do
           OUT_OBJ="$(_jq '.')"
-          if ! has-field "application-description"; then
-            APP_NAME="$(get-val 'application-name')"
-            echo "::group::create-app-vars-matrix: Detect 'application-description' for app '${APP_NAME}'"
 
-            if ! has-field "application-type"; then
-              echo "WARN: create-app-vars-matrix: 'application-type' is not defined!"
+          APP_NAME="$(get-val 'application-name')"
+          start-group "Get application metadata for app '${APP_NAME}'"
+
+          if ! has-field "application-type"; then
+            log-warn "'application-type' is not defined!"
+          else
+            if ! has-field "application-source-path"; then
+              log-info "'application-source-path' not defined, using default."
+              set-val "application-source-path" "./" # modifies $OUT_OBJ
+            fi
+            APP_TYPE="$(get-val 'application-type')"
+            SRC_PATH="$(get-val 'application-source-path')"
+            if [ -d "${SRC_PATH}" ]; then
+              log-info "'application-source-path' '${SRC_PATH}' is a directory."
+              [ "${APP_TYPE}" == 'spring-boot' ] && SRC_PATH="${SRC_PATH}/pom.xml" || :
+              [ "${APP_TYPE}" == 'vue' ] && SRC_PATH="${SRC_PATH}/package.json" || :
+            fi
+
+            log-info "Using '${SRC_PATH}' as 'application-source-path'."
+            if [ ! -f "${SRC_PATH}" ]; then
+              log-warn "Unable to use 'application-source-path' with value '$(get-val 'application-source-path')'."
             else
-              if ! has-field "application-source-path"; then
-                echo "create-app-vars-matrix: 'application-source-path' not defined, using default."
-                set-val "application-source-path" "./" # modifies $OUT_OBJ
-              fi
-              APP_TYPE="$(get-val 'application-type')"
-              SRC_PATH="$(get-val 'application-source-path')"
-              if [ -d "${SRC_PATH}" ]; then
-                echo "create-app-vars-matrix: 'application-source-path' '${SRC_PATH}' is a directory."
-                [ "${APP_TYPE}" == 'spring-boot' ] && SRC_PATH="${SRC_PATH}/pom.xml" || :
-                [ "${APP_TYPE}" == 'vue' ] && SRC_PATH="${SRC_PATH}/package.json" || :
-              fi
-
-              echo "create-app-vars-matrix: Using '${SRC_PATH}' as 'application-source-path'."
-              if [ ! -f "${SRC_PATH}" ]; then
-                echo "WARN: create-app-vars-matrix: Unable to use 'application-source-path' with value '$(get-val 'application-source-path')'."
+              log-info "Reading file '${SRC_PATH}'"
+              SRC_DATA=$(cat "${SRC_PATH}")
+              if [ -z "${SRC_DATA}" ]; then
+                log-warn "Unable to use given 'application-source-path', '${SRC_PATH}' was empty."
               else
-                echo "create-app-vars-matrix: Reading file '${SRC_PATH}'"
-                SRC_DATA=$(cat "${SRC_PATH}")
-                if [ -z "${SRC_DATA}" ]; then
-                  echo "WARN: create-app-vars-matrix: Unable to use given 'application-source-path', '${SRC_PATH}' was empty."
+                # declare as empty to avoid unbound variable
+                APP_DESC=
+                APP_JAVA_VERSION=
+
+                if [ "${APP_TYPE}" == 'spring-boot' ] || [ "${APP_TYPE}" == 'maven-library' ]; then
+                  APP_DESC=$(yq --input-format=xml --output-format=tsv --exit-status --expression='.project.description' "${SRC_PATH}") \
+                  || log-warn "Unable to parse file '${SRC_PATH}' as XML or '<description>' field is missing."
+
+                  APP_JAVA_VERSION=$(yq --input-format=xml --output-format=tsv --exit-status --expression='.project.properties."java.version"' "${SRC_PATH}") \
+                  &&  log-info "Detected 'java-version=${APP_JAVA_VERSION}' from '<java.version>' in file '${SRC_PATH}'." \
+                  || log-info "Could not detect 'java-version' from file '${SRC_PATH}', '<java.version>' field is missing."
+                elif [ "${APP_TYPE}" == 'vue' ]; then
+                  APP_DESC=$(echo "${SRC_DATA}" | jq -r '.["description"] | select( . != null )') \
+                  || log-warn "Unable to parse file '${SRC_PATH}' as json."
                 else
-                  if [ "${APP_TYPE}" == 'spring-boot' ] || [ "${APP_TYPE}" == 'maven-library' ]; then
-                    # grep from '<description>' to next '<', replace newlines with spaces, replace spaces
-                    APP_DESC=$(echo "${SRC_DATA}" | grep -zoPm1 "(?<=<description>)[^<]+" | tr '\n' ' ' | awk '{$1=$1};1') \
-                    || echo "WARN: create-app-vars-matrix: Unable to parse file '${SRC_PATH}' as XML or '<description>' field is missing."
-                  elif [ "${APP_TYPE}" == 'vue' ]; then
-                    APP_DESC=$(echo "${SRC_DATA}" | jq -r '.["description"] | select( . != null )') \
-                    || echo "WARN: create-app-vars-matrix: Unable to parse file '${SRC_PATH}' as json."
-                  else
-                    echo "WARN: create-app-vars-matrix: Unknown 'application-type' '${APP_TYPE}', not sure how to use parse file '${SRC_PATH}'."
-                  fi
+                  log-warn "Unknown 'application-type' '${APP_TYPE}', not sure how to use parse file '${SRC_PATH}'."
+                fi
+
+                # description
+                if ! has-field "application-description"; then
                   [ -z "${APP_DESC}" ] \
-                    && echo "WARN: create-app-vars-matrix: No description was parsed from file '${SRC_PATH}'." \
-                    || echo "create-app-vars-matrix: Description is: '${APP_DESC}'."
+                    && log-warn "No description was parsed from file '${SRC_PATH}'." \
+                    || log-info "Description is: '${APP_DESC}'."
                   set-val "application-description" "${APP_DESC}" # modifies $OUT_OBJ
+                fi
+
+                # java version
+                if ! has-field "java-version" && [ ! -z "${APP_JAVA_VERSION}" ]; then
+                  log-info "Setting 'java-version' to: '${APP_JAVA_VERSION}'."
+                  set-val "java-version" "${APP_JAVA_VERSION}" # modifies $OUT_OBJ
                 fi
               fi
             fi
-
-            echo "::endgroup::"
           fi
+
+          end-group
 
           # Add JSON object to output JSON
           OUT_JSON=$(echo "${OUT_JSON}" | jq '. += '["${OUT_OBJ}"']')
+
+          # cleanup between apps
+          unset OUT_OBJ APP_NAME APP_TYPE SRC_PATH SRC_DATA APP_DESC APP_JAVA_VERSION
         done
 
-        # Log the result
-        echo "::group::create-app-vars-matrix: current JSON specification"
-        echo "${OUT_JSON}"
-        echo "::endgroup::"
+        log-json "JSON output returned" "${OUT_JSON}"
 
         echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
         echo "${OUT_JSON}" >> $GITHUB_OUTPUT
         echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
     - shell: bash
+      id: validate-result
       run: |
         # Validate app vars structure, required fields and allowed values
 
-        # Load app vars
+        action_helpers_file="${{ github.action_path }}/helpers.sh"
+        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
+        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+
+        # Load and log app vars
         JSON_CONFIG=$(cat <<'EOF'
-        ${{ steps.get-description.outputs.app-vars }}
+        ${{ steps.get-app-meta.outputs.app-vars }}
         EOF
         )
+        log-json "JSON input received" "${JSON_CONFIG}"
 
         # Required fields
         REQ_FIELDS=(
@@ -264,32 +292,23 @@ runs:
 
         # Check that app vars is of type array
         if [ ! "$( echo "${JSON_CONFIG}" | jq -r '. | type' )" == 'array' ]; then
-          echo "ERROR: create-app-vars-matrix: The specification is not an array!"
+          log-error "The specification is not an array!"
           exit 1
         else
-          echo "create-app-vars-matrix: [OK] The specification is an array."
+          log-info "[OK] The specification is an array."
         fi
 
         # Make sure at least one app vars specification is given
         NUM_APPS=$( echo "${JSON_CONFIG}" | jq -r '. | length' )
         if [ ${NUM_APPS} -le 0 ]; then
-          echo "ERROR: create-app-vars-matrix: The specification is an empty array!"
+          log-error "The specification is an empty array!"
           exit 1
         else
-          echo "create-app-vars-matrix: [OK] The specification is not an empty array."
+          log-info "[OK] The specification is not an empty array."
         fi
-
-        # Helper function
-        function fail-field {
-          DO_EXIT=1
-          echo "::group::ERROR: create-app-vars-matrix: ${1}"
-          echo "$(_jq '.')"
-          echo "::endgroup::"
-        }
 
         DO_EXIT=0
         for APP_VARS in $(echo "${JSON_CONFIG}" | jq -r '.[] | @base64'); do
-          function _jq { echo ${APP_VARS} | base64 --decode | jq -r ${1} ; }
           for FIELD in ${REQ_FIELDS[*]}; do
             if [ "$(_jq 'has("'${FIELD}'")')" == 'false' ]; then
               fail-field "Missing property '${FIELD}' in application specification!"
@@ -303,18 +322,23 @@ runs:
             fi
           done
         done
-        [ ${DO_EXIT} -eq 1 ] && exit 1 || echo "create-app-vars-matrix: [OK] All required fields were found in the specification."
+        [ ${DO_EXIT} -eq 1 ] && exit 1 || log-info "[OK] All required fields were found in the specification."
 
     - shell: bash
       id: create-app-vars-matrix
       run: |
         # Add additional dynamic app vars
 
+        action_helpers_file="${{ github.action_path }}/helpers.sh"
+        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
+        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+
         # Load and log app vars
         IN_JSON=$(cat <<'EOF'
-        ${{ steps.get-description.outputs.app-vars }}
+        ${{ steps.get-app-meta.outputs.app-vars }}
         EOF
         )
+        log-json "JSON input received" "${IN_JSON}"
 
         # Version and date
         APP_BUILDTIME="$(date -u +'%Y-%m-%dT%H:%M:%S.%3NZ')"
@@ -324,14 +348,8 @@ runs:
         fi
 
         # Add static app vars to all elements in array
-        function add-to-all { IN_JSON="$(echo "${IN_JSON}" | jq --arg name "${1}" --arg value "${2}" '.[] += {($name): $value}')" ; }
-        add-to-all "application-version"                "${APP_VERSION}"
-        add-to-all "application-build-timestamp"        "${APP_BUILDTIME}"
-
-        # Helper functions
-        function _jq { echo ${APP_VARS} | base64 --decode | jq -r ${*} ; }
-        function get-val { echo "${OUT_OBJ}" | jq -r --arg name "${1}" '.[$name] | select( . != null )'; }
-        function set-val { OUT_OBJ="$(echo "${OUT_OBJ}" | jq --arg name "${1}" --arg value "${2}" '.[$name] = $value')" ; }
+        add-to-all "application-version"                "${APP_VERSION}"    # modifies $IN_JSON
+        add-to-all "application-build-timestamp"        "${APP_BUILDTIME}"  # modifies $IN_JSON
 
         # Build output JSON object
         OUT_JSON='[]'
@@ -349,10 +367,7 @@ runs:
           OUT_JSON=$(echo "${OUT_JSON}" | jq '. += '["${OUT_OBJ}"']')
         done
 
-        # Log the result
-        echo "::group::create-app-vars-matrix: ouput JSON specification"
-        echo "${OUT_JSON}"
-        echo "::endgroup::"
+        log-json "JSON output returned" "${OUT_JSON}"
 
         echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
         echo "${OUT_JSON}" >> $GITHUB_OUTPUT
@@ -365,11 +380,16 @@ runs:
       run: |
         # Create app vars matrix
 
+        action_helpers_file="${{ github.action_path }}/helpers.sh"
+        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
+        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+
         # Load and log app vars
         IN_JSON=$(cat <<'EOF'
         ${{ steps.create-app-vars-matrix.outputs.app-vars }}
         EOF
         )
+        log-json "JSON input received" "${IN_JSON}"
 
         # Reshape JSON to conform to github matrix format:
         #{
@@ -381,10 +401,7 @@ runs:
         # Each element in the array will have one field 'app-vars' containing all app vars for a given app
         OUT_JSON=$(echo "${IN_JSON}" | jq '{ "application-name": map( .["application-name"]), "include": map({ "application-name": .["application-name"], "app-vars": . }) }')
 
-        # Log the result
-        echo "::group::create-app-vars-matrix: app vars JSON re-formated for Github matrix job"
-        echo "${OUT_JSON}"
-        echo "::endgroup::"
+        log-json "app vars JSON re-formatted for Github matrix job" "${OUT_JSON}"
 
         echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
         echo "${OUT_JSON}" >> $GITHUB_OUTPUT
