@@ -1,0 +1,43 @@
+#
+# Used for testing this actions code, see test_action_source.sh
+#
+- application-name: eksplosiv-api
+  application-source-path: ../eksplosiv-org/backend
+  maven-build-project-deploy-release-artifacts: true
+  maven-build-project-deploy-snapshot-artifacts: true
+  # java-version: 17
+  pr-deploy-additional-helm-values:
+    parameters:
+      dsb-spring-boot.database_container.enabled: true
+      # Dollar sign and leading curly bracket must be escaped for spring. Ie. '${VAR}' becomes '\$\{VAR}'
+      dsb-spring-boot.config.spring.datasource.url: 'jdbc:sqlserver://\$\{DATABASE_CONTAINER_HOST_AND_PORT};database=\$\{DATABASE_CONTAINER_DATABASE};encrypt=false'
+      dsb-spring-boot.config.spring.datasource.username: '\$\{DATABASE_CONTAINER_USER}'
+      dsb-spring-boot.config.spring.datasource.password: '\$\{DATABASE_CONTAINER_PASSWORD}'
+      dsb-spring-boot.config.spring.r2dbc.url: 'r2dbc:pool:sqlserver://\$\{DATABASE_CONTAINER_HOST_AND_PORT}/\$\{DATABASE_CONTAINER_DATABASE}'
+      dsb-spring-boot.config.spring.r2dbc.username: '\$\{DATABASE_CONTAINER_USER}'
+      dsb-spring-boot.config.spring.r2dbc.password: '\$\{DATABASE_CONTAINER_PASSWORD}'
+- application-name: eksplosiv-frontend
+  application-source-path: ../eksplosiv-org//frontend
+  nodejs-version: "18"
+  nodejs-build-project-custom-command-pre-npm-run-build: npm exec vue-demi-fix --prefix ./node_modules/pinia/node_modules/vue-demi/
+  pr-deploy-comment-additional-text: Available at https://pr-719.dev.eksplosiver.no/
+  pr-deploy-additional-helm-values:
+    parameters:
+      dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST: "http://eksplosiv-api-pr-719.eksplosiv-api-pr-719.svc.cluster.local:8080"
+      dsb-nginx-frontend.ingress_host: "pr-719.dev.eksplosiver.no"
+- application-name: eksplosiv-permitchecker
+  application-source-path: ../eksplosiv-org//permitchecker
+  nodejs-version: "18"
+  pr-deploy-comment-additional-text: Available at https://pr-719-motta.dev.eksplosiver.no/
+  pr-deploy-additional-helm-values:
+    parameters:
+      dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST: "http://eksplosiv-api-pr-719.eksplosiv-api-pr-719.svc.cluster.local:8080"
+      dsb-nginx-frontend.ingress_host: "pr-719-motta.dev.eksplosiver.no"
+- application-name: eksplosiv-saksbehandler
+  application-source-path: ../eksplosiv-org//saksbehandler
+  nodejs-version: "18"
+  pr-deploy-comment-additional-text: Available at https://pr-719-saksbehandler.dev.eksplosiver.no/
+  pr-deploy-additional-helm-values:
+    parameters:
+      dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST: "http://eksplosiv-api-pr-719.eksplosiv-api-pr-719.svc.cluster.local:8080"
+      dsb-nginx-frontend.ingress_host: "pr-719-saksbehandler.dev.eksplosiver.no"
