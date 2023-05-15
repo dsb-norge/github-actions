@@ -390,15 +390,20 @@ runs:
         DSB_MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-token }}
         DSB_MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-username }}
 
+    # create a new settings.xml with credentials for github packages
+    - uses: actions/setup-java@v3
+      with:
+        distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
+        java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
+        server-id: github-dsb-norge # Value of the repository/id field of the pom.xml
+        server-username: DSB_GH_PACKAGES_USER_NAME
+        server-password: DSB_GH_PACKAGES_REPO_TOKEN
+        overwrite-settings: true
+
     # deploy maven build artifacts to Github Packages
     - shell: bash
       run: |
         # Use maven to deploy artifacts when allowed and requested
-        
-        if [ ! "$(get-val 'maven-build-project-github-packages-enabled')" == 'true' ]; then
-            log-info "Maven artifacts will not be deployed to Github Packages"
-            exit 0
-        fi
 
         BUILD_ENVS=$(cat <<'EOF'
         ${{ inputs.dsb-build-envs }}
@@ -413,6 +418,11 @@ runs:
         function log-info { echo "build-dsb-maven-project: Deploy artifacts to Github Packages: $*"; }
         function log-error { echo "ERROR: build-dsb-maven-project: Deploy artifacts to Github Packages: $*"; }
 
+        if [ ! "$(get-val 'maven-build-project-github-packages-enabled')" == 'true' ]; then
+            log-info "Maven artifacts will not be deployed to Github Packages as 'maven-build-project-github-packages-enabled' is not set to 'true'."
+            exit 0
+        fi
+
         # Locate pom.xml
         POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
         [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
@@ -420,7 +430,8 @@ runs:
           log-error "Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
           exit 1
 
-        ALT_DEPLOYMENT_REPOSITORY="-DaltDeploymentRepository=github::default::https://maven.pkg.github.com/dsb-norge/${{ fromJSON(inputs.dsb-build-envs).application-name }}"
+        ALT_DEPLOYMENT_REPOSITORY="-DaltDeploymentRepository=github-dsb-norge::default::https://maven.pkg.github.com/${{ github.repository }}"
+        log-info "ALT_DEPLOYMENT_REPOSITORY is now set to '${ALT_DEPLOYMENT_REPOSITORY}'"
 
         # Determine if we are deploying and with what commands
         if [ '${{ github.event_name }}' == 'pull_request' ]; then
@@ -510,5 +521,5 @@ runs:
         ${MVN_CMD}
         echo "::endgroup::"
       env:
-        DSB_MAVEN_REPO_TOKEN: GITHUB_TOKEN
-        DSB_MAVEN_REPO_USER_NAME: GITHUB_ACTOR
+        DSB_GH_PACKAGES_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }}
+        DSB_GH_PACKAGES_USER_NAME: ${{ github.actor }}
