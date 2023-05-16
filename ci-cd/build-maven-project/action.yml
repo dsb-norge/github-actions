@@ -236,8 +236,8 @@ runs:
         server-id: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id }} # Value of the repository/id field of the pom.xml
         # Jenkins user in repo.dsb.no. Pwd for login to repo.dsb.no found in keepass
         # Or if repo is set to GitHub Packages, use GitHub credentials
-        server-username: ${{ if [[ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' ]]; then DSB_GH_PACKAGES_USER_NAME; else DSB_MAVEN_REPO_USER_NAME; fi; }}
-        server-password: ${{ if [[ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' ]]; then DSB_GH_PACKAGES_REPO_TOKEN; else DSB_MAVEN_REPO_TOKEN; fi; }}
+        server-username: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' && DSB_GH_PACKAGES_USER_NAME || DSB_MAVEN_REPO_USER_NAME }}
+        server-password: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' && DSB_GH_PACKAGES_REPO_TOKEN || DSB_MAVEN_REPO_TOKEN }}
         overwrite-settings: true
 
     # invoke maven
