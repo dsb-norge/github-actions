@@ -74,10 +74,10 @@ git checkout origin/main
 git pull origin main
 git tag -a 'v2.1'
 # you are prompted for the tag annotation (change description)
-git tag -f -a 'v1'
+git tag -f -a 'v2'
 # you are prompted for the tag annotation, amend the change description
 git push -f origin 'refs/tags/v2.1'
-git push -f origin 'refs/tags/v1'
+git push -f origin 'refs/tags/v2'
 ```
 
 **Note:** If you are having problems pulling main after a release, try to force fetch the tags: `git fetch --tags -f`.
