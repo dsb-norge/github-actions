@@ -236,8 +236,8 @@ runs:
         server-id: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id }} # Value of the repository/id field of the pom.xml
         # Jenkins user in repo.dsb.no. Pwd for login to repo.dsb.no found in keepass
         # Or if repo is set to GitHub Packages, use GitHub credentials
-        server-username: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' && DSB_GH_PACKAGES_USER_NAME || DSB_MAVEN_REPO_USER_NAME }}
-        server-password: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' && DSB_GH_PACKAGES_REPO_TOKEN || DSB_MAVEN_REPO_TOKEN }}
+        server-username: MAVEN_REPO_USER_NAME
+        server-password: MAVEN_REPO_TOKEN
         overwrite-settings: true
 
     # invoke maven
@@ -273,8 +273,9 @@ runs:
         JASYPT_LOCAL_ENCRYPTOR_PASSWORD: ${{ fromJSON(inputs.dsb-build-envs).jasypt-password }}
         GITHUB_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }} # Needed for Sonar to get PR information, if any
         SONAR_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).sonarqube-token }}
-        DSB_MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-token }}
-        DSB_MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-username }}
+        # If Maven repo is set to github-dsb-norge use github repo token and actor, otherwise use Nexus Maven repo username and password
+        MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' && github.actor || fromJSON(inputs.dsb-build-envs).maven-repo-username }}
+        MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' && fromJSON(inputs.dsb-build-envs).github-repo-token || fromJSON(inputs.dsb-build-envs).maven-repo-token }}
 
     # deploy maven build artifacts to Nexus
     - shell: bash
