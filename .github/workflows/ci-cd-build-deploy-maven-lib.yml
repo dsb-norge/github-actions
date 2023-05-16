@@ -37,13 +37,15 @@ jobs:
     steps:
       # The create-app-vars-matrix action requires source code to be available
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@pull-from-github-packages
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
       - name: 🎰 Create app vars build matrix
         id: create-matrix
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@pull-from-github-packages
         with:
           apps: ${{ inputs.apps }}
 
@@ -58,14 +60,16 @@ jobs:
         shell: bash
     steps:
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@pull-from-github-packages
 
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
       - name: 🎰 Generate DSB build variables
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@pull-from-github-packages
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
@@ -80,7 +84,8 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@pull-from-github-packages
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
