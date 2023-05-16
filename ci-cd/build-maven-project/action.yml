@@ -418,8 +418,8 @@ runs:
         function log-info { echo "build-dsb-maven-project: Deploy artifacts to Github Packages: $*"; }
         function log-error { echo "ERROR: build-dsb-maven-project: Deploy artifacts to Github Packages: $*"; }
 
-        if [ ! "$(get-val 'maven-build-project-github-packages-enabled')" == 'true' ]; then
-            log-info "Maven artifacts will not be deployed to Github Packages as 'maven-build-project-github-packages-enabled' is not set to 'true'."
+        if [ "$(get-val 'maven-build-project-github-packages-enabled')" == 'false' ]; then
+            log-info "Maven artifacts will not be deployed to Github Packages as 'maven-build-project-github-packages-enabled' is set to 'false'."
             exit 0
         fi
 
