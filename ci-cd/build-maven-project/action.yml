@@ -233,10 +233,10 @@ runs:
       with:
         distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
-        server-id: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id }} # Value of the repository/id field of the pom.xml
-        # Jenkins user in repo.dsb.no. Pwd for login to repo.dsb.no found in keepass
-        server-username: MAVEN_REPO_USER_NAME
-        server-password: MAVEN_REPO_TOKEN
+        # Value of the repository/id field of the pom.xml
+        server-id: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id }}
+        server-username: DSB_GH_PACKAGES_USER_NAME
+        server-password: DSB_GH_PACKAGES_REPO_TOKEN
         overwrite-settings: true
 
     # build with maven
@@ -273,8 +273,12 @@ runs:
         GITHUB_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }} # Needed for Sonar to get PR information, if any
         SONAR_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).sonarqube-token }}
         # If Maven repo is set to github-dsb-norge use github repo token and actor, otherwise use Nexus Maven repo username and password
-        MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' && github.actor || fromJSON(inputs.dsb-build-envs).maven-repo-username }}
-        MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' && fromJSON(inputs.dsb-build-envs).github-repo-token || fromJSON(inputs.dsb-build-envs).maven-repo-token }}
+        #MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' && github.actor || fromJSON(inputs.dsb-build-envs).maven-repo-username }}
+        #MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id == 'github-dsb-norge' && fromJSON(inputs.dsb-build-envs).github-repo-token || fromJSON(inputs.dsb-build-envs).maven-repo-token }}
+        #MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }}
+        #MAVEN_REPO_USER_NAME: ${{ github.actor }}
+        DSB_GH_PACKAGES_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }}
+        DSB_GH_PACKAGES_USER_NAME: ${{ github.actor }}
 
     # set up environment for deploy to Nexus
     - uses: actions/setup-java@v3
