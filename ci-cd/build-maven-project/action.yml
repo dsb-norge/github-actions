@@ -149,9 +149,9 @@ runs:
         # Locate pom.xml and define maven commands
 
         # Defaults
-        MVN_VERSION_ARGUMENTS_DEFAULT='-B'
+        MVN_VERSION_ARGUMENTS_DEFAULT='-B -U'
         MVN_VERSION_GOALS_DEFAULT='versions:set'
-        MVN_ARGUMENTS_DEFAULT='-B'
+        MVN_ARGUMENTS_DEFAULT='-B -U'
         MVN_GOALS_DEFAULT='clean verify install org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'
 
         BUILD_ENVS=$(cat <<'EOF'
