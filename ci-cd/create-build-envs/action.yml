@@ -1,27 +1,33 @@
-name: 'Create common DSB CI/CD variables'
+name: "Create common DSB CI/CD variables"
 description: |
   Given the required input this action returns common DSB build environment variables with values.
   Common DSB build environment variables are the values needed to successfully build and deploy an app in DSB's infrastructure.
   Some variables are slightly different if the build was triggered from a PR. This is to support PR builds and deployments.
   Where possible values from input 'app-vars' are preferred.
-author: 'Peder Schmedling'
+author: "Peder Schmedling"
 inputs:
   app-vars:
-    description: 'Specifications of application to build and/or deploy, created by the create-app-vars workflow.'
+    description: "Specifications of application to build and/or deploy, created by the create-app-vars workflow."
     required: true
-  inputs-json:
-    description: "All inputs given to the ci/cd workflow"
+  github-json:
+    description: "The 'github' context as JSON, passed from the calling workflow with '{{ toJSON(github) }}'"
+    required: true
+  secrets-json:
+    description: "The 'secrets' context as JSON, passed from the calling workflow with '{{ toJSON(secrets) }}'"
+    required: true
+  vars-json:
+    description: "The 'vars' context as JSON, passed from the calling workflow with '{{ toJSON(vars) }}'"
     required: true
   application-source-path:
-    description: 'The path to the application source code.'
+    description: "The path to the application source code."
     required: false
-    default: './'
+    default: "./"
   application-vendor:
-    description: 'Vendor of application being built. Added as label in docker image.'
+    description: "Vendor of application being built. Added as label in docker image."
     required: false
     default: Norwegian Directorate for Civil Protection
   docker-image-registry:
-    description: 'Docker image registry to push built image and tags to.'
+    description: "Docker image registry to push built image and tags to."
     required: false
     default: dsbacr.azurecr.io
   docker-image-repo:
@@ -34,26 +40,26 @@ inputs:
       Note: For images built from PRs this has no effect. A hardcoded value will be used when pruning PR images.
       Also note: This setting will only affects images older than what is set for 'docker-image-prune-keep-num-days'.
     required: false
-    default: '30'
+    default: "30"
   docker-image-prune-keep-num-days:
     description: |
       Minimum number of days that images will be preserved for a given application when performing prune on the application image repo.
       Note: For images built from PRs this has no effect. A hardcoded value will be used when pruning PR images.
       Also note: All images newer than given value will be preserved regardless of what is set for 'docker-image-prune-keep-min-images'.
     required: false
-    default: '180'
+    default: "180"
   acr-username:
     description: 'Username for given "docker-image-registry", user must have push pull rights. Used for docker build and docker push.'
     required: false
-    default: ''
+    default: ""
   acr-password:
     description: 'Password for the user given in "acr-username".'
     required: false
-    default: ''
+    default: ""
   acr-service-principal:
     description: 'Service principal with rights to delete from "docker-image-registry" (ACR). Used for teardown operation of ephemeral PR environments.'
     required: false
-    default: ''
+    default: ""
   maven-user-settings-repositories-yml:
     description: |
       A YAML list (as string) with information about maven repositories that will be used to create a maven settings.xml prior to invoking maven.
@@ -121,47 +127,47 @@ inputs:
     required: false
     default: ""
   maven-repo-pom-id: # TODO: remove
-    description: 'Value of the repository/id field in the pom.xml representing repo.dsb.no.'
+    description: "Value of the repository/id field in the pom.xml representing repo.dsb.no."
     required: false
     default: dsb-nexus
   maven-repo-username: # TODO: remove
-    description: 'Username to use when downloading dependencies from repo.dsb.no.'
+    description: "Username to use when downloading dependencies from repo.dsb.no."
     required: true
   maven-repo-token:
-    description: 'Token for downloading dependencies from repo.dsb.no.'
+    description: "Token for downloading dependencies from repo.dsb.no."
     required: true
   sonarqube-token:
-    description: 'Token used for SonarQube app, see https://docs.sonarqube.org/latest/analysis/github-integration/'
+    description: "Token used for SonarQube app, see https://docs.sonarqube.org/latest/analysis/github-integration/"
     required: true
   jasypt-password:
     description: 'Jasypt password. Will be passed to maven build as environment variable named "JASYPT_LOCAL_ENCRYPTOR_PASSWORD"'
     required: false
-    default: ''
+    default: ""
   java-version:
-    description: 'Version of java specified when calling actions/setup-java'
+    description: "Version of java specified when calling actions/setup-java"
     required: false
-    default: '11'
+    default: "11"
   java-distribution:
-    description: 'Distribution of Java specified when calling actions/setup-java'
+    description: "Distribution of Java specified when calling actions/setup-java"
     required: false
     default: temurin
   nodejs-version:
-    description: 'Version of Node.js specified when calling actions/setup-node'
+    description: "Version of Node.js specified when calling actions/setup-node"
     required: false
-    default: '16'
+    default: "16"
   github-repo-token:
-    description: 'Github repo token is required by: 1) Maven Sonar plugin to get PR information; 2) Adding comments from actions to github PRs.'
+    description: "Github repo token is required by: 1) Maven Sonar plugin to get PR information; 2) Adding comments from actions to github PRs."
     required: true
   app-config-repo:
     description: |
       Repo containing application configuration for apps used during deploy to ephemeral environment and static environments.
       This input is required when deploying apps.'
     required: false
-    default: 'dsb-norge/azure-kubernetes-config'
+    default: "dsb-norge/azure-kubernetes-config"
   app-config-repo-token:
-    description: 'Token for performing checkout and commits to the above repo during deploy. This input is required when deploying apps.'
+    description: "Token for performing checkout and commits to the above repo during deploy. This input is required when deploying apps."
     required: false
-    default: ''
+    default: ""
   static-deploy-environments:
     description: |
       Comma separated list of static environments to deploy to.
@@ -173,51 +179,51 @@ inputs:
       Set this to 'false' to allow deploying to static environments from other branches than the default branch.
       The default is to allow only deploys from the default branch.
     required: false
-    default: 'true'
+    default: "true"
   pr-deploy-app-config-branch:
     description: |
       Name of branch in "app-config-repo" potentially containing modified app config used during deploy to ephemeral
       environment. If branch does not exist deploy will fallback to HEAD @ default branch.'
     required: false
-    default: '${{ github.head_ref }}'
+    default: "${{ github.head_ref }}"
   pr-deploy-aks-cluster-name:
-    description: 'Name of AKS instance to use during deploy to ephemeral environment. This input is required when deploying to to ephemeral environments.'
+    description: "Name of AKS instance to use during deploy to ephemeral environment. This input is required when deploying to to ephemeral environments."
     required: false
-    default: 'aks-rg7-ss2-cm-k8s-cluster-dev-1'
+    default: "aks-rg7-ss2-cm-k8s-cluster-dev-1"
   pr-deploy-aks-resource-group:
     description: |
       Name of resource group where the AKS instance to use during deploy to ephemeral environment lives. This input is
       required when deploying to to ephemeral environments.'
     required: false
-    default: 'rg7-ss2-cm-k8s-dev'
+    default: "rg7-ss2-cm-k8s-dev"
   pr-deploy-aks-creds:
     description: |
       Credentials to the AKS instance to use during deploy to ephemeral environment. This input is required when
       deploying to to ephemeral environments.
     required: false
-    default: ''
+    default: ""
   pr-deploy-additional-helm-values:
-    description: 'Additional values.yml overrides passed to Helm. The multiline string is saved to file and and passed to Helm using --vaules option.'
+    description: "Additional values.yml overrides passed to Helm. The multiline string is saved to file and and passed to Helm using --vaules option."
     required: false
-    default: ''
+    default: ""
   pr-deploy-argo-applications-url:
-    description: 'URL to applications overview in ArgoCD. Used when creating comments on PRs during deploy to ephemeral environments.'
+    description: "URL to applications overview in ArgoCD. Used when creating comments on PRs during deploy to ephemeral environments."
     required: false
-    default: 'https://argo.dev.dsbnorge.no/applications'
+    default: "https://argo.dev.dsbnorge.no/applications"
   pr-deploy-comment-prefix:
     description: |
       Used when creating comments on PRs during deploy to ephemeral environments. All comments will be prfixed with this string.
       It is also used when looking for comment(s) to delete prior to creating a new comment. I.e. make sure this is a bit uniqe
       or you will loose comments on our PR. This string will in turn be prefixed with application name.
     required: false
-    default: 'auto-deployed to ephemeral PR environment:'
+    default: "auto-deployed to ephemeral PR environment:"
 outputs:
   json:
-    description: 'All envs as json'
+    description: "All envs as json"
     value: ${{ steps.build-env.outputs.json }}
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     # decide on git ref for app config repo branch
     - id: checkout-config-branch
@@ -260,6 +266,20 @@ runs:
         EOF
         )
 
+        # contexts from github passed as input
+        GITHUB_JSON=$(cat <<'EOF'
+        ${{ inputs.github-json }}
+        EOF
+        )
+        SECRETS_JSON=$(cat <<'EOF'
+        ${{ inputs.secrets-json }}
+        EOF
+        )
+        VARS_JSON=$(cat <<'EOF'
+        ${{ inputs.vars-json }}
+        EOF
+        )
+
         # These fields will be set by action inputs and values from app vars will be ignored
         PROTECTED_ENVS=(
           acr-password
@@ -267,6 +287,7 @@ runs:
           app-config-repo-token
           github-repo-token
           jasypt-password
+          maven-extra-envs-from-github
           maven-repo-token
           pr-deploy-aks-creds
           sonarqube-token
@@ -334,7 +355,6 @@ runs:
           maven-build-project-version-arguments
           maven-build-project-version-command
           maven-build-project-version-goals
-          maven-extra-envs-from-github-yml
           maven-repo-pom-id
           maven-repo-username
           nodejs-build-project-custom-command-final
@@ -364,6 +384,9 @@ runs:
         # Helper functions
         # Add/overwrite fields in OUTPUT_ENV_JSON safely
         function set-field { OUTPUT_ENV_JSON=$(echo "${OUTPUT_ENV_JSON}" | jq --arg name "$1" --arg value "$2" '.[$name] = $value') ; }
+        function set-field-from-json { OUTPUT_ENV_JSON=$(echo "${OUTPUT_ENV_JSON}" | jq --arg name "$1" --argjson json_value "$2" '.[$name] = $json_value'); }
+        # Remove fields from OUTPUT_ENV_JSON safely
+        function rm-field { OUTPUT_ENV_JSON=$(echo "${OUTPUT_ENV_JSON}" | jq --arg key_name "$1" 'del(.[$key_name])'); }
         # Check if field exists in OUTPUT_ENV_JSON safely
         function has-field { if [[ "$(echo "${OUTPUT_ENV_JSON}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
         # Get field value from OUTPUT_ENV_JSON safely
@@ -374,6 +397,14 @@ runs:
         function is-protected { if [[ " ${PROTECTED_ENVS[*]} " =~ " ${1} " ]]; then true; else false; fi; }
         # True if value is in array SPECIAL_ENVS
         function is-special { if [[ " ${SPECIAL_ENVS[*]} " =~ " ${1} " ]]; then true; else false; fi; }
+
+        # Helpers for contexts JSONs
+        function gh-context-has-field { if [[ "$(echo "${GITHUB_JSON}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
+        function gh-context-get-val { echo "${GITHUB_JSON}" | jq -r --arg name "$1" '.[$name]'; }
+        function secret-context-has-field { if [[ "$(echo "${SECRETS_JSON}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
+        function secret-context-get-val { echo "${SECRETS_JSON}" | jq -r --arg name "$1" '.[$name]'; }
+        function vars-context-has-field { if [[ "$(echo "${VARS_JSON}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
+        function vars-context-get-val { echo "${VARS_JSON}" | jq -r --arg name "$1" '.[$name]'; }
 
         # Loop over all inputs to this action:
         #  - If the field is "special", do nothing
@@ -456,8 +487,8 @@ runs:
         PRETTY_VAL=$(echo "${REPOS_YML}" | yq --input-format yml --output-format yml --prettyPrint eval -)
         set-field "maven-user-settings-repositories-yml" "${PRETTY_VAL}"
 
-        # Handled specifically as app vars field is on JSON format and
         # 'maven-extra-envs-from-github-yml' is expected to be yaml format (as multiline string)
+        # and be converted to a JSON object named 'maven-extra-envs-from-github' compatible with the 'build-maven-project' action.
         if has-field "maven-extra-envs-from-github-yml"; then
           echo "create-build-envs: using 'maven-extra-envs-from-github-yml' from app vars."
           ENVS_YML="$(get-val 'maven-extra-envs-from-github-yml')"
@@ -465,12 +496,77 @@ runs:
           echo "create-build-envs: using 'maven-extra-envs-from-github-yml' from this action's input"
           ENVS_YML="${{ inputs.maven-extra-envs-from-github-yml }}"
         fi
-        echo "create-build-envs: validating app var 'maven-extra-envs-from-github-yml' as yaml ..."
-        PRETTY_VAL=$(echo "${ENVS_YML}" | yq --input-format yml --output-format yml --prettyPrint eval -)
-        set-field "maven-extra-envs-from-github-yml" "${PRETTY_VAL}"
-        echo "::group::create-build-envs: resulting value of 'maven-extra-envs-from-github-yml'"
+        echo "create-build-envs: converting app var 'maven-extra-envs-from-github-yml' to json ..."
+        ENVS_JSON=$(echo "${ENVS_YML}" | yq --input-format yml --output-format json --prettyPrint eval -)
+
+        # DEBUG
+        echo "::group::create-build-envs: DEBUG ENVS_JSON"
+        echo "${ENVS_JSON}"
+        echo "::endgroup::"
+        # /DEBUG
+
+        # 'maven-extra-envs-from-github-yml' will be converted to json as # 'maven-extra-envs-from-github'
+        # and populated with values from contexts in github
+
+        ENVS_POPULATED_JSON='{}'
+        function set-envs-field { ENVS_POPULATED_JSON=$(echo "${ENVS_POPULATED_JSON}" | jq --arg name "$1" --arg value "$2" '.[$name] = $value') ; }
+
+        echo "create-build-envs: populating 'maven-extra-envs-from-github-yml' with values from the 'github' context ..."
+        ENV_NAMES=($(echo "${ENVS_JSON}" | jq -r '."from-github-context"|keys|.[]'))
+        for ENV_NAME in ${ENV_NAMES[*]}; do
+          echo "create-build-envs: environment variable '${ENV_NAME}'"
+          CONTEXT_FIELD=$(echo "${ENVS_JSON}" | jq -r --arg name "${ENV_NAME}" '."from-github-context"|.[$name]')
+          echo "create-build-envs: with value from secret '${CONTEXT_FIELD}'"
+          if ! gh-context-has-field "${CONTEXT_FIELD}"; then
+            echo "create-build-envs: ERROR: a field named '${CONTEXT_FIELD}' does not exist in the current 'github' context!"
+            exit 1
+          end
+          set-envs-field "${ENV_NAME}" $(gh-context-get-val "${SECRET_NAME}")
+        done
+
+        echo "create-build-envs: populating 'maven-extra-envs-from-github-yml' from the 'secrets' context ..."
+        ENV_NAMES=($(echo "${ENVS_JSON}" | jq -r '."from-secrets"|keys|.[]'))
+        for ENV_NAME in ${ENV_NAMES[*]}; do
+          echo "create-build-envs: environment variable '${ENV_NAME}'"
+          CONTEXT_FIELD=$(echo "${ENVS_JSON}" | jq -r --arg name "${ENV_NAME}" '."from-secrets"|.[$name]')
+          echo "create-build-envs: with value from secret '${CONTEXT_FIELD}'"
+          if ! secret-context-has-field "${CONTEXT_FIELD}"; then
+            echo "create-build-envs: ERROR: a field named '${CONTEXT_FIELD}' does not exist in the current 'secrets' context!"
+            exit 1
+          end
+          set-envs-field "${ENV_NAME}" $(secret-context-get-val "${CONTEXT_FIELD}")
+        done
+
+        echo "create-build-envs: populating 'maven-extra-envs-from-github-yml' from the 'variables' context ..."
+        ENV_NAMES=($(echo "${ENVS_JSON}" | jq -r '."from-variables"|keys|.[]'))
+        for ENV_NAME in ${ENV_NAMES[*]}; do
+          echo "create-build-envs: environment variable '${ENV_NAME}'"
+          CONTEXT_FIELD=$(echo "${ENVS_JSON}" | jq -r --arg name "${ENV_NAME}" '."from-variables"|.[$name]')
+          echo "create-build-envs: with value from secret '${CONTEXT_FIELD}'"
+          if ! vars-context-has-field "${CONTEXT_FIELD}"; then
+            echo "create-build-envs: ERROR: a field named '${CONTEXT_FIELD}' does not exist in the current 'variables' context!"
+            exit 1
+          end
+          set-envs-field "${ENV_NAME}" $(vars-context-get-val "${CONTEXT_FIELD}")
+        done
+
+        # DEBUG
+        echo "::group::create-build-envs: DEBUG ENVS_JSON"
+        echo "${ENVS_POPULATED_JSON}"
+        echo "::endgroup::"
+        # /DEBUG
+
+        echo "create-build-envs: 'maven-extra-envs-from-github-yml' now becomes JSON field named 'maven-extra-envs-from-github' ..."
+        set-field-from-json "maven-extra-envs-from-github" "${ENVS_POPULATED_JSON}"
+
+        echo "create-build-envs: removing 'maven-extra-envs-from-github-yml' from output ..."
+        rm-field "maven-extra-envs-from-github-yml"
+
+        # DEBUG
+        echo "::group::create-build-envs: DEBUG 'maven-extra-envs-from-github-yml'"
         echo "$(get-val 'maven-extra-envs-from-github-yml')"
         echo "::endgroup::"
+        # /DEBUG
 
         # Handled specifically as app vars field is on JSON format and
         # 'maven-build-project-deploy-to-repositories-yml' is expected to be yaml format (as multiline string)

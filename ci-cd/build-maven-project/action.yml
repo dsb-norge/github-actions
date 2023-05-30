@@ -118,21 +118,22 @@ runs:
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
+          acr-password
+          acr-username
           application-source-path
           application-version
-          java-distribution
-          java-version
-          maven-repo-pom-id
-          jasypt-password
-          github-repo-token
-          sonarqube-token
-          maven-repo-token
-          maven-repo-username
           caller-repo-calling-branch
           caller-repo-is-on-default-branch
           docker-image-registry
-          acr-username
-          acr-password
+          github-repo-token
+          jasypt-password
+          java-distribution
+          java-version
+          maven-extra-envs-from-github
+          maven-repo-pom-id
+          maven-repo-token
+          maven-repo-username
+          sonarqube-token
 
     # log into azure container registry (ACR) to enable maven to access internal images
     - uses: azure/docker-login@v1
