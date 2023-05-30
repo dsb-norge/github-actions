@@ -38,6 +38,7 @@ runs:
           maven-repo-pom-id
           maven-repo-token
           maven-repo-username
+
     # Determine maven command
     - id: mvn-cmd
       shell: bash
@@ -61,6 +62,7 @@ runs:
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
         server-id: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id }} # Value of the repository/id field of the pom.xml
         # Jenkins user in repo.dsb.no. Pwd for login to repo.dsb.no found in keepass
+        # TODO: replace with configure-maven-settings
         server-username: DSB_MAVEN_REPO_USER_NAME
         server-password: DSB_MAVEN_REPO_TOKEN
         overwrite-settings: true
@@ -73,5 +75,6 @@ runs:
         ${{ steps.mvn-cmd.outputs.mvn-cmd }}
         echo "::endgroup::"
       env:
+        # TODO: replace with configure-maven-settings
         DSB_MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-token }}
         DSB_MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-username }}

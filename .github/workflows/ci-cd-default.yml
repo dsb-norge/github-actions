@@ -10,6 +10,7 @@ name: "DSB Build, push and deploy"
 #   - vars.ORG_CICD_APP_INSTALLATION_ID       <-- app installation id found in url if you "configure" the app 'dsb-norge-cicd-access' from here: https://github.com/organizations/dsb-norge/settings/installations
 #
 # The following secrets must be available in the github 'secrets' context:
+# TODO: update about maven repo secrets
 #   - secrets.ORG_MAVEN_REPO_TOKEN                            <-- token for maven repo user
 #   - secrets.ORG_SONAR_TOKEN                                 <-- token for sonar integration
 #   - secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD             <-- jasypt password for local decryption of secrets during maven operations
@@ -85,8 +86,11 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
-          maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
-          maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }}
+          github-json: ${{ toJSON(github) }} # TODO
+          secrets-json: ${{ toJSON(secrets) }} # TODO
+          vars-json: ${{ toJSON(vars) }} # TODO
+          maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }} # TODO: remove
+          maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }} # TODO: remove
           sonarqube-token: ${{ secrets.ORG_SONAR_TOKEN }}
           jasypt-password: ${{ secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD }}
           acr-username: ${{ vars.ORG_AZURE_CONTAINER_REGISTRY_USER }}

@@ -1,6 +1,6 @@
 name: 'Collect common DSB CI/CD variables stored as github workflow artifacts'
 description: |
-  This will collect common DSB build environment variables from previously completed paralell build jobs.
+  This will collect common DSB build environment variables from previously completed parallel build jobs.
   Build-envs for each job are uploaded as github workflow artifacts in JSON format by the create-build-envs action.
   This action pulls down the JSON files, merges them and returns them as output.
 author: 'Peder Schmedling'

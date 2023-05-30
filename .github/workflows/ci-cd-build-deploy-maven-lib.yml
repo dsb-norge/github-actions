@@ -5,6 +5,7 @@ name: "DSB Build and deploy Maven artefact"
 #   - vars.ORG_AZURE_CONTAINER_REGISTRY_USER  <-- username of user with push+pull access to ACR, passed to the azure/docker-login action
 #
 # The following secrets must be available in the github 'secrets' context:
+# TODO: update about maven repo secrets
 #   - secrets.ORG_MAVEN_REPO_TOKEN                            <-- token for maven repo user
 #   - secrets.ORG_SONAR_TOKEN                                 <-- token for sonar integration
 #   - secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD             <-- jasypt password for local decryption of secrets during maven operations
@@ -68,8 +69,11 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
-          maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
-          maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }}
+          github-json: ${{ toJSON(github) }} # TODO
+          secrets-json: ${{ toJSON(secrets) }} # TODO
+          vars-json: ${{ toJSON(vars) }} # TODO
+          maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }} # TODO: remove
+          maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }} # TODO: remove
           sonarqube-token: ${{ secrets.ORG_SONAR_TOKEN }}
           jasypt-password: ${{ secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD }}
           github-repo-token: ${{ secrets.GITHUB_TOKEN }}

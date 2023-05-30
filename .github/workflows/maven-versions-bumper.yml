@@ -9,6 +9,7 @@ name: "Update third party dependencies and create pull request"
 #   - vars.ORG_MAVEN_REPO_USERNAME              <-- user with read and write to maven repo
 #
 # The following secrets must be available in the github 'secrets' context:
+# TODO: update about maven repo secrets
 #   - secrets.ORG_MAVEN_BUMPER_APP_PRIVATE_KEY  <-- generated from the app in github: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-maven-versions-bumper
 #   - secrets.ORG_MAVEN_REPO_TOKEN              <-- token for maven repo user
 
@@ -70,8 +71,11 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
-          maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
-          maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }}
+          github-json: ${{ toJSON(github) }} # TODO
+          secrets-json: ${{ toJSON(secrets) }} # TODO
+          vars-json: ${{ toJSON(vars) }} # TODO
+          maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }} # TODO: remove
+          maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }} # TODO: remove
 
       - name: "⚒ Spring Boot app: Run Maven command"
         id: maven-bump
