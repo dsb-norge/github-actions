@@ -69,16 +69,12 @@ inputs:
       repositories:
         - id: "github-dsb-norge"
           name: "GitHub: dsb-norge"
-          # about 'url': the pattern is 'https://maven.pkg.github.com/[repo owner]/[repo name]'
-          # for pulling packages the value of '[repo name]' does not matter
           url: "https://maven.pkg.github.com/dsb-norge/.github"
-          # these are "interpolated", ie. maven will populate them from environment variables
           username: "${env.DSB_GH_PKG_USERNAME}"
           password: "${env.DSB_GH_PKG_PASSWORD}"
         - id: "dsb-nexus"
           name: "On-prem: Nexus"
           url: "https://repo.dsb.no/repository/dsb/"
-          # these are "interpolated", ie. maven will populate them from environment variables
           username: "${env.DSB_NEXUS_USERNAME}"
           password: "${env.DSB_NEXUS_PASSWORD}"
   maven-extra-envs-from-github-yml:
