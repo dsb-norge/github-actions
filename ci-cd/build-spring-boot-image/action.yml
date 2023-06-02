@@ -149,6 +149,8 @@ runs:
     # define maven commands
     - id: mvn-cmd
       shell: bash
+      env:
+        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
       run: |
         # Define maven commands
 
@@ -162,11 +164,6 @@ runs:
         MVN_ARGUMENTS_DEFAULT='-B -DskipTests'
         MVN_GOALS_DEFAULT='spring-boot:build-image'
         MVN_IMAGE_REF_ARGUMENT="-Dspring-boot.build-image.imageName=${LOCAL_IMAGE_ID}"
-
-        BUILD_ENVS=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs }}
-        EOF
-        )
 
         # Helper functions
         # Check if field exists in BUILD_ENVS safely
@@ -237,13 +234,10 @@ runs:
     # filter dsb-build-envs
     - id: filter-build-envs
       shell: bash
+      env:
+        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
       run: |
         # Make sure build-maven-project action does not attempt to deploy maven artifacts
-
-        BUILD_ENVS=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs }}
-        EOF
-        )
 
         # Helper functions
         # Add/overwrite fields in BUILD_ENVS safely
