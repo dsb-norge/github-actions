@@ -30,13 +30,11 @@ runs:
   using: 'composite'
   steps:
     - shell: bash
+      env:
+        JSON_CONFIG: "${{ inputs.dsb-build-envs }}"
+        REQUIRED_KEYS: "${{ inputs.require }}"
       run: |
         # Test build envs
-
-        JSON_CONFIG=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs }}
-        EOF
-        )
 
         # Exit early if no input given
         if [ -z "${JSON_CONFIG}" ]; then
@@ -44,13 +42,13 @@ runs:
           exit 0
         fi
 
-        REQUIRED_KEYS=($(cat <<'EOF'
-        ${{ inputs.require }}
+        REQUIRED_KEYS_ARR=($(cat <<EOF
+        ${REQUIRED_KEYS}
         EOF
         ))
 
         EXIT_CODE=0
-        for KEY in "${REQUIRED_KEYS[@]}"; do
+        for KEY in "${REQUIRED_KEYS_ARR[@]}"; do
           if [ ! "$( jq 'has("'${KEY}'")' <<< ${JSON_CONFIG} )" == "true" ]; then
             echo "ERROR: require-build-envs: Build env '${KEY}' is required but was not found in 'dsb-build-envs' JSON."
             EXIT_CODE=1
@@ -63,13 +61,11 @@ runs:
         exit ${EXIT_CODE}
 
     - shell: bash
+      env:
+        JSON_CONFIG: "${{ inputs.dsb-build-envs-array }}"
+        REQUIRED_KEYS: "${{ inputs.require }}"
       run: |
         # Test build envs array
-
-        JSON_CONFIG=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs-array }}
-        EOF
-        )
 
         # Exit early if no input given
         if [ -z "${JSON_CONFIG}" ]; then
@@ -77,8 +73,8 @@ runs:
           exit 0
         fi
 
-        REQUIRED_KEYS=($(cat <<'EOF'
-        ${{ inputs.require }}
+        REQUIRED_KEYS_ARR=($(cat <<EOF
+        ${REQUIRED_KEYS}
         EOF
         ))
 
@@ -90,7 +86,7 @@ runs:
         EXIT_CODE=0
         for OBJ in $(echo "${JSON_CONFIG}" | jq -r '.[] | @base64'); do
           JSON_OBJ="$(_jq '.')"
-          for KEY in "${REQUIRED_KEYS[@]}"; do
+          for KEY in "${REQUIRED_KEYS_ARR[@]}"; do
           if ! has-field "${KEY}"; then
             echo "ERROR: require-build-envs: Build env '${KEY}' is required but was not found for the app '$( get-val 'application-name')' in 'dsb-build-envs-array' JSON."
             EXIT_CODE=1
