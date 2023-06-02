@@ -85,8 +85,9 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
-          maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
-          maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }}
+          github-json: ${{ toJSON(github) }}
+          secrets-json: ${{ toJSON(secrets) }}
+          vars-json: ${{ toJSON(vars) }}
           sonarqube-token: ${{ secrets.ORG_SONAR_TOKEN }}
           jasypt-password: ${{ secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD }}
           acr-username: ${{ vars.ORG_AZURE_CONTAINER_REGISTRY_USER }}

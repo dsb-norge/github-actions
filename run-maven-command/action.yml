@@ -35,14 +35,15 @@ runs:
           application-source-path
           java-distribution
           java-version
-          maven-repo-pom-id
-          maven-repo-token
-          maven-repo-username
+          maven-extra-envs-from-github
+          maven-user-settings-repositories-yml
+
     # Determine maven command
     - id: mvn-cmd
       shell: bash
       run: |
         # Locate pom.xml
+
         POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
         [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
         [ ! -f "${POM_FILE}" ] && \
@@ -54,24 +55,32 @@ runs:
         echo "run-maven-command: Maven command: '${MVN_CMD}'"
         echo "mvn-cmd=${MVN_CMD}" >> $GITHUB_OUTPUT
 
-    # Set up JDK
+    # configure maven settings
+    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v2
+      with:
+        user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
+
+    # set up JDK
     - uses: actions/setup-java@v3
       with:
         distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
-        server-id: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id }} # Value of the repository/id field of the pom.xml
-        # Jenkins user in repo.dsb.no. Pwd for login to repo.dsb.no found in keepass
-        server-username: DSB_MAVEN_REPO_USER_NAME
-        server-password: DSB_MAVEN_REPO_TOKEN
-        overwrite-settings: true
+        overwrite-settings: false # do not overwrite settings.xml from the configure-maven-settings action
 
     # Invoke maven
     - shell: bash
-      run: |
-        echo "::group::run-maven-command: Invoke maven with goals"
-        echo "run-maven-project: command string: '${{ steps.mvn-cmd.outputs.mvn-cmd }}'"
-        ${{ steps.mvn-cmd.outputs.mvn-cmd }}
-        echo "::endgroup::"
       env:
-        DSB_MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-token }}
-        DSB_MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-username }}
+        EXTRA_ENVS_FROM_GH: "${{ fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github }}"
+      run: |
+        # Invoke maven
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        export-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
+
+        start-group "Invoke maven with goals"
+        log-info "command string: '${{ steps.mvn-cmd.outputs.mvn-cmd }}'"
+        ${{ steps.mvn-cmd.outputs.mvn-cmd }}
+        end-group
+
+        unset-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"

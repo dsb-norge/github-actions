@@ -70,8 +70,9 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
-          maven-repo-username: ${{ vars.ORG_MAVEN_REPO_USERNAME }}
-          maven-repo-token: ${{ secrets.ORG_MAVEN_REPO_TOKEN }}
+          github-json: ${{ toJSON(github) }}
+          secrets-json: ${{ toJSON(secrets) }}
+          vars-json: ${{ toJSON(vars) }}
 
       - name: "⚒ Spring Boot app: Run Maven command"
         id: maven-bump
