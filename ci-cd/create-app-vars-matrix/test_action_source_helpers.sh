@@ -32,8 +32,11 @@ should_pass_test() {
   script_dir="${3}"
 
   (
+    set -euo pipefail
     trap 'trap_exit_positive_test $?' EXIT
-    test_action "${action_def_file}" "${script_dir}/${test_file}.yml" >"${script_dir}/__${test_file}.stdout"
+    trap 'trap_exit_positive_test $?' ERR
+    test_action "${action_def_file}" "${script_dir}/${test_file}.yml" >"${script_dir}/__${test_file}.stdout" 2>"${script_dir}/__${test_file}.stderr"
+    set -uo pipefail
   )
   # echo "after should pass"
 }
@@ -45,8 +48,11 @@ should_fail_test() {
   script_dir="${3}"
 
   (
+    set -euo pipefail
     trap 'trap_exit_negative_test $?' EXIT
-    test_action "${action_def_file}" "${script_dir}/${test_file}.yml" >"${script_dir}/__${test_file}.stdout"
+    trap 'trap_exit_negative_test $?' ERR
+    test_action "${action_def_file}" "${script_dir}/${test_file}.yml" >"${script_dir}/__${test_file}.stdout" 2>"${script_dir}/__${test_file}.stderr"
+    set -uo pipefail
   )
   # echo "after should fail"
 }
@@ -83,6 +89,9 @@ GITHUB_OUTPUT="${this_script_dir}/_${step_id}.sh.out"
 echo "" > \$GITHUB_OUTPUT
 
 EOF
+
+    # make executable
+    chmod +x "${step_src_file}"
 
     # write source from action step
     echo "${step_src}" >>"${step_src_file}"
@@ -123,7 +132,8 @@ EOF
     # [ $i == 7 ] && break
 
     # execute
-    source "${step_src_file}" &&
+    env -i HOME="$HOME" bash -l -c "${step_src_file}"
+    [ "$?" == "0" ] &&
       echo "SUCCESS: ${step_src_file}" ||
       echo "FAILURE: ${step_src_file}"
 
