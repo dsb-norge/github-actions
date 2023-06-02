@@ -35,13 +35,10 @@ runs:
     # check what branch we are deploying from
     - id: evaluate
       shell: bash
+      env:
+        JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
       run: |
         # Verify deploy is allowed from calling branch
-
-        JSON_ARRAY=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs-array }}
-        EOF
-        )
 
         # Helper functions
         function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
