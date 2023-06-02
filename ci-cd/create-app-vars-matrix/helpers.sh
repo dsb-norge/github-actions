@@ -27,4 +27,4 @@ function fail-field {
   echo "::endgroup::"
 }
 
-log-info "'helpers.sh' loaded."
+log-info "'$(basename ${BASH_SOURCE[0]})' loaded."
