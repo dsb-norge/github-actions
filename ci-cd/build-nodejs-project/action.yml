@@ -34,13 +34,10 @@ runs:
 
     # npm install, build
     - shell: bash
+      env:
+        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
       run: |
         # npm install, build with support for additional custom commands
-
-        BUILD_ENVS=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs }}
-        EOF
-        )
 
         # Helper functions
         # Check if field exists in BUILD_ENVS safely
