@@ -107,7 +107,6 @@ inputs:
         maven-build-project-deploy-snapshot-artifacts
         maven-build-project-deploy-snapshot-version-command
         maven-build-project-deploy-snapshot-deploy-command
-        maven-build-project-github-packages-enabled
     required: true
 
 runs:
@@ -118,21 +117,21 @@ runs:
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
+          acr-password
+          acr-username
           application-source-path
           application-version
-          java-distribution
-          java-version
-          maven-repo-pom-id
-          jasypt-password
-          github-repo-token
-          sonarqube-token
-          maven-repo-token
-          maven-repo-username
           caller-repo-calling-branch
           caller-repo-is-on-default-branch
           docker-image-registry
-          acr-username
-          acr-password
+          github-repo-token
+          jasypt-password
+          java-distribution
+          java-version
+          maven-build-project-deploy-to-repositories-yml
+          maven-extra-envs-from-github
+          maven-user-settings-repositories-yml
+          sonarqube-token
 
     # log into azure container registry (ACR) to enable maven to access internal images
     - uses: azure/docker-login@v1
@@ -144,27 +143,18 @@ runs:
     # locate pom.xml and define maven commands
     - id: mvn-cmd
       shell: bash
+      env:
+        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
       run: |
         # Locate pom.xml and define maven commands
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         # Defaults
         MVN_VERSION_ARGUMENTS_DEFAULT='-B'
         MVN_VERSION_GOALS_DEFAULT='versions:set'
         MVN_ARGUMENTS_DEFAULT='-B'
         MVN_GOALS_DEFAULT='clean verify install org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'
-
-        BUILD_ENVS=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs }}
-        EOF
-        )
-
-        # Helper functions
-        # Check if field exists in BUILD_ENVS safely
-        function has-field { if [[ "$(echo "${BUILD_ENVS}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
-        # Get field value from BUILD_ENVS safely
-        function get-val { echo "${BUILD_ENVS}" | jq -r --arg name "$1" '.[$name]'; }
-        function log-info { echo "build-dsb-maven-project: $*"; }
-        function log-error { echo "ERROR: build-dsb-maven-project: $*"; }
 
         # Locate pom.xml
         POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
@@ -227,70 +217,60 @@ runs:
         log-info "Maven build command: '${MVN_CMD}'"
         echo "mvn-cmd=${MVN_CMD}" >> $GITHUB_OUTPUT
 
+    # configure maven settings
+    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v2
+      with:
+        user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
+
     # set up JDK
     - uses: actions/setup-java@v3
       with:
         distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
-        server-id: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-pom-id }} # Value of the repository/id field of the pom.xml
-        # Jenkins user in repo.dsb.no. Pwd for login to repo.dsb.no found in keepass
-        server-username: DSB_MAVEN_REPO_USER_NAME
-        server-password: DSB_MAVEN_REPO_TOKEN
-        overwrite-settings: true
+        overwrite-settings: false # do not overwrite settings.xml from the configure-maven-settings action
 
     # invoke maven
     - shell: bash
-      run: |
-        # Define extra envs, if any, and invoke maven
-
-        EXTRA_ENVS=$(cat <<'EOF'
-        ${{ inputs.set-extra-envs }}
-        EOF
-        )
-        if [ ! -z "$EXTRA_ENVS" ]; then
-          echo "::group::build-dsb-maven-project: extra environment variables"
-          JSON_FIELDS=$(echo ${EXTRA_ENVS} | jq -r '[keys[]] | join(" ")')
-          for JSON_FIELD in ${JSON_FIELDS}; do
-              JSON_VALUE=$(echo ${EXTRA_ENVS} | jq -r ".${JSON_FIELD}")
-              echo "Setting extra environment variable '${JSON_FIELD}'"
-              export "${JSON_FIELD}"="${JSON_VALUE}"
-          done
-          echo "::endgroup::"
-        fi
-
-        echo "::group::build-dsb-maven-project: Setting maven project version"
-        echo "build-dsb-maven-project: command string: '${{ steps.mvn-cmd.outputs.mvn-version-cmd }}'"
-        ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
-        echo "::endgroup::"
-
-        echo "::group::build-dsb-maven-project: Invoke maven with goals"
-        echo "build-dsb-maven-project: command string: '${{ steps.mvn-cmd.outputs.mvn-cmd }}'"
-        ${{ steps.mvn-cmd.outputs.mvn-cmd }}
-        echo "::endgroup::"
       env:
+        EXTRA_ENVS: "${{ inputs.set-extra-envs }}"
+        EXTRA_ENVS_FROM_GH: "${{ fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github }}"
         JASYPT_LOCAL_ENCRYPTOR_PASSWORD: ${{ fromJSON(inputs.dsb-build-envs).jasypt-password }}
         GITHUB_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }} # Needed for Sonar to get PR information, if any
         SONAR_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).sonarqube-token }}
-        DSB_MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-token }}
-        DSB_MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-username }}
+      run: |
+        # Define extra envs, if any, and invoke maven
 
-    # deploy maven build artifacts to Nexus
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        # export extra envs
+        export-extra-envs "general" "${EXTRA_ENVS}"
+        export-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
+
+        start-group "Setting maven project version"
+        log-info "command string: '${{ steps.mvn-cmd.outputs.mvn-version-cmd }}'"
+        ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
+        end-group
+
+        start-group "Invoke maven with goals"
+        log-info "command string: '${{ steps.mvn-cmd.outputs.mvn-cmd }}'"
+        ${{ steps.mvn-cmd.outputs.mvn-cmd }}
+        end-group
+
+        # remove extra envs
+        unset-extra-envs "general" "${EXTRA_ENVS}"
+        unset-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
+
+    # deploy maven build artifacts to configured maven deployment repos
     - shell: bash
+      env:
+        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
+        EXTRA_ENVS: "${{ inputs.set-extra-envs }}"
+        EXTRA_ENVS_FROM_GH: "${{ fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github }}"
+        DEPLOY_TO_REPOS_YML: "${{ fromJSON(inputs.dsb-build-envs).maven-build-project-deploy-to-repositories-yml }}"
       run: |
         # Use maven to deploy artifacts when allowed and requested
 
-        BUILD_ENVS=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs }}
-        EOF
-        )
-
-        # Helper functions
-        # Check if field exists in BUILD_ENVS safely
-        function has-field { if [[ "$(echo "${BUILD_ENVS}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
-        # Get field value from BUILD_ENVS safely
-        function get-val { echo "${BUILD_ENVS}" | jq -r --arg name "$1" '.[$name]'; }
-        function log-info { echo "build-dsb-maven-project: Deploy artifacts to Nexus: $*"; }
-        function log-error { echo "ERROR: build-dsb-maven-project: Deploy artifacts to Nexus: $*"; }
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         # Locate pom.xml
         POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
@@ -301,6 +281,10 @@ runs:
 
         # Determine if we are deploying and with what commands
         if [ '${{ github.event_name }}' == 'pull_request' ]; then
+
+          # it's snapshot, record this for later
+          DEPLOY_TYPE='snapshot'
+
           if [ '${{ github.event.action }}' == 'closed' ]; then
             log-info "Maven snapshot artifacts will not be deployed when closing PR."
             exit 0
@@ -313,7 +297,7 @@ runs:
               log-info "using maven version command from 'inputs.dsb-build-envs.maven-build-project-deploy-snapshot-version-command'."
               MVN_VERSION_CMD="$(get-val 'maven-build-project-deploy-snapshot-version-command') -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT"
             else
-              log-info "using default maven version command."
+              log-info "  d."
               MVN_VERSION_CMD="mvn -B --file ${POM_FILE} versions:set -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT"
             fi
             if has-field 'maven-build-project-deploy-snapshot-deploy-command'; then
@@ -325,6 +309,10 @@ runs:
             fi
           fi
         elif [ '${{ github.event_name }}' == 'push' ] || [ '${{ github.event_name }}' == 'workflow_dispatch' ]; then
+
+          # it's release, record this for later
+          DEPLOY_TYPE='release'
+
           if [ ! '${{ fromJSON(inputs.dsb-build-envs).caller-repo-is-on-default-branch }}' == 'true' ]; then
             log-info "Maven release artifacts will not be deployed as current branch '${{ fromJSON(inputs.dsb-build-envs).caller-repo-calling-branch }}' is not the default of this repo."
             exit 0
@@ -353,173 +341,48 @@ runs:
           exit 1
         fi
 
-        # Load extra envs if any
-        EXTRA_ENVS=$(cat <<'EOF'
-        ${{ inputs.set-extra-envs }}
-        EOF
-        )
-        if [ ! -z "$EXTRA_ENVS" ]; then
-          echo "::group::build-dsb-maven-project: Deploy artifacts: extra environment variables"
-          JSON_FIELDS=$(echo ${EXTRA_ENVS} | jq -r '[keys[]] | join(" ")')
-          for JSON_FIELD in ${JSON_FIELDS}; do
-              JSON_VALUE=$(echo ${EXTRA_ENVS} | jq -r ".${JSON_FIELD}")
-              echo "Setting extra environment variable '${JSON_FIELD}'"
-              export "${JSON_FIELD}"="${JSON_VALUE}"
-          done
-          echo "::endgroup::"
-        fi
+        # export extra envs
+        export-extra-envs "general" "${EXTRA_ENVS}"
+        export-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
 
         if [ -z "${MVN_VERSION_CMD}" ]; then
           log-info "Project version already set by maven."
         else
           # Expand any bash variables in maven command string
           MVN_VERSION_CMD=$(eval "echo $MVN_VERSION_CMD")
-          echo "::group::build-dsb-maven-project: Setting maven project version for deployment of artifacts"
+          start-group "Setting maven project version for deployment of artifacts"
           log-info "command string: '${MVN_VERSION_CMD}'"
           ${MVN_VERSION_CMD}
-          echo "::endgroup::"
+          end-group
         fi
 
         # Expand any bash variables in maven command string
         MVN_CMD=$(eval "echo $MVN_CMD")
-        echo "::group::build-dsb-maven-project: Deploy artifacts: Invoke maven"
-        log-info "command string: '${MVN_CMD}'"
-        ${MVN_CMD}
-        echo "::endgroup::"
-      env:
-        DSB_MAVEN_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-token }}
-        DSB_MAVEN_REPO_USER_NAME: ${{ fromJSON(inputs.dsb-build-envs).maven-repo-username }}
 
-    # create a new settings.xml with credentials for Github Packages
-    - uses: actions/setup-java@v3
-      with:
-        distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
-        java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
-        server-id: github-dsb-norge # Value of the repository/id field of the pom.xml
-        server-username: DSB_GH_PACKAGES_USER_NAME
-        server-password: DSB_GH_PACKAGES_REPO_TOKEN
-        overwrite-settings: true
-
-    # deploy maven build artifacts to Github Packages
-    - shell: bash
-      run: |
-        # Use maven to deploy artifacts when allowed and requested
-
-        BUILD_ENVS=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs }}
-        EOF
+        log-info "Parse maven deployment repos ..."
+        # this creates an array with strings compatible with maven deploy mojo 'altDeploymentRepository' parameter
+        # ref. https://maven.apache.org/plugins/maven-deploy-plugin/deploy-mojo.html
+        export REPO_YML_KEY="${DEPLOY_TYPE}-repositories" # 'export' to make available to yq
+        readarray -t DEPLOY_TO_REPOS_ARR < <(
+          echo "${DEPLOY_TO_REPOS_YML}" |
+            yq eval '
+              .[strenv(REPO_YML_KEY)] |
+              map (
+                (. | key) as $key |
+                [$key, .] | join("::default::")
+              ).[]'
         )
+        unset REPO_YML_KEY
 
-        # Helper functions
-        # Check if field exists in BUILD_ENVS safely
-        function has-field { if [[ "$(echo "${BUILD_ENVS}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
-        # Get field value from BUILD_ENVS safely
-        function get-val { echo "${BUILD_ENVS}" | jq -r --arg name "$1" '.[$name]'; }
-        function log-info { echo "build-dsb-maven-project: Deploy artifacts to Github Packages: $*"; }
-        function log-error { echo "ERROR: build-dsb-maven-project: Deploy artifacts to Github Packages: $*"; }
+        log-info "Deploying to ${#DEPLOY_TO_REPOS_ARR[@]} repo(s):"
+        for DEPLOY_TO_REPO in "${DEPLOY_TO_REPOS_ARR[@]}"; do
+          start-group "Deploy artifacts to '${DEPLOY_TO_REPO%::default*}'" # funky syntax removes everything from '::default'
+          MVN_REPO_ARG="-DaltDeploymentRepository=${DEPLOY_TO_REPO}"
+          log-info "command string: '${MVN_CMD} ${MVN_REPO_ARG}'"
+          ${MVN_CMD} ${MVN_REPO_ARG}
+          end-group
+        done
 
-        if [ "$(get-val 'maven-build-project-github-packages-enabled')" == 'false' ]; then
-            log-info "Maven artifacts will not be deployed to Github Packages as 'maven-build-project-github-packages-enabled' is set to 'false'."
-            exit 0
-        fi
-
-        # Locate pom.xml
-        POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
-        [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
-        [ ! -f "${POM_FILE}" ] && \
-          log-error "Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
-          exit 1
-
-        ALT_DEPLOYMENT_REPOSITORY="-DaltDeploymentRepository=github-dsb-norge::default::https://maven.pkg.github.com/${{ github.repository }}"
-        log-info "ALT_DEPLOYMENT_REPOSITORY is now set to '${ALT_DEPLOYMENT_REPOSITORY}'"
-
-        # Determine if we are deploying and with what commands
-        if [ '${{ github.event_name }}' == 'pull_request' ]; then
-          if [ '${{ github.event.action }}' == 'closed' ]; then
-            log-info "Maven snapshot artifacts will not be deployed when closing PR."
-            exit 0
-          elif [ ! "$(get-val 'maven-build-project-deploy-snapshot-artifacts')" == 'true' ]; then
-            log-info "Deployment of maven snapshot artifacts not requested."
-            exit 0
-          else
-            log-info "Will deploy maven snapshot artifacts as requested."
-            if has-field 'maven-build-project-deploy-snapshot-version-command'; then
-              log-info "using maven version command from 'inputs.dsb-build-envs.maven-build-project-deploy-snapshot-version-command'."
-              MVN_VERSION_CMD="$(get-val 'maven-build-project-deploy-snapshot-version-command') -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT ${ALT_DEPLOYMENT_REPOSITORY}"
-            else
-              log-info "using default maven version command."
-              MVN_VERSION_CMD="mvn -B --file ${POM_FILE} versions:set -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT ${ALT_DEPLOYMENT_REPOSITORY}"
-            fi
-            if has-field 'maven-build-project-deploy-snapshot-deploy-command'; then
-              log-info "using maven deploy command from 'inputs.dsb-build-envs.maven-build-project-deploy-snapshot-deploy-command'."
-              MVN_CMD="$(get-val 'maven-build-project-deploy-snapshot-deploy-command')"
-            else
-              log-info "using default maven deploy command."
-              MVN_CMD="mvn -B --file ${POM_FILE} deploy -DskipTests ${ALT_DEPLOYMENT_REPOSITORY}"
-            fi
-          fi
-        elif [ '${{ github.event_name }}' == 'push' ] || [ '${{ github.event_name }}' == 'workflow_dispatch' ]; then
-          if [ ! '${{ fromJSON(inputs.dsb-build-envs).caller-repo-is-on-default-branch }}' == 'true' ]; then
-            log-info "Maven release artifacts will not be deployed as current branch '${{ fromJSON(inputs.dsb-build-envs).caller-repo-calling-branch }}' is not the default of this repo."
-            exit 0
-          elif [ ! "$(get-val 'maven-build-project-deploy-release-artifacts')" == 'true' ]; then
-            log-info "Deployment of maven release artifacts not requested."
-            exit 0
-          else
-            log-info "Will deploy maven release artifacts as requested."
-            if has-field 'maven-build-project-deploy-release-version-command'; then
-              log-info "using maven version command from 'inputs.dsb-build-envs.maven-build-project-deploy-release-version-command'."
-              MVN_VERSION_CMD="$(get-val 'maven-build-project-deploy-release-version-command') -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }} ${ALT_DEPLOYMENT_REPOSITORY}"
-            else
-              log-info "not setting version with maven as version was already set correctly in the build step."
-              MVN_VERSION_CMD=
-            fi
-            if has-field 'maven-build-project-deploy-release-deploy-command'; then
-              log-info "using maven deploy command from 'inputs.dsb-build-envs.maven-build-project-deploy-release-deploy-command'."
-              MVN_CMD="$(get-val 'maven-build-project-deploy-release-deploy-command') ${ALT_DEPLOYMENT_REPOSITORY}"
-            else
-              log-info "using default maven deploy command."
-              MVN_CMD="mvn -B --file ${POM_FILE} deploy -DskipTests ${ALT_DEPLOYMENT_REPOSITORY}"
-            fi
-          fi
-        else
-          log-error "unsupported github.event_name '${{ github.event_name }}' with github.event.action '${{ github.event.action }}'!"
-          exit 1
-        fi
-
-        # Load extra envs if any
-        EXTRA_ENVS=$(cat <<'EOF'
-        ${{ inputs.set-extra-envs }}
-        EOF
-        )
-        if [ ! -z "$EXTRA_ENVS" ]; then
-          echo "::group::build-dsb-maven-project: Deploy artifacts: extra environment variables"
-          JSON_FIELDS=$(echo ${EXTRA_ENVS} | jq -r '[keys[]] | join(" ")')
-          for JSON_FIELD in ${JSON_FIELDS}; do
-              JSON_VALUE=$(echo ${EXTRA_ENVS} | jq -r ".${JSON_FIELD}")
-              echo "Setting extra environment variable '${JSON_FIELD}'"
-              export "${JSON_FIELD}"="${JSON_VALUE}"
-          done
-          echo "::endgroup::"
-        fi
-
-        if [ -z "${MVN_VERSION_CMD}" ]; then
-          log-info "Project version already set by maven."
-        else
-          # Expand any bash variables in maven command string
-          MVN_VERSION_CMD=$(eval "echo $MVN_VERSION_CMD")
-          echo "::group::build-dsb-maven-project: Setting maven project version for deployment of artifacts"
-          log-info "command string: '${MVN_VERSION_CMD}'"
-          ${MVN_VERSION_CMD}
-          echo "::endgroup::"
-        fi
-
-        # Expand any bash variables in maven command string
-        MVN_CMD=$(eval "echo $MVN_CMD")
-        echo "::group::build-dsb-maven-project: Deploy artifacts: Invoke maven"
-        log-info "command string: '${MVN_CMD}'"
-        ${MVN_CMD}
-        echo "::endgroup::"
-      env:
-        DSB_GH_PACKAGES_REPO_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }}
-        DSB_GH_PACKAGES_USER_NAME: ${{ github.actor }}
+        # remove extra envs
+        unset-extra-envs "general" "${EXTRA_ENVS}"
+        unset-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"

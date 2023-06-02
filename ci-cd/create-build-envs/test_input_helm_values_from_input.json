@@ -1,0 +1,29 @@
+{
+  "_COMMENT": "Used for testing this actions code, see test_action_source.sh",
+  "github-repo-token": "***",
+  "sonarqube-token": "***",
+  "pr-deploy-additional-helm-values": {
+    "parameters": {
+      "dsb-spring-boot.ingress_host": "pr-${{ github.event.number }}-testapp.dev.tld.dad",
+      "dsb-spring-boot.azureKeyVault.vaults.commonKeyVaultForApps.secrets.0.nameInKv": "test-application-serviceaccount-client-secret-pr",
+      "dsb-spring-boot.azureKeyVault.vaults.commonKeyVaultForApps.secrets.0.mountAsEnv": "spring.security.oauth2.client.registration.service-account-test-application.client-secret"
+    }
+  },
+  "app-vars": {
+    "application-description": "An app of DSB",
+    "application-name": "app-name",
+    "application-type": "spring-boot"
+  },
+  "secrets-json": {
+    "ORG_MAVEN_REPO_TOKEN": "the token to a maven repo",
+    "other secret": "1\n2"
+  },
+  "github-json": {
+    "actor": "Liam Neeson",
+    "token": "super secret"
+  },
+  "vars-json": {
+    "ORG_MAVEN_REPO_USERNAME": "the username to a maven repo",
+    "OTHER_VAR": "1\n2"
+  }
+}
