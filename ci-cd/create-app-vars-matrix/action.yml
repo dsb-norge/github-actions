@@ -20,7 +20,7 @@ author: 'Peder Schmedling'
 inputs:
   apps:
     description: |
-      YAML list (as sting) with specifications of applications to build and/or deploy.
+      YAML list (as string) with specifications of applications to build and/or deploy.
       Required fields are:
         - application-name        - string
       For optional fields see possible inputs to the create-build-envs action.
@@ -40,9 +40,7 @@ runs:
       run: |
         # Convert app vars yaml to JSON
 
-        action_helpers_file="${{ github.action_path }}/helpers.sh"
-        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
-        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         # Log given yaml
         YAML_CONFIG=$(cat <<'EOF'
@@ -72,9 +70,7 @@ runs:
       run: |
         # Validate given app vars structure
 
-        action_helpers_file="${{ github.action_path }}/helpers.sh"
-        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
-        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         # Load and log app vars
         JSON_CONFIG=$(cat <<'EOF'
@@ -105,9 +101,7 @@ runs:
       run: |
         # Set application type where not explicitly defined
 
-        action_helpers_file="${{ github.action_path }}/helpers.sh"
-        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
-        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         # Load and log app vars
         IN_JSON=$(cat <<'EOF'
@@ -167,9 +161,7 @@ runs:
       run: |
         # Attempt to read application metadata from pom.xml/package.json for fields that are not explicitly defined in input
 
-        action_helpers_file="${{ github.action_path }}/helpers.sh"
-        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
-        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         # Load and log app vars
         IN_JSON=$(cat <<'EOF'
@@ -265,9 +257,7 @@ runs:
       run: |
         # Validate app vars structure, required fields and allowed values
 
-        action_helpers_file="${{ github.action_path }}/helpers.sh"
-        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
-        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         # Load and log app vars
         JSON_CONFIG=$(cat <<'EOF'
@@ -329,9 +319,7 @@ runs:
       run: |
         # Add additional dynamic app vars
 
-        action_helpers_file="${{ github.action_path }}/helpers.sh"
-        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
-        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         # Load and log app vars
         IN_JSON=$(cat <<'EOF'
@@ -380,9 +368,7 @@ runs:
       run: |
         # Create app vars matrix
 
-        action_helpers_file="${{ github.action_path }}/helpers.sh"
-        echo -e "create-app-vars-matrix: Loading helper functions from '${action_helpers_file}' ..."
-        set -o allexport; source "${action_helpers_file}"; set +o allexport;
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         # Load and log app vars
         IN_JSON=$(cat <<'EOF'
