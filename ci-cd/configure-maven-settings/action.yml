@@ -1,0 +1,184 @@
+name: "Create common DSB CI/CD variables"
+description: |
+  This action overwrites the maven user settings (settings.xml) in the current users home directory with one generated
+  from the input supplied to this action. And returns the path to the settings.xml file.
+
+  The action will create a settings.xml with one active profile named 'hybrid', and populate the profile with <repositories>
+  based on the given input. Additionally the <servers> block of the settings.xml will be populated based on the given input.
+
+  ref. https://maven.apache.org/settings.html#settings-reference
+
+  Example, given the following input:
+  ```yml
+    repositories:
+      - id: "server1-id"
+        name: "Friendly name of server 1"
+        url: "https://maven.pkg.github.com/my-org/my-repo"
+        username: "repo reader"
+        password: "secrets go here"
+      - id: "server2-id"
+        name: "Friendly name of server 2"
+        url: "https://repo.tld.zip/maven2-repo"
+        username: "${env.REPO_USERNAME}"        <-- maven supports populating from env
+        password: "${env.DSB_PASSWORD}"
+  ```
+
+  The following xml will be written to "${HOME}/.m2/settings.xml":
+  ```xml
+    <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+      <activeProfiles>
+        <activeProfile>hybrid</activeProfile>
+      </activeProfiles>
+      <profiles>
+        <profile>
+          <id>hybrid</id>
+          <repositories>
+            <repository>
+              <id>server1-id</id>
+              <name>Friendly name of server 1</name>
+              <releases>
+                <checksumPolicy>fail</checksumPolicy>
+                <enabled>true</enabled>
+              </releases>
+              <snapshots>
+                <checksumPolicy>fail</checksumPolicy>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+              </snapshots>
+              <url>https://maven.pkg.github.com/my-org/my-repo</url>
+            </repository>
+            <repository>
+              <id>server2-id</id>
+              <name>Friendly name of server 2</name>
+              <releases>
+                <checksumPolicy>fail</checksumPolicy>
+                <enabled>true</enabled>
+              </releases>
+              <snapshots>
+                <checksumPolicy>fail</checksumPolicy>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+              </snapshots>
+              <url>https://repo.tld.zip/maven2-repo</url>
+            </repository>
+          </repositories>
+        </profile>
+      </profiles>
+      <servers>
+        <server>
+          <id>server1-id</id>
+          <username>repo reader</username>
+          <password>secrets go here</password>
+        </server>
+        <server>
+          <id>server2-id</id>
+          <username>${env.REPO_USERNAME}</username>
+          <password>${env.DSB_PASSWORD}</password>
+        </server>
+      </servers>
+    </settings>
+  ```
+
+author: "Peder Schmedling"
+inputs:
+  user-settings-repositories-yml:
+    description: |
+      A YAML list (as string) with information about maven repositories that will be used to create a maven settings.xml.
+      The order of the repositories dictates in what order maven will search the repos for artifacts.
+      See action description for example input.
+    required: true
+outputs:
+  settings-xml-path:
+    description: "The path to the maven settings.xml file"
+    value: ${{ steps.write.outputs.settings-xml-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: write
+      shell: bash
+      env:
+        SETTINGS_XML_TEMPLATE_PATH: "${{ github.action_path }}/settings-template.xml"
+        USER_SETTINGS_REPOSITORIES_YML: "${{ inputs.user-settings-repositories-yml }}"
+      run: |
+        # write settings.xml
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        # hardcoded path to settings.xml
+        SETTINGS_XML_PATH="${HOME}/.m2/settings.xml"
+
+        # tell github to mask the password in case they end up in the log
+        readarray -t PASSWORDS_IN_YML < <(
+          echo "${USER_SETTINGS_REPOSITORIES_YML}" |
+            yq eval '
+              .repositories.[].password
+          '
+        )
+        for PASSWORD in "${PASSWORDS_IN_YML[@]}"; do
+          mask-value "${PASSWORD}"
+        done
+
+        if [ -f "${SETTINGS_XML_TEMPLATE_PATH}" ]; then
+          log-info "template file located at '${SETTINGS_XML_TEMPLATE_PATH}'"
+        else
+          log-error "the template file was not found at '${SETTINGS_XML_TEMPLATE_PATH}'"
+          exit 1
+        fi
+
+        log-info 'generating <repositories> section of maven user settings file ...'
+        REPOSITORIES_XML=$(
+          echo "${USER_SETTINGS_REPOSITORIES_YML}" |
+            yq --input-format yaml --output-format xml eval '
+            { "settings": { "profiles": { "profile": { "repositories": { "repository": (
+              { "releases" : { "enabled" : "true", "checksumPolicy" : "fail" }, "snapshots" : { "enabled" : "true", "checksumPolicy" : "fail", "updatePolicy" : "always" } } as $defaults |
+              .repositories |
+              map(
+                $defaults * .
+              ) |
+              map(
+                . | with_entries(select( .key | test("^id$|^name$|^url$|^releases$|^snapshots$") ))
+              ) |
+              sort_keys(..)
+            )}}}}}
+          '
+        )
+
+        log-info 'merging <repositories> section into settings template file ...'
+        echo "${REPOSITORIES_XML}" |
+          yq --input-format xml --output-format xml --inplace eval-all \
+            --expression 'select(fileIndex == 0) * select(fileIndex == 1)' \
+            "${SETTINGS_XML_TEMPLATE_PATH}" -
+
+        log-info 'generating <servers> section of maven user settings file ...'
+        SERVERS_XML=$(
+          echo "${USER_SETTINGS_REPOSITORIES_YML}" |
+            yq --input-format yaml --output-format xml eval '
+            { "settings": { "servers": { "server": (
+              .repositories |
+              map(
+                . | with_entries(select( .key | test("id|username|password") ))
+              )
+            )}}}
+          '
+        )
+
+        log-info 'merging <servers> section into settings template file ...'
+        echo "${SERVERS_XML}" |
+          yq --input-format xml --output-format xml --inplace eval-all \
+            --expression 'select(fileIndex == 0) * select(fileIndex == 1)' \
+            "${SETTINGS_XML_TEMPLATE_PATH}" -
+
+        log-multiline "final settings.xml file" "$(cat ${SETTINGS_XML_TEMPLATE_PATH})"
+
+        if [ -f "${SETTINGS_XML_PATH}" ]; then
+          log-info "overwriting existing maven user settings file at '${SETTINGS_XML_PATH}'"
+        else
+          log-info "installing user settings template file to '${SETTINGS_XML_PATH}' ..."
+        fi
+        mkdir --parents "$(dirname "${SETTINGS_XML_PATH}")"
+        cp --force "${SETTINGS_XML_TEMPLATE_PATH}" "${SETTINGS_XML_PATH}"
+
+        echo "settings-xml-path=${SETTINGS_XML_PATH}" >> $GITHUB_OUTPUT
