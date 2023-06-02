@@ -33,13 +33,10 @@ runs:
 
     # checkout config repo(s)
     - shell: bash
+      env:
+        JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
       run: |
         # Checkout config repo(s)
-
-        JSON_ARRAY=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs-array }}
-        EOF
-        )
 
         GH_TOKEN='${{ inputs.app-config-repo-token }}'
         GH_TOKEN_SANITIZED=${GH_TOKEN/ }
@@ -53,13 +50,10 @@ runs:
 
     # check if expected directory structure and application config exists
     - shell: bash
+      env:
+        JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
       run: |
         # Look for files and directories
-
-        JSON_ARRAY=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs-array }}
-        EOF
-        )
 
         # Helper functions
         function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
@@ -98,13 +92,10 @@ runs:
 
     # update application version in given environments, commit and push
     - shell: bash
+      env:
+        JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
       run: |
         # Bump versions in git repo
-
-        JSON_ARRAY=$(cat <<'EOF'
-        ${{ inputs.dsb-build-envs-array }}
-        EOF
-        )
 
         # Helper functions
         function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
