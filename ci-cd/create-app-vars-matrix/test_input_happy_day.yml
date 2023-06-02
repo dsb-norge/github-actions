@@ -1,7 +1,7 @@
 #
 # Used for testing this actions code, see test_action_source.sh
 #
-- application-name: eksplosiv-api
+- application-name: app-name
   application-source-path: ../eksplosiv-org/backend
   maven-build-project-deploy-release-artifacts: true
   maven-build-project-deploy-snapshot-artifacts: true
@@ -20,24 +20,24 @@
   application-source-path: ../eksplosiv-org//frontend
   nodejs-version: "18"
   nodejs-build-project-custom-command-pre-npm-run-build: npm exec vue-demi-fix --prefix ./node_modules/pinia/node_modules/vue-demi/
-  pr-deploy-comment-additional-text: Available at https://pr-719.dev.eksplosiver.no/
+  pr-deploy-comment-additional-text: Available at https://pr-719.dev.tld.zip/
   pr-deploy-additional-helm-values:
     parameters:
-      dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST: "http://eksplosiv-api-pr-719.eksplosiv-api-pr-719.svc.cluster.local:8080"
-      dsb-nginx-frontend.ingress_host: "pr-719.dev.eksplosiver.no"
+      dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST: "http://app-name-pr-719.app-name-pr-719.svc.cluster.local:8080"
+      dsb-nginx-frontend.ingress_host: "pr-719.dev.tld.zip"
 - application-name: eksplosiv-permitchecker
   application-source-path: ../eksplosiv-org//permitchecker
   nodejs-version: "18"
-  pr-deploy-comment-additional-text: Available at https://pr-719-motta.dev.eksplosiver.no/
+  pr-deploy-comment-additional-text: Available at https://pr-719-motta.dev.tld.zip/
   pr-deploy-additional-helm-values:
     parameters:
-      dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST: "http://eksplosiv-api-pr-719.eksplosiv-api-pr-719.svc.cluster.local:8080"
-      dsb-nginx-frontend.ingress_host: "pr-719-motta.dev.eksplosiver.no"
+      dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST: "http://app-name-pr-719.app-name-pr-719.svc.cluster.local:8080"
+      dsb-nginx-frontend.ingress_host: "pr-719-motta.dev.tld.zip"
 - application-name: eksplosiv-saksbehandler
   application-source-path: ../eksplosiv-org//saksbehandler
   nodejs-version: "18"
-  pr-deploy-comment-additional-text: Available at https://pr-719-saksbehandler.dev.eksplosiver.no/
+  pr-deploy-comment-additional-text: Available at https://pr-719-saksbehandler.dev.tld.zip/
   pr-deploy-additional-helm-values:
     parameters:
-      dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST: "http://eksplosiv-api-pr-719.eksplosiv-api-pr-719.svc.cluster.local:8080"
-      dsb-nginx-frontend.ingress_host: "pr-719-saksbehandler.dev.eksplosiver.no"
+      dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST: "http://app-name-pr-719.app-name-pr-719.svc.cluster.local:8080"
+      dsb-nginx-frontend.ingress_host: "pr-719-saksbehandler.dev.tld.zip"
