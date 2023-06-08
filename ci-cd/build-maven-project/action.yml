@@ -233,7 +233,7 @@ runs:
         overwrite-settings: false # do not overwrite settings.xml from the configure-maven-settings action
 
     # set up Snyk cli
-    - uses: snyk/actions/setup@v0.4.0
+    - uses: snyk/actions/setup@0.4.0
 
     # invoke maven
     - shell: bash
