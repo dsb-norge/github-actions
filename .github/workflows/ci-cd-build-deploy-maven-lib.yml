@@ -37,13 +37,15 @@ jobs:
     steps:
       # The create-app-vars-matrix action requires source code to be available
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@snyk-test
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
       - name: 🎰 Create app vars build matrix
         id: create-matrix
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@snyk-test
         with:
           apps: ${{ inputs.apps }}
 
@@ -58,14 +60,16 @@ jobs:
         shell: bash
     steps:
       - name: 🧹 Clean workspace
-        uses: dsb-norge/github-actions/directory-recreate@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@snyk-test
 
       - name: ⬇ Checkout working branch
         uses: actions/checkout@v3
 
       - name: 🎰 Generate DSB build variables
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@snyk-test
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -76,12 +80,14 @@ jobs:
           github-repo-token: ${{ secrets.GITHUB_TOKEN }}
           acr-username: ${{ vars.ORG_AZURE_CONTAINER_REGISTRY_USER }}
           acr-password: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_PASSWORD }}
+          snyk-token: ${{ secrets.ORG_SNYK_API_TOKEN }}
 
       - name: "⚒ Library: Build and analyze with Maven"
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@snyk-test
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 

@@ -113,7 +113,8 @@ runs:
   using: "composite"
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    # TODO revert to @v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@snyk-test
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -132,6 +133,7 @@ runs:
           maven-extra-envs-from-github
           maven-user-settings-repositories-yml
           sonarqube-token
+          snyk-token
 
     # log into azure container registry (ACR) to enable maven to access internal images
     - uses: azure/docker-login@v1
@@ -218,7 +220,8 @@ runs:
         echo "mvn-cmd=${MVN_CMD}" >> $GITHUB_OUTPUT
 
     # configure maven settings
-    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v2
+    # TODO revert to @v2
+    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@snyk-test
       with:
         user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
 
@@ -229,6 +232,9 @@ runs:
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
         overwrite-settings: false # do not overwrite settings.xml from the configure-maven-settings action
 
+    # set up Snyk cli
+    - uses: snyk/actions/setup@v0.4.0
+
     # invoke maven
     - shell: bash
       env:
@@ -237,6 +243,7 @@ runs:
         JASYPT_LOCAL_ENCRYPTOR_PASSWORD: ${{ fromJSON(inputs.dsb-build-envs).jasypt-password }}
         GITHUB_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }} # Needed for Sonar to get PR information, if any
         SONAR_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).sonarqube-token }}
+        SNYK_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).snyk-token }}
       run: |
         # Define extra envs, if any, and invoke maven
 
@@ -254,6 +261,11 @@ runs:
         start-group "Invoke maven with goals"
         log-info "command string: '${{ steps.mvn-cmd.outputs.mvn-cmd }}'"
         ${{ steps.mvn-cmd.outputs.mvn-cmd }}
+        end-group
+        
+        start-group "Snyk test"
+        cd ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
+        snyk test --file=.\pom.xml --maven-aggregate-project
         end-group
 
         # remove extra envs

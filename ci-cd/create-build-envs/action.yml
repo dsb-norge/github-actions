@@ -127,6 +127,9 @@ inputs:
   sonarqube-token:
     description: "Token used for SonarQube app, see https://docs.sonarqube.org/latest/analysis/github-integration/"
     required: true
+  snyk-token:
+    description: "Token used to access the snyk api when running 'snyk test'"
+    required: true
   jasypt-password:
     description: 'Jasypt password. Will be passed to maven build as environment variable named "JASYPT_LOCAL_ENCRYPTOR_PASSWORD"'
     required: false
@@ -279,6 +282,7 @@ runs:
           maven-extra-envs-from-github
           pr-deploy-aks-creds
           sonarqube-token
+          snyk-token
         )
 
         # Values for these fields will be handled specifically below

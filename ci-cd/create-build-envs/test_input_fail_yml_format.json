@@ -2,6 +2,7 @@
   "_COMMENT": "Used for testing this actions code, see test_action_source.sh",
   "github-repo-token": "***",
   "sonarqube-token": "***",
+  "snyk-token": "***",
   "app-vars": {
     "application-description": "An app of DSB",
     "application-name": "app-name",

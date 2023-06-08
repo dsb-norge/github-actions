@@ -2,6 +2,7 @@
   "_COMMENT": "Used for testing this actions code, see test_action_source.sh",
   "github-repo-token": "***",
   "sonarqube-token": "***",
+  "snyk-token": "***",
   "maven-user-settings-repositories-yml": "{}",
   "maven-extra-envs-from-github-yml": "{}",
   "maven-build-project-deploy-to-repositories-yml": "{}",

@@ -2,6 +2,7 @@
   "_COMMENT": "Used for testing this actions code, see test_action_source.sh",
   "github-repo-token": "***",
   "sonarqube-token": "***",
+  "snyk-token": "***",
   "pr-deploy-additional-helm-values": {
     "parameters": {
       "dsb-spring-boot.ingress_host": "pr-${{ github.event.number }}-testapp.dev.tld.dad",
