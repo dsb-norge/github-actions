@@ -35,6 +35,9 @@ runs:
 
     # set up Snyk cli
     - uses: snyk/actions/setup@0.4.0
+      env:
+        SNYK_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).snyk-token }}
+
 
     # npm install, build
     - shell: bash
