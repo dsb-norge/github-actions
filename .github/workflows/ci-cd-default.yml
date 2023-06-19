@@ -60,7 +60,7 @@ jobs:
     runs-on: [self-hosted, dsb-builder, linux, x64]
     strategy:
       matrix: ${{ fromJSON(needs.create-matrix.outputs.app-vars-matrix) }}
-      fail-fast: false # allow all paralell jobs to continiue even if one fails
+      fail-fast: false # allow all paralell jobs to continue even if one fails
     defaults:
       run:
         shell: bash
@@ -255,12 +255,40 @@ jobs:
               sha: context.sha
             })
 
+  prune-maven-artifacts:
+    name: Prune maven artifacts
+    # This job handles pruning of maven artifacts published in the calling repo
+    # Run even in case of failure in previous jobs/steps, in an attempt to avoid scenarios where PR snapshots would not get deleted
+    if: success() || failure()
+    needs: [create-matrix, build-deploy]
+    runs-on: [self-hosted, dsb-builder, linux, x64]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: 🧹 Clean workspace
+        uses: dsb-norge/github-actions/directory-recreate@v2
+
+      # settings for pruning is decided by 'build-env' step and are retreviced from a build artifact uploaded by 'build-env'
+      - name: 💾 Read build-envs from matrix job(s)
+        id: read-build-envs
+        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v2
+        with:
+          build-envs-artifact-name: build-envs-${{ needs.create-matrix.outputs.applications-version }}
+
+      - name: 🗑 Prune maven artifacts
+        id: prune
+        # This check is required to block deploys when workflow is manually triggered from a non-default branch
+        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v2
+        with:
+          dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
+
   # create a global result indicating if workflow steps succeeded or not,
   # handy for branch protection rules
   ci-cd-conclusion:
     if: always()
     name: ci-cd-conclusion
-    needs: [create-matrix, build-deploy, deploy-to-static]
+    needs: [create-matrix, build-deploy, deploy-to-static, 'prune-maven-artifacts']
     runs-on: [self-hosted, dsb-builder, linux, x64]
     defaults:
       run:

@@ -60,6 +60,48 @@ inputs:
     description: 'Service principal with rights to delete from "docker-image-registry" (ACR). Used for teardown operation of ephemeral PR environments.'
     required: false
     default: ""
+  # Maven artifacts are considered 'release' when their version matches DSB versioning scheme '[YY]YY.MM.DD.SSSSS'.
+  # Maven release artifacts for all packages of a given repo will be pruned according to 'maven-artifacts-release-prune-keep-*' below.
+  maven-artifacts-release-prune-keep-min-count:
+    description: |
+      Minimum number of maven release artifacts to keep for each package.
+      Only affects images older than what is set for 'maven-artifacts-release-prune-keep-num-days'.
+    required: false
+    default: "20"
+  maven-artifacts-release-prune-keep-num-days:
+    description: |
+      Maven release artifacts will not be considered for pruning until this number of days has passed since they where last updated.
+    required: false
+    default: "90"
+  # Maven artifacts are considered 'snapshot' when their version matches DSB PR snapshot versioning scheme 'PR-[NUM]-SNAPSHOT'.
+  # During the lifetime of a PR these artifacts will be pruned according to 'maven-artifacts-snapshot-prune-keep-*' below.
+  # When a PR is merged or otherwise closed all snapshot artifacts will be deleted.
+  maven-artifacts-snapshot-prune-keep-min-count:
+    description: |
+      Minimum number of maven snapshot artifacts to keep for each package.
+      Affects only artifacts older than what is set for 'maven-artifacts-snapshot-prune-keep-num-days'.
+    required: false
+    default: "1"
+  maven-artifacts-snapshot-prune-keep-num-days:
+    description: |
+      Maven snapshot artifacts will not be considered for pruning until this number of days has passed since they where last updated.
+    required: false
+    default: "7"
+  # 'other' Maven artifacts are those not considered as 'release' or 'snapshot'.
+  # The default is not to keep any of these artifacts for all packages of a given repo
+  # This behavior can be changed by modifying 'maven-artifacts-other-prune-keep-*' below.
+  maven-artifacts-other-prune-keep-min-count:
+    description: |
+      Minimum number of other maven artifacts to keep for each package.
+      Affects only artifacts older than what is set for 'maven-artifacts-other-prune-keep-num-days'."
+      Note:
+    required: false
+    default: "0"
+  maven-artifacts-other-prune-keep-num-days:
+    description: |
+      Other Maven artifacts will not be considered for pruning until this number of days has passed since they where last updated.
+    required: false
+    default: "0"
   maven-user-settings-repositories-yml:
     description: |
       A YAML list (as string) with information about maven repositories that will be used to create a maven settings.xml prior to invoking maven.
@@ -334,6 +376,12 @@ runs:
           docker-image-repo
           java-distribution
           java-version
+          maven-artifacts-other-prune-keep-min-count
+          maven-artifacts-other-prune-keep-num-days
+          maven-artifacts-release-prune-keep-min-count
+          maven-artifacts-release-prune-keep-num-days
+          maven-artifacts-snapshot-prune-keep-min-count
+          maven-artifacts-snapshot-prune-keep-num-days
           maven-build-project-arguments
           maven-build-project-command
           maven-build-project-deploy-release-artifacts

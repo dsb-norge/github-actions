@@ -1,0 +1,63 @@
+name: "Prune maven artifacts from GitHub packages in the calling repo"
+description: |
+  Performs pruning of maven artifacts (stored in GitHub packages) in the calling repo.
+  TODO: description
+author: "Peder Schmedling"
+inputs:
+  dsb-build-envs-array:
+    description: |
+      DSB build environment variables JSON array.
+      Required fields:
+        See first step.
+      Optional fields:
+        None.
+    required: true
+runs:
+  using: "composite"
+  steps:
+    # verify required inputs exists for all apps
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+      with:
+        dsb-build-envs-array: ${{ inputs.dsb-build-envs-array }}
+        require: |
+          maven-artifacts-other-prune-keep-min-count
+          maven-artifacts-other-prune-keep-num-days
+          maven-artifacts-release-prune-keep-min-count
+          maven-artifacts-release-prune-keep-num-days
+          maven-artifacts-snapshot-prune-keep-min-count
+          maven-artifacts-snapshot-prune-keep-num-days
+
+    # check what branch we are deploying from
+    - id: get-config
+      shell: bash
+      env:
+        JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
+      run: |
+        # Parse pruning configuration from the JSON array input
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        CONFIG_NAMES=(
+          maven-artifacts-other-prune-keep-min-count
+          maven-artifacts-other-prune-keep-num-days
+          maven-artifacts-release-prune-keep-min-count
+          maven-artifacts-release-prune-keep-num-days
+          maven-artifacts-snapshot-prune-keep-min-count
+          maven-artifacts-snapshot-prune-keep-num-days
+        )
+
+        start-group "Read pruning configuration ..."
+        for NAME in "${CONFIG_NAMES[@]}"; do
+          echo "${NAME}: $(get-first-val "${NAME}")"
+          set-output "${NAME}" "$(get-first-val "${NAME}")"
+        done
+        end-group
+
+    # TODO: if closing PR: delete snapshots belonging to PR
+
+    # TODO: if PR not closing: prune snapshots belonging to PR
+
+    # TODO: if main push or manual trigger: prune releases
+
+    # TODO: if main push or manual trigger: prune other
+
