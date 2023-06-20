@@ -95,7 +95,7 @@ runs:
         if [ "${PACKAGE_COUNT}" == '0' ]; then
           log-info "The repo '${GITHUB_REPOSITORY}' has no packages of type '${PACKAGE_TYPE}'."
         else
-          log-multiline "${PACKAGE_COUNT} packages of type ${PACKAGE_TYPE} in the repo '${GITHUB_REPOSITORY}'" "${PACKAGE_NAMES}"
+          log-multiline "${PACKAGE_COUNT} package(s) of type '${PACKAGE_TYPE}' in the repo '${GITHUB_REPOSITORY}'" "${PACKAGE_NAMES}"
         fi
 
         OUTPUT_JSON='{}'
@@ -152,12 +152,13 @@ runs:
             log-multiline "DEBUG: OUTPUT_JSON" "${OUTPUT_JSON}"
 
           fi
+        done # loop PACKAGE_NAMES
 
-          log-multiline "${PACKAGE_TYPE} packages JSON for repo" "${OUTPUT_JSON}"
+        log-multiline "${PACKAGE_TYPE} packages JSON for repo" "${OUTPUT_JSON}"
 
-          echo 'json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-          echo "${OUTPUT_JSON}" >> $GITHUB_OUTPUT
-          echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo 'json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        echo "${OUTPUT_JSON}" >> $GITHUB_OUTPUT
+        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
 
 
 
