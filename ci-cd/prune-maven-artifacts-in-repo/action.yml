@@ -12,6 +12,10 @@ inputs:
       Optional fields:
         None.
     required: true
+  github-packages-token:
+    description: |
+      GitHub Personal Access Token (PAT) with scopes [delete:packages, read:packages] in the calling repos organization.
+    required: true
 runs:
   using: "composite"
   steps:
@@ -53,11 +57,115 @@ runs:
         done
         end-group
 
-    # TODO: if closing PR: delete snapshots belonging to PR
+    # get all packages of the calling repo including their versions
+    - id: get-packages-and-versions
+      shell: bash
+      env:
+        PACKAGE_TYPE: "maven"
+        GITHUB_TOKEN: ${{ inputs.github-packages-token }}
+      run: |
+        # Use github API from github CLI to retrieve repo packages and their versions
 
-    # TODO: if PR not closing: prune snapshots belonging to PR
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
-    # TODO: if main push or manual trigger: prune releases
+        log-info "Reading repo packages ..."
+        PACKAGES_RESPONSE=$(
+          gh api \
+            --paginate \
+            -H "Accept: application/vnd.github+json" \
+            "/orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=${PACKAGE_TYPE}&per_page=100" \
+            --jq "map(select(.repository.full_name == \"${GITHUB_REPOSITORY}\"))"
+        )
 
-    # TODO: if main push or manual trigger: prune other
+        # DEBUG
+        log-multiline "DEBUG: PACKAGES_RESPONSE" "${PACKAGES_RESPONSE}"
+
+        PACKAGES_JSON=$(echo "${PACKAGES_RESPONSE}" | jq -s '. | flatten')
+
+        log-multiline "DEBUG: PACKAGES_JSON" "${PACKAGES_JSON}"
+
+        PACKAGE_COUNT=$(jq -n -r --argjson data "$PACKAGES_JSON" '$data | length')
+        PACKAGE_NAMES=$(jq -n -r --argjson data "$PACKAGES_JSON" '$data | .[].name' | sort)
+
+        # DEBUG
+        log-debug "PACKAGE_COUNT=${PACKAGE_COUNT}"
+        log-debug "PACKAGE_NAMES=${PACKAGE_NAMES}"
+
+        if [ "${PACKAGE_COUNT}" == '0' ]; then
+          log-info "The repo '${GITHUB_REPOSITORY}' has no packages of type '${PACKAGE_TYPE}'."
+        else
+          log-multiline "${PACKAGE_COUNT} packages of type ${PACKAGE_TYPE} in the repo '${GITHUB_REPOSITORY}'" "${PACKAGE_NAMES}"
+        fi
+
+        OUTPUT_JSON='{}'
+        for PACKAGE_NAME in ${PACKAGE_NAMES}; do
+          log-info "Package '${PACKAGE_NAME}':"
+          PACKAGE_VERSIONS=$(
+            gh api \
+              --paginate \
+              -H "Accept: application/vnd.github+json" \
+              "/orgs/${GITHUB_REPOSITORY_OWNER}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions?per_page=100"
+          )
+
+          # DEBUG
+          log-multiline "DEBUG: PACKAGE_VERSIONS" "${PACKAGE_VERSIONS}"
+
+          PACKAGE_VERSIONS_COUNT=$(jq -n --argjson data "${PACKAGE_VERSIONS}" '$data | length')
+
+          # DEBUG
+          log-debug "PACKAGE_VERSIONS_COUNT=${PACKAGE_VERSIONS_COUNT}"
+
+          if [ "${PACKAGE_VERSIONS_COUNT}" == '0' ]; then
+            log-info "No versions found for the packages '${PACKAGE_NAME}'."
+          else
+            start-group "Found ${PACKAGE_VERSIONS_COUNT} version(s):"
+
+            PACKAGE_VERSIONS_GROUPED=$(
+              jq -n --argjson data "${PACKAGE_VERSIONS}" --arg packagename "${PACKAGE_NAME}" '
+                  ($data | map(select(.name | ascii_upcase | test("^\\d{2}(\\d{2})?\\.\\d{2}\\.\\d{2}\\.\\d{1,5}$") )) | sort_by(.updated_at) ) as $releases
+                | ($data | map(select(.name | ascii_upcase | test("^PR-\\d+-SNAPSHOT$") ))                             | sort_by(.updated_at) ) as $snapshots
+                | ($data | map(select(
+                    (.name | ascii_upcase | test("^\\d{2}(\\d{2})?\\.\\d{2}\\.\\d{2}\\.\\d{1,5}$") | not)
+                    and (.name | ascii_upcase | test("^PR-\\d+-SNAPSHOT$") | not)
+                  )) | sort_by(.updated_at) ) as $others
+                | { ($packagename) : {
+                  "releases":  { "count": ($releases  | length), "versions": $releases  },
+                  "snapshots": { "count": ($snapshots | length), "versions": $snapshots },
+                  "others":    { "count": ($others    | length), "versions": $others    },
+                } }
+              '
+            )
+
+            log-info " - releases  : $(jq -n --argjson data "${PACKAGE_VERSIONS_GROUPED}" --arg packagename "${PACKAGE_NAME}" '$data | .[$packagename].releases.count | length')"
+            log-info " - snapshots : $(jq -n --argjson data "${PACKAGE_VERSIONS_GROUPED}" --arg packagename "${PACKAGE_NAME}" '$data | .[$packagename].snapshots.count | length')"
+            log-info " - other     : $(jq -n --argjson data "${PACKAGE_VERSIONS_GROUPED}" --arg packagename "${PACKAGE_NAME}" '$data | .[$packagename].others.count | length')"
+
+            end-group
+
+            # DEBUG
+            log-multiline "DEBUG: PACKAGE_VERSIONS_GROUPED" "${PACKAGE_VERSIONS_GROUPED}"
+
+            OUTPUT_JSON=$(echo "${OUTPUT_JSON}" | jq --argjson packagejson "${PACKAGE_VERSIONS_GROUPED}" '.+ $packagejson')
+
+            # DEBUG
+            log-multiline "DEBUG: OUTPUT_JSON" "${OUTPUT_JSON}"
+
+          fi
+
+          echo 'json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+          echo "${OUTPUT_JSON}" >> $GITHUB_OUTPUT
+          echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+
+
+
+# TODO: if closing PR: delete snapshots belonging to PR
+# GITHUB_EVENT_NAME	The name of the event that triggered the workflow. For example, workflow_dispatch.
+# GITHUB_REPOSITORY_OWNER	The repository owner's name. For example, octocat.
+# GITHUB_REPOSITORY	The owner and repository name. For example, octocat/Hello-World.
+
+# TODO: if PR not closing: prune snapshots belonging to PR
+
+# TODO: if main push or manual trigger: prune releases
+
+# TODO: if main push or manual trigger: prune other
 

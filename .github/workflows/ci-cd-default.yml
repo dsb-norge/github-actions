@@ -282,6 +282,7 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v2
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
+          github-packages-token: ${{ secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT }}
 
   # create a global result indicating if workflow steps succeeded or not,
   # handy for branch protection rules
