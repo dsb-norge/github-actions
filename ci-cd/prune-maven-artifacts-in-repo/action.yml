@@ -63,7 +63,7 @@ runs:
       shell: bash
       env:
         PACKAGE_TYPE: "maven"
-        GITHUB_TOKEN: ${{ inputs.github-packages-token }}
+        GH_TOKEN: ${{ inputs.github-packages-token }}
       run: |
         # Use github API from github CLI to retrieve repo packages and their versions
 
@@ -153,6 +153,8 @@ runs:
 
           fi
 
+          log-multiline "${PACKAGE_TYPE} packages JSON for repo" "${OUTPUT_JSON}"
+
           echo 'json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
           echo "${OUTPUT_JSON}" >> $GITHUB_OUTPUT
           echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
@@ -161,6 +163,8 @@ runs:
 
 # TODO: if closing PR: delete snapshots belonging to PR
 # GITHUB_EVENT_NAME	The name of the event that triggered the workflow. For example, workflow_dispatch.
+# {{ github.event.number }} PR number
+# {{ github.event.action }}
 # GITHUB_REPOSITORY_OWNER	The repository owner's name. For example, octocat.
 # GITHUB_REPOSITORY	The owner and repository name. For example, octocat/Hello-World.
 
