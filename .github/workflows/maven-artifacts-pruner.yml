@@ -1,0 +1,76 @@
+name: "DSB retention policy for maven artifacts in gitHub packages"
+
+# The following secrets must be available in the github 'secrets' context:
+#   - secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT         <-- GitHub PAT with with scopes [delete:packages, read:packages] in the calling repos organization
+
+on:
+  workflow_call:
+    inputs:
+      # for explanation of maven artifact pruning configuration see inputs of 'ci-cd/prune-maven-artifacts-in-repo/action.yml'
+      # sane defaults are defined but can be overridden pr. repo
+      release-prune-keep-min-count:
+        type: number
+        required: false
+        default: 20
+      release-prune-keep-num-days:
+        type: number
+        required: false
+        default: 90
+      snapshot-prune-keep-min-count:
+        type: number
+        required: false
+        default: 0
+      snapshot-prune-keep-num-days:
+        type: number
+        required: false
+        default: 30
+      other-prune-keep-min-count:
+        type: number
+        required: false
+        default: 0
+      other-prune-keep-num-days:
+        type: number
+        required: false
+        default: 0
+
+jobs:
+  prune-maven-artifacts:
+    name: Prune maven artifacts
+    # This job handles pruning of maven artifacts published in the calling repo
+    runs-on: [self-hosted, dsb-builder, linux, x64]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: 🗑 Prune maven artifacts
+        id: prune
+        # This check is required to block deploys when workflow is manually triggered from a non-default branch
+        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v2
+        with:
+          github-packages-token: ${{ secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT }}
+          other-prune-keep-min-count: ${{ inputs.other-prune-keep-min-count }}
+          other-prune-keep-num-days: ${{ inputs.other-prune-keep-num-days }}
+          release-prune-keep-min-count: ${{ inputs.release-prune-keep-min-count }}
+          release-prune-keep-num-days: ${{ inputs.release-prune-keep-num-days }}
+          snapshot-prune-keep-min-count: ${{ inputs.snapshot-prune-keep-min-count }}
+          snapshot-prune-keep-num-days: ${{ inputs.snapshot-prune-keep-num-days }}
+
+  # create a global result indicating if workflow steps succeeded or not,
+  # handy for branch protection rules
+  ci-cd-conclusion:
+    if: always()
+    name: ci-cd-conclusion
+    needs: [prune-maven-artifacts]
+    runs-on: [self-hosted, dsb-builder, linux, x64]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - run: exit 1
+        # for explanation of '>-' below see https://stackoverflow.com/a/67532120/4907315
+        # job 'result': possible values are 'success', 'failure', 'cancelled', or 'skipped'
+        if: >-
+          ${{
+               contains(needs.*.result, 'failure')
+            || contains(needs.*.result, 'cancelled')
+          }}
