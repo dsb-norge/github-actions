@@ -47,17 +47,17 @@ runs:
         echo "prune-images-from-acr: Deleting images older than ${KEEP_DAYS} days."
 
         # JMESPath query explanation:
-        #   reverse(sort_by([*], &timestamp)) | [10:] | [?timestamp < '2021-09-05T12:00:09.152Z'].digest
+        #   reverse(sort_by([*], &createdTime)) | [10:] | [?createdTime < '2021-09-05T12:00:09.152Z'].digest
         #     Sort by created date in reverse
-        #       reverse(sort_by([*], &timestamp))
+        #       reverse(sort_by([*], &createdTime))
         #     Return array slice from index 10 to end, filtering out index 0 to 9 (the 10 newest)
         #       [10:]
-        #     Filter out entries with timestamp newer than given date
-        #       [?timestamp < '2021-09-05T12:00:09.152Z']
+        #     Filter out entries with createdTime newer than given date
+        #       [?createdTime < '2021-09-05T12:00:09.152Z']
         #     Return only the 'digest' field
         #       .digest
         QUERY_DATE=$(date -u +'%Y-%m-%dT%H:%M:%S.%3NZ' -d "${KEEP_DAYS} days ago")
-        BASE_QUERY="reverse(sort_by([*], &timestamp)) | [${KEEP_MIN}:] | [?timestamp < '${QUERY_DATE}']"
+        BASE_QUERY="reverse(sort_by([*], &createdTime)) | [${KEEP_MIN}:] | [?createdTime < '${QUERY_DATE}']"
         TAGS_QUERY="${BASE_QUERY}.tags[]"
         DIGEST_QUERY="${BASE_QUERY}.digest[]"
 
@@ -65,9 +65,9 @@ runs:
 
         function Q()
         {
-          az acr repository show-manifests \
-            --name ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }} \
-            --repository "${IMAGE_REPO}" \
+          az acr manifest list-metadata \ 
+            --registry ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }} \
+            --name "${IMAGE_REPO}" \
             --query "${1}" \
             --output tsv
         }
