@@ -247,7 +247,6 @@ runs:
     - id: build-env
       shell: bash
       env:
-        ALL_ACTION_INPUTS: "${{ toJSON(inputs) }}"
         APP_VARS_JSON: "${{ inputs.app-vars }}"
         # 'inputs.github-json' is loaded further down as it's too large to load into env var here, bash startup fails with argument too long
         SECRETS_JSON: "${{ inputs.secrets-json }}"
@@ -269,7 +268,13 @@ runs:
         log-multiline "action input 'maven-extra-envs-from-github-yml'" "${MVN_EXTRA_GH_ENVS_YML}"
         log-multiline "action input 'maven-build-project-deploy-to-repositories-yml'" "${MVN_DEPLOY_REPOS_YML}"
 
-        # github context json as env var
+        # all inputs to the action as json in env var
+        ALL_ACTION_INPUTS=$(cat <<'EOF'
+        ${{ toJSON(inputs) }}
+        EOF
+        )
+
+        # github context as json in env var
         GITHUB_JSON=$(cat <<'EOF'
         ${{ inputs.github-json }}
         EOF
