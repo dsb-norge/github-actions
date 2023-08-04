@@ -249,7 +249,7 @@ runs:
       env:
         ALL_ACTION_INPUTS: "${{ toJSON(inputs) }}"
         APP_VARS_JSON: "${{ inputs.app-vars }}"
-        GITHUB_JSON: "${{ inputs.github-json }}"
+        # 'inputs.github-json' is loaded further down as it's too large to load into env var here, bash startup fails with argument too long
         SECRETS_JSON: "${{ inputs.secrets-json }}"
         VARS_JSON: "${{ inputs.vars-json }}"
         PR_HELM_VALUES_YML: "${{ inputs.inputs.pr-deploy-additional-helm-values }}"
@@ -268,6 +268,12 @@ runs:
         log-multiline "action input 'pr-deploy-additional-helm-values'" "${PR_HELM_VALUES_YML}"
         log-multiline "action input 'maven-extra-envs-from-github-yml'" "${MVN_EXTRA_GH_ENVS_YML}"
         log-multiline "action input 'maven-build-project-deploy-to-repositories-yml'" "${MVN_DEPLOY_REPOS_YML}"
+
+        # github context json as env var
+        GITHUB_JSON=$(cat <<'EOF'
+        ${{ inputs.github-json }}
+        EOF
+        )
 
         # These fields will be set by action inputs and values from app vars will be ignored
         PROTECTED_ENVS=(
