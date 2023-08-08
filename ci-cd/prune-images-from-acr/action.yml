@@ -65,7 +65,7 @@ runs:
 
         function Q()
         {
-          az acr manifest list-metadata \ 
+          az acr manifest list-metadata \
             --registry ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }} \
             --name "${IMAGE_REPO}" \
             --query "${1}" \
