@@ -30,8 +30,10 @@ runs:
       run: |
         # Check if triggered by pull request event
 
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
         [ ! '${{ github.event_name }}' == 'pull_request' ] \
-          && echo 'ERROR: teardown-pr-environment: This action should only be called by pull request events.' \
+          && log-error 'This action should only be called by pull request events.' \
           && EXIT_CODE=1 \
           || EXIT_CODE=0
         exit ${EXIT_CODE}
@@ -46,34 +48,53 @@ runs:
         resource-group: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-aks-resource-group }}
         admin: "true"
 
-    - shell: bash
-      id: helm-uninstall
+    - id: helm-uninstall
+      shell: bash
+      env:
+        K8S_NAMESPACE: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-namespace }}
+        HELM_RELEASE_NAME: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-application-name }}
       run: |
-        # Remove helm deployment
+        # Remove helm release
 
-        if helm uninstall ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-application-name }} \
-          --namespace ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-namespace }}; then
-          RESULT='true'
-          echo "teardown-pr-environment: 'helm uninstall' completed successfully."
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        RESULT='true'
+        if helm-release-exists "${K8S_NAMESPACE}" "${HELM_RELEASE_NAME}"; then
+          log-info 'release found, uninstalling ...'
+          if helm uninstall "${HELM_RELEASE_NAME}" --namespace "${K8S_NAMESPACE}"; then
+            log-info "'helm uninstall' completed successfully."
+          else
+            EXIT_CODE=$?
+            RESULT='false'
+            log-error "'helm uninstall' did not complete successfully, exit code '${EXIT_CODE}'."
+          fi
         else
-          RESULT='false'
-          EXIT_CODE=$?
-          echo "ERROR: teardown-pr-environment: 'helm uninstall' did not complete successfully, exit code '${EXIT_CODE}'. Note that this can be expected (e.g. PRs from renovate-bot)."
+          log-info 'no release found, nothing to do.'
         fi
         echo "result=${RESULT}" >> $GITHUB_OUTPUT
 
-    - shell: bash
-      id: kubectl-delete-namespace
+    - id: kubectl-delete-namespace
+      shell: bash
+      env:
+        K8S_NAMESPACE: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-namespace }}
+        HELM_RELEASE_NAME: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-application-name }}
       run: |
         # Remove namespace
 
-        if kubectl delete namespace ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-namespace }}; then
-          RESULT='true'
-          echo "teardown-pr-environment: 'kubectl delete namespace' completed successfully."
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        RESULT='true'
+        if k8s-namespace-exists "${K8S_NAMESPACE}"; then
+          log-info 'namespace found, deleting ...'
+          if kubectl delete namespace "${K8S_NAMESPACE}"; then
+            log-info "'kubectl delete namespace' completed successfully."
+          else
+            EXIT_CODE=$?
+            RESULT='false'
+            log-error "'kubectl delete namespace' did not complete successfully, exit code '${EXIT_CODE}'."
+          fi
         else
-          RESULT='false'
-          EXIT_CODE=$?
-          echo "ERROR: teardown-pr-environment: 'kubectl delete namespace' did not complete successfully, exit code '${EXIT_CODE}'. Note that this can be expected (e.g. PRs from renovate-bot)."
+          log-info 'namespace does not exist, nothing to do.'
         fi
         echo "result=${RESULT}" >> $GITHUB_OUTPUT
 
@@ -81,18 +102,20 @@ runs:
       run: |
         # Log and evaluate result
 
-        echo "teardown-pr-environment: result: 'helm-uninstall': '${{ steps.helm-uninstall.outputs.result }}'"
-        echo "teardown-pr-environment: result: 'kubectl delete namespace': '${{ steps.kubectl-delete-namespace.outputs.result }}'"
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        log-debug "result: 'helm-uninstall': '${{ steps.helm-uninstall.outputs.result }}'"
+        log-debug "result: 'kubectl delete namespace': '${{ steps.kubectl-delete-namespace.outputs.result }}'"
 
         if [ ! '${{ steps.helm-uninstall.outputs.result }}' == 'true' ] && [ ! '${{ steps.kubectl-delete-namespace.outputs.result }}' == 'true' ]; then
-          echo "ERROR: teardown-pr-environment: failing action since both teardown operations failed!"
+          log-error "failing action since both teardown operations failed!"
           exit 1
         elif [ ! '${{ steps.helm-uninstall.outputs.result }}' == 'true' ]; then
-          echo "ERROR: teardown-pr-environment: failing action since helm uninstall operation failed!"
+          log-error "failing action since helm uninstall operation failed!"
           exit 1
         elif [ ! '${{ steps.kubectl-delete-namespace.outputs.result }}' == 'true' ]; then
-          echo "ERROR: teardown-pr-environment: failing action since delete namespace operation failed!"
+          log-error "failing action since delete namespace operation failed!"
           exit 1
         else
-          echo "teardown-pr-environment: teardown completed successfully."
+          log-info "teardown completed successfully."
         fi
