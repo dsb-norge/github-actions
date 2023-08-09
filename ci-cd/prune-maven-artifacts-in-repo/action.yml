@@ -97,12 +97,15 @@ runs:
           )
 
           PACKAGE_VERSIONS_FOUND_COUNT=$(echo "${PACKAGE_VERSIONS}" | jq '. | length')
-          if [ ! "${PACKAGE_VERSIONS_FOUND_COUNT}" == "${PACKAGE_VERSIONS_COUNT}" ]; then
-            log-error "GitHub API returned ${PACKAGE_VERSIONS_FOUND_COUNT} versions for the package '${PACKAGE_NAME}, ${PACKAGE_VERSIONS_COUNT} was expected!"
-            exit 1
-          elif [ "${PACKAGE_VERSIONS_FOUND_COUNT}" == '0' ]; then
+          if [ "${PACKAGE_VERSIONS_FOUND_COUNT}" == '0' ]; then
             log-info "  No versions found for the package '${PACKAGE_NAME}'."
           else
+            if [ ! "${PACKAGE_VERSIONS_FOUND_COUNT}" == "${PACKAGE_VERSIONS_COUNT}" ]; then
+              log-warn "The GitHub API is conflicted in regards to what number of versions exists of the package '${PACKAGE_NAME}' with type '${PACKAGE_TYPE}'."
+              log-warn "${PACKAGE_VERSIONS_COUNT} versions was returned by 'https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=${PACKAGE_TYPE}'."
+              log-warn "Whilst ${PACKAGE_VERSIONS_FOUND_COUNT} versions was returned by 'https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions'."
+              log-warn "The latter is used as source of truth."
+            fi
             start-group "Found ${PACKAGE_VERSIONS_FOUND_COUNT} version(s):"
 
             PACKAGE_VERSIONS_GROUPED=$(
