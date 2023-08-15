@@ -51,6 +51,18 @@ inputs:
     description: |
       GitHub Personal Access Token (PAT) with scopes [delete:packages, read:packages] in the calling repos organization.
     required: true
+  owner-and-repository-name: # TODO: implement
+    description: |
+      Name of the owner (org. or user) and the repository name of where to look for packages.
+      Ex. 'dsb-norge/github-actions'
+      If this is left empty, the calling repo and organization/user will be used.
+    default: ''
+    required: false
+  dry-run: # TODO: implement
+    description: |
+      Non-destructive mode: If this flag is set to anything else than 'false' (default value) pruning/deletion will not occur.
+    default: 'false'
+    required: false
 runs:
   using: "composite"
   steps:
@@ -144,11 +156,8 @@ runs:
 
         TOTAL_VERSIONS_COUNT=$(echo "${OUTPUT_JSON}" | jq '. | map(.releases.count + .snapshots.count + .others.count) | add')
 
-        echo "total-versions-count=${TOTAL_VERSIONS_COUNT}" >> $GITHUB_OUTPUT
-
-        echo 'json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${OUTPUT_JSON}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        set-output 'total-versions-count' "${TOTAL_VERSIONS_COUNT}"
+        set-multiline-output 'json' "${OUTPUT_JSON}"
 
     # parse repo packages + versions to determine versions and packages to delete
     - id: get-what-to-delete
@@ -342,16 +351,10 @@ runs:
           log-multiline "${VERSIONS_TO_DELETE_COUNT} package version(s) will be deleted" "${VERSIONS_TO_DELETE}"
         fi
 
-        echo "delete-packages-count=${PACKAGES_TO_DELETE_COUNT}" >> $GITHUB_OUTPUT
-        echo "delete-versions-count=${VERSIONS_TO_DELETE_COUNT}" >> $GITHUB_OUTPUT
-
-        echo 'delete-packages-json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${PACKAGES_TO_DELETE}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-
-        echo 'delete-versions-json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${VERSIONS_TO_DELETE}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        set-output 'delete-packages-count' "${PACKAGES_TO_DELETE_COUNT}"
+        set-output 'delete-versions-count' "${VERSIONS_TO_DELETE_COUNT}"
+        set-multiline-output 'delete-packages-json' "${PACKAGES_TO_DELETE}"
+        set-multiline-output 'delete-versions-json' "${VERSIONS_TO_DELETE}"
 
     - id: delete-packages
       # skip this step if there are no packages to delete

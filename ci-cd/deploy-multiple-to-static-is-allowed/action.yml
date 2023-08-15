@@ -40,26 +40,24 @@ runs:
       run: |
         # Verify deploy is allowed from calling branch
 
-        # Helper functions
-        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
-        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "${1}" '.[$name]'; }
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
-        echo "::group::deploy-multiple-to-static-is-allowed: details"
+        start-group "details"
         IS_ALLOWED='true'
 
         for OBJ in $(echo "${JSON_ARRAY}" | jq -r '.[] | @base64'); do
           JSON_OBJ="$(_jq '.')"
           if [ ! "$(get-val 'caller-repo-is-on-default-branch')" == 'true' ] \
             && [ ! "$(get-val 'static-deploy-from-default-branch-only')" == 'false' ]; then
-            echo "deploy-multiple-to-static-is-allowed: deploy from non-default branch is NOT allowed for the app '$(get-val 'application-name')' because 'dsb-build-envs.static-deploy-from-default-branch-only' is set to '$(get-val 'static-deploy-from-default-branch-only')'."
+            log-info "deploy from non-default branch is NOT allowed for the app '$(get-val 'application-name')' because 'dsb-build-envs.static-deploy-from-default-branch-only' is set to '$(get-val 'static-deploy-from-default-branch-only')'."
             IS_ALLOWED='false'
           else
-            echo "deploy-multiple-to-static-is-allowed: deploy from non-default branch is allowed for the app '$(get-val 'application-name')'."
+            log-info "deploy from non-default branch is allowed for the app '$(get-val 'application-name')'."
           fi
-          echo "deploy-multiple-to-static-is-allowed: Action called from branch '$(get-val 'caller-repo-calling-branch')'"
-          echo "deploy-multiple-to-static-is-allowed: Default branch of repo is '$(get-val 'caller-repo-default-branch')'"
+          log-info "Action called from branch '$(get-val 'caller-repo-calling-branch')'"
+          log-info "Default branch of repo is '$(get-val 'caller-repo-default-branch')'"
         done # Loop apps
-        echo "::endgroup::"
+        end-group
 
-        echo "deploy-multiple-to-static-is-allowed: conclusion: '${IS_ALLOWED}'"
-        echo "result=${IS_ALLOWED}" >> $GITHUB_OUTPUT
+        log-info "conclusion: '${IS_ALLOWED}'"
+        set-output 'result' "${IS_ALLOWED}"

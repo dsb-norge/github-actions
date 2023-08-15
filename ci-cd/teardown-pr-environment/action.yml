@@ -71,7 +71,8 @@ runs:
         else
           log-info 'no release found, nothing to do.'
         fi
-        echo "result=${RESULT}" >> $GITHUB_OUTPUT
+
+        set-output 'result' "${RESULT}"
 
     - id: kubectl-delete-namespace
       shell: bash
@@ -96,7 +97,8 @@ runs:
         else
           log-info 'namespace does not exist, nothing to do.'
         fi
-        echo "result=${RESULT}" >> $GITHUB_OUTPUT
+
+        set-output 'result' "${RESULT}"
 
     - shell: bash
       run: |

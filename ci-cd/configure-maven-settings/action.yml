@@ -181,4 +181,4 @@ runs:
         mkdir --parents "$(dirname "${SETTINGS_XML_PATH}")"
         cp --force "${SETTINGS_XML_TEMPLATE_PATH}" "${SETTINGS_XML_PATH}"
 
-        echo "settings-xml-path=${SETTINGS_XML_PATH}" >> $GITHUB_OUTPUT
+        set-output 'settings-xml-path' "${SETTINGS_XML_PATH}"

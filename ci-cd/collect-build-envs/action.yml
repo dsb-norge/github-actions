@@ -31,16 +31,12 @@ runs:
       run: |
         # Read and merge JSON files
 
-        echo "::group::collect-build-envs: Files received from artifact '${{ inputs.build-envs-artifact-name }}'"
-        ls -lah
-        echo "::endgroup::"
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        log-multiline "Files received from artifact '${{ inputs.build-envs-artifact-name }}'" "$(ls -lah)"
 
         OUTPUT_ENV_JSON=$(jq -s '.' *.json)
-        echo "collect-build-envs: Found $(echo "${OUTPUT_ENV_JSON}" | jq 'length') set(s) of build-envs."
-        echo "::group::collect-build-envs: Output JSON array"
-        echo "${OUTPUT_ENV_JSON}"
-        echo "::endgroup::"
 
-        echo 'json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${OUTPUT_ENV_JSON}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        log-info "Found $(echo "${OUTPUT_ENV_JSON}" | jq 'length') set(s) of build-envs."
+        log-multiline "Output JSON array" "${OUTPUT_ENV_JSON}"
+        set-multiline-output 'json' "${OUTPUT_ENV_JSON}"
