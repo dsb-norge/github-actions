@@ -244,10 +244,10 @@ runs:
             "https://oauth2:${GH_TOKEN_SANITIZED}@github.com/${{ inputs.app-config-repo }}" \
             ${TMP_FILE}
         ); then
-          echo "ref=${{ inputs.pr-deploy-app-config-branch }}" >> $GITHUB_OUTPUT
+          set-output 'ref' "${{ inputs.pr-deploy-app-config-branch }}"
           log-info 'Ref "${{ inputs.pr-deploy-app-config-branch }}" exist in "${{ inputs.app-config-repo }}" and will be used for PR deploys.'
         else
-          echo "ref=main" >> $GITHUB_OUTPUT
+          set-output 'ref' 'main'
           log-info 'Ref "${{ inputs.pr-deploy-app-config-branch }}" does not exist in "${{ inputs.app-config-repo }}", using "main" for PR deploys.'
         fi
         rm -rf ${TMP_FILE} || :
@@ -268,7 +268,6 @@ runs:
         # Define variables needed for build and deploy of DSB apps
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-        set -o allexport; source "${{ github.action_path }}/helpers_build_env.sh"; set +o allexport;
 
         # log inputs without secrets
         log-multiline "action input 'app-vars', the app vars JSON specification" "${APP_VARS_JSON}"
@@ -595,13 +594,10 @@ runs:
         mkdir -p ${OUT_DIR}
         log-multiline "non-secret envs JSON" "$(echo "${APP_VARS_JSON_NOT_SECRET}" | tee "${OUT_JSON_FILE}")"
 
-        echo "json-without-secrets-path=${OUT_JSON_FILE}" >> $GITHUB_OUTPUT
+        set-output 'json-without-secrets-path' "${OUT_JSON_FILE}"
+        set-output 'build-envs-artifact-name' "build-envs-$(get-val 'application-version')"
 
-        echo "build-envs-artifact-name=build-envs-$(get-val 'application-version')"  >> $GITHUB_OUTPUT
-
-        echo 'json<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${APP_VARS_JSON}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        set-multiline-output 'json' "${APP_VARS_JSON}"
 
     - uses: actions/upload-artifact@v3
       with:

@@ -98,6 +98,8 @@ test_action() {
 set -euo pipefail
 __dirname="${this_script_dir}"
 GITHUB_OUTPUT="${this_script_dir}/_${step_id}.sh.out"
+GITHUB_RUN_ID='123'
+GITHUB_ACTION=${step_id}
 echo "" > \$GITHUB_OUTPUT
 
 EOF

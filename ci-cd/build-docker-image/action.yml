@@ -61,11 +61,13 @@ runs:
       run: |
         # Add standard DSB ENVs to Dockerfile
 
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
         # Locate Dockerfile
         DOCKER_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
         [ ! -f "${DOCKER_FILE}" ] && DOCKER_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/Dockerfile"
         [ ! -f "${DOCKER_FILE}" ] && \
-          echo "ERROR: build-docker-image: Cannot locate Dockerfile. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${DOCKER_FILE}' does not exist!" && \
+          log-error "Cannot locate Dockerfile. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${DOCKER_FILE}' does not exist!" && \
           exit 1
 
         # In case Dockerfile is missing trailing newline
@@ -78,6 +80,8 @@ runs:
         ENV DSB_SOURCE=${{ fromJSON(inputs.dsb-build-envs).application-source }}
         ENV DSB_REVISION=${{ fromJSON(inputs.dsb-build-envs).application-source-revision }}
         EOF
+
+        log-multiline 'Modified Dockerfile' "$(cat "${DOCKER_FILE}")"
 
     # build, tag and push docker image
     - uses: docker/build-push-action@v3

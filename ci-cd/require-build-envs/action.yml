@@ -29,16 +29,19 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - shell: bash
+    - id: check-envs
+      shell: bash
       env:
         JSON_CONFIG: "${{ inputs.dsb-build-envs }}"
         REQUIRED_KEYS: "${{ inputs.require }}"
       run: |
         # Test build envs
 
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
         # Exit early if no input given
         if [ -z "${JSON_CONFIG}" ]; then
-          echo "require-build-envs: 'dsb-build-envs' not supplied, nothing to check."
+          log-info "'dsb-build-envs' not supplied, nothing to check."
           exit 0
         fi
 
@@ -50,26 +53,29 @@ runs:
         EXIT_CODE=0
         for KEY in "${REQUIRED_KEYS_ARR[@]}"; do
           if [ ! "$( jq 'has("'${KEY}'")' <<< ${JSON_CONFIG} )" == "true" ]; then
-            echo "ERROR: require-build-envs: Build env '${KEY}' is required but was not found in 'dsb-build-envs' JSON."
+            log-error "Build env '${KEY}' is required but was not found in 'dsb-build-envs' JSON."
             EXIT_CODE=1
           elif [ "$( jq -r '."'${KEY}'"' <<< ${JSON_CONFIG} )" == '' ]; then
-            echo "ERROR: require-build-envs: It is required that build env '${KEY}' is set to a value, an empty string was found in 'dsb-build-envs' JSON."
+            log-error "It is required that build env '${KEY}' is set to a value, an empty string was found in 'dsb-build-envs' JSON."
             EXIT_CODE=1
           fi
         done
 
         exit ${EXIT_CODE}
 
-    - shell: bash
+    - id: check-envs-array
+      shell: bash
       env:
         JSON_CONFIG: "${{ inputs.dsb-build-envs-array }}"
         REQUIRED_KEYS: "${{ inputs.require }}"
       run: |
         # Test build envs array
 
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
         # Exit early if no input given
         if [ -z "${JSON_CONFIG}" ]; then
-          echo "require-build-envs: 'dsb-build-envs-array' not supplied, nothing to check."
+          log-info "'dsb-build-envs-array' not supplied, nothing to check."
           exit 0
         fi
 
@@ -78,20 +84,15 @@ runs:
         EOF
         ))
 
-        # Helper functions
-        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
-        function has-field { if [[ "$(echo "${JSON_OBJ}" | jq --arg name "${1}" 'has($name)')" == 'true' ]]; then true; else false; fi; }
-        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "${1}" '.[$name] | select( . != null )'; }
-
         EXIT_CODE=0
         for OBJ in $(echo "${JSON_CONFIG}" | jq -r '.[] | @base64'); do
           JSON_OBJ="$(_jq '.')"
           for KEY in "${REQUIRED_KEYS_ARR[@]}"; do
           if ! has-field "${KEY}"; then
-            echo "ERROR: require-build-envs: Build env '${KEY}' is required but was not found for the app '$( get-val 'application-name')' in 'dsb-build-envs-array' JSON."
+            log-error "Build env '${KEY}' is required but was not found for the app '$( get-val 'application-name')' in 'dsb-build-envs-array' JSON."
             EXIT_CODE=1
           elif [ "$( get-val "${KEY}")" == '' ]; then
-            echo "ERROR: require-build-envs: It is required that build env '${KEY}' is set to a value, an empty string was found for the app '$( get-val 'application-name')' in 'dsb-build-envs-array' JSON."
+            log-error "It is required that build env '${KEY}' is set to a value, an empty string was found for the app '$( get-val 'application-name')' in 'dsb-build-envs-array' JSON."
             EXIT_CODE=1
           fi
           done

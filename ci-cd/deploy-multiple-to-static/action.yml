@@ -32,57 +32,76 @@ runs:
           caller-repo-calling-branch
 
     # checkout config repo(s)
-    - shell: bash
+    - id: clone-repos
+      shell: bash
       env:
         JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
       run: |
         # Checkout config repo(s)
 
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
         GH_TOKEN='${{ inputs.app-config-repo-token }}'
         GH_TOKEN_SANITIZED=${GH_TOKEN/ }
+
         REPOS=$(echo "${JSON_ARRAY}" | jq -r 'unique_by( ."app-config-repo" ) | .[]."app-config-repo"')
+        log-multiline 'Config repo(s) to clone' "${REPOS[*]}"
+
         for REPO in ${REPOS[*]}; do
             REPO_DIR="${{ github.workspace }}/${REPO////_}"
+            start-group "Cloning github.com/${REPO} into '${REPO_DIR}' ..."
             git clone \
                 "https://oauth2:${GH_TOKEN_SANITIZED}@github.com/${REPO}" \
                 "${REPO_DIR}"
+            end-group
         done
 
     # check if expected directory structure and application config exists
-    - shell: bash
+    - id: look-for-app-config
+      shell: bash
       env:
         JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
       run: |
         # Look for files and directories
 
-        # Helper functions
-        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
-        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "${1}" '.[$name]'; }
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         EXIT_CODE=0
         REPOS=$(echo "${JSON_ARRAY}" | jq -r 'unique_by( ."app-config-repo" ) | .[]."app-config-repo"')
+        log-multiline 'Config repo(s) to check' "${REPOS[*]}"
+
         for REPO in ${REPOS[*]}; do
             REPO_DIR="${{ github.workspace }}/${REPO////_}"
             APPS_DIR="${REPO_DIR}/apps"
             if [ ! -d "${APPS_DIR}" ]; then
-              echo "ERROR: deploy-multiple-to-static: Unable to find apps directory '${APPS_DIR}' within config repo '${REPO}'!"
+              log-error "Unable to find apps directory '${APPS_DIR}' within config repo '${REPO}'!"
               EXIT_CODE=1
             fi
+
             APPS_IN_REPO_JSON_ARRAY=$(echo "${JSON_ARRAY}" | jq 'del(.[] | select(."app-config-repo" != "'"${REPO}"'"))')
+            log-multiline 'Apps to look for' "${APPS_IN_REPO_JSON_ARRAY}"
+
             for OBJ in $(echo "${APPS_IN_REPO_JSON_ARRAY}" | jq -r '.[] | @base64'); do
               JSON_OBJ="$(_jq '.')"
               INPUT_ENVS_STRING="$(get-val 'static-deploy-environments')"
+
               DEPLOY_TO_ENVS=(${INPUT_ENVS_STRING//,/ }) # split comma separated list
+              log-multiline 'Environments to look for' "${DEPLOY_TO_ENVS[*]}"
+
               for DEPLOY_TO_ENV in "${DEPLOY_TO_ENVS[@]}"; do
                 ENV_DIR="${APPS_DIR}/${DEPLOY_TO_ENV}"
                 if [ ! -d "${ENV_DIR}" ]; then
-                  echo "ERROR: deploy-multiple-to-static: Unable to find environment directory '${ENV_DIR}' under apps directory '${APPS_DIR} within config repo '${REPO}'!"
+                  log-error "Unable to find environment directory '${ENV_DIR}' under apps directory '${APPS_DIR} within config repo '${REPO}'!"
                   EXIT_CODE=1
+                else
+                  log-info "Found environment directory '${ENV_DIR}'."
                 fi
                 VALUES_FILE="${ENV_DIR}/$(get-val 'application-name')/values.yaml"
                 if [ ! -f "${VALUES_FILE}" ]; then
-                  echo "ERROR: deploy-multiple-to-static: Unable to find values file for '$(get-val 'application-name')' in environment '${DEPLOY_TO_ENV}', should exists at '${VALUES_FILE}' within config repo '${REPO}'!"
+                  log-error "Unable to find values file for '$(get-val 'application-name')' in environment '${DEPLOY_TO_ENV}', should exists at '${VALUES_FILE}' within config repo '${REPO}'!"
                   EXIT_CODE=1
+                else
+                  log-info "Found values.yaml for app '$(get-val 'application-name')' at '${VALUES_FILE}'"
                 fi
               done # envs
             done # apps
@@ -91,15 +110,14 @@ runs:
         exit ${EXIT_CODE}
 
     # update application version in given environments, commit and push
-    - shell: bash
+    - id: bump-app
+      shell: bash
       env:
         JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
       run: |
         # Bump versions in git repo
 
-        # Helper functions
-        function _jq { echo "${OBJ}" | base64 --decode | jq -r "${*}" ; }
-        function get-val { echo "${JSON_OBJ}" | jq -r --arg name "$1" '.[$name]'; }
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         EXIT_CODE=0
         CALLER_REPO_FULL='${{ github.repository }}' # owner and repo name,  ex. Codertocat/Hello-World
@@ -109,7 +127,7 @@ runs:
         # Loop repos
         REPOS=$(echo "${JSON_ARRAY}" | jq -r 'unique_by( ."app-config-repo" ) | .[]."app-config-repo"')
         for REPO in ${REPOS[*]}; do
-          echo "deploy-multiple-to-static: Bumping versions in repo '${REPO}':"
+          log-info "Bumping versions in repo '${REPO}':"
           WS_DIR='${{ github.workspace }}'
           REPO_DIR="${WS_DIR}/${REPO////_}"
           APPS_DIR="${REPO_DIR}/apps"
@@ -123,19 +141,15 @@ runs:
             # Loop over app environments
             DEPLOY_TO_ENVS=(${INPUT_ENVS_STRING//,/ }) # split comma separated list
             for DEPLOY_TO_ENV in "${DEPLOY_TO_ENVS[@]}"; do
-              echo "deploy-multiple-to-static: Bumping '$(get-val 'application-name')' in '${DEPLOY_TO_ENV}' to '$(get-val 'application-version')':"
+              log-info "Bumping '$(get-val 'application-name')' in '${DEPLOY_TO_ENV}' to '$(get-val 'application-version')':"
               ENV_DIR="${APPS_DIR}/${DEPLOY_TO_ENV}"
               VALUES_FILE="${ENV_DIR}/$(get-val 'application-name')/values.yaml"
 
-              echo "::group::deploy-multiple-to-static: ${VALUES_FILE//$WS_DIR/} before modification:"
-              cat ${VALUES_FILE}
-              echo "::endgroup::"
+              log-multiline "${VALUES_FILE//$WS_DIR/} before modification:" "$(cat ${VALUES_FILE})"
 
               sed -i 's/tag: .* # replaced-by-auto-bumper/tag: "'"$(get-val 'application-version')"'" # replaced-by-auto-bumper/' "${VALUES_FILE}"
 
-              echo "::group::deploy-multiple-to-static: ${VALUES_FILE//$WS_DIR/} after modification:"
-              cat ${VALUES_FILE}
-              echo "::endgroup::"
+              log-multiline "${VALUES_FILE//$WS_DIR/} after modification:"  "$(cat ${VALUES_FILE})"
 
               git -C "${REPO_DIR}" add "${VALUES_FILE}"
             done # envs
@@ -143,7 +157,7 @@ runs:
           done # Loop apps
 
           # Create commit message
-          echo "deploy-multiple-to-static: Creating commit message for repo '${REPO}' ..."
+          log-info "Creating commit message for repo '${REPO}' ..."
           APPS_IN_REPO_STRING="$(echo "${APPS_IN_REPO_JSON_ARRAY}" | jq -r '. | map( ."application-name" ) | join(", ")')"
           VERSIONS_IN_REPO_STRING="$(echo "${APPS_IN_REPO_JSON_ARRAY}" | jq -r 'unique_by( ."application-version" ) | . | map( ."application-version" ) | join(", ")')"
           BUMP_COMMIT_MESSAGE="🆕 ${INPUT_ENVS_STRING}: ${CALLER_REPO} → ${VERSIONS_IN_REPO_STRING}:"
@@ -154,16 +168,16 @@ runs:
           BUMP_COMMIT_MESSAGE=$(echo "${BUMP_COMMIT_MESSAGE}" $'\n' "Commit message: ${CALLER_REPO_CURRENT_COMMIT_MESSAGE}")
 
           # Git operations
-          echo "deploy-multiple-to-static: Committing version changes for repo '${REPO}' ..."
+          log-info "Committing version changes for repo '${REPO}' ..."
           git -C "${REPO_DIR}" config user.email "noreply@dsb.no"
           git -C "${REPO_DIR}" config user.name "Auto Bumper"
           git -C "${REPO_DIR}" commit -m "$BUMP_COMMIT_MESSAGE"
           git -C "${REPO_DIR}" push
 
           # Cleanup
-          echo "deploy-multiple-to-static: Cleanup: removing '${REPO_DIR}' ..."
+          log-info "Cleanup: removing '${REPO_DIR}' ..."
           rm -rf "${REPO_DIR}" \
-            && echo "deploy-multiple-to-static: Cleanup: Done." \
-            || echo "ERROR: deploy-multiple-to-static: Cleanup: Failed to remove repo directory!"
+            && log-info "Cleanup: Done." \
+            || log-error "Cleanup: Failed to remove repo directory!"
 
         done # Loop repos
