@@ -36,9 +36,11 @@ jobs:
     steps:
       # The create-app-vars-matrix action requires source code to be available
       - name: 🧹 Clean workspace
+        id: clean
         uses: dsb-norge/github-actions/directory-recreate@v2
 
       - name: ⬇ Checkout working branch
+        id: checkout
         uses: actions/checkout@v3
 
       - name: 🎰 Create app vars build matrix
@@ -59,9 +61,11 @@ jobs:
         shell: bash
     steps:
       - name: 🧹 Clean workspace
+        id: clean
         uses: dsb-norge/github-actions/directory-recreate@v2
 
       - name: ⬇ Checkout working branch
+        id: checkout
         uses: actions/checkout@v3
 
       - name: 🎰 Generate DSB build variables
@@ -84,6 +88,7 @@ jobs:
           arguments: -DgenerateBackupPoms=false
 
       - name: 🧹 Remove build info (so it won't be committed)
+        id: rm-build-info
         # only if maven command was not skipped and completed successfully
         if: steps.maven-bump.outcome == 'success'
         run: |
@@ -101,6 +106,7 @@ jobs:
           token-request-body: '{"repository":"${{ github.repository }}","permissions":{"contents":"write","pull_requests":"write"}}'
 
       - name: 🌱 Commit to new branch (or update existing) & create pull request
+        id: create-pr
         # only if maven command was not skipped and completed successfully
         if: steps.maven-bump.outcome == 'success'
         # Will update branch if it already exists.

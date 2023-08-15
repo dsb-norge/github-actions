@@ -17,27 +17,31 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    # require pull request for this action to run
-    - shell: bash
+    - id: check-pull-request
+      shell: bash
       run: |
         # Check if triggered by pull request event, and not a closing action
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         EXIT_CODE=0
 
         [ ! '${{ github.event_name }}' == 'pull_request' ] \
-          && echo 'ERROR: comment-on-pr: This action should only be called by pull request events!' \
+          && log-error "This action should only be called by pull request events!" \
           && EXIT_CODE=1 || :
 
         [ '${{ github.event.action }}' == 'closed' ] \
-          && echo 'ERROR: comment-on-pr: This action should not be called by event action 'closed'!' \
+          && log-error "This action should not be called by event action 'closed'!" \
           && EXIT_CODE=1 || :
 
         exit ${EXIT_CODE}
 
-    # log action inputs
-    - shell: bash
+    - id: log-inputs
+      shell: bash
       run: |
         # Log inputs
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         COMMENT_TEXT=$(cat <<'EOF'
         ${{ inputs.pr-comment-text }}
@@ -48,14 +52,12 @@ runs:
         EOF
         )
 
-        echo "comment-on-pr: Adding comment to PR #${{ github.event.number }}"
-        echo "::group::comment-on-pr: Comment body"
-        echo "${COMMENT_TEXT}"
-        echo "::endgroup::"
+        log-info "Adding comment to PR #${{ github.event.number }}"
+        log-multiline "Comment body" "${COMMENT_TEXT}"
         if [ ! -z "${DELETE_COMMENTS_WITH_PREFIX}" ]; then
-          echo "comment-on-pr: Comments starting with '${DELETE_COMMENTS_WITH_PREFIX}' will be removed from the PR."
+          log-info "Comments starting with '${DELETE_COMMENTS_WITH_PREFIX}' will be removed from the PR."
         else
-          echo "comment-on-pr: No comments will be removed from the PR."
+          log-info "No comments will be removed from the PR."
         fi
 
     # add comment to PR

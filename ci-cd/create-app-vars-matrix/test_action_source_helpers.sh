@@ -57,6 +57,16 @@ should_fail_test() {
   # echo "after should fail"
 }
 
+get_step_output_value() {
+  local value_key file_path
+  value_key="${1}"
+  file_path="${2}"
+  jq -s -r \
+    --arg valuekey "${value_key}" \
+    '.[] | .[$valuekey] // empty' \
+    "${file_path}"
+}
+
 test_action() {
   local action_file yml_input_file this_script_dir
 
@@ -79,14 +89,24 @@ test_action() {
 
     # the source code for the step will be written to this file
     step_src_file="${this_script_dir}/_${i}_${step_id}.sh"
+    step_out_file="${this_script_dir}/_${step_id}.sh.out"
 
     # add some init code
     cat <<EOF >"${step_src_file}"
 #!/bin/env bash
 set -euo pipefail
 __dirname="${this_script_dir}"
-GITHUB_OUTPUT="${this_script_dir}/_${step_id}.sh.out"
+GITHUB_OUTPUT="${step_out_file}"
+GITHUB_ACTION=${step_id}
 echo "" > \$GITHUB_OUTPUT
+
+function _test_set_multiline_output {
+  local outputName outputValue delimiter
+  outputName="\${1}"
+  outputValue="\${2}"
+  echo '{}' | jq --arg name "\${outputName}" --arg value "\${outputValue}" '.[\$name] = \$value' >>\$GITHUB_OUTPUT
+}
+function _test_set_output { _test_set_multiline_output "\${1}" "\${2}" ; }
 
 EOF
 
@@ -95,6 +115,10 @@ EOF
 
     # write source from action step
     echo "${step_src}" >>"${step_src_file}"
+
+    # replace output functions with test code
+    sed -i "s/set-multiline-output/_test_set_multiline_output/g" "${step_src_file}"
+    sed -i "s/set-output/_test_set_output/g" "${step_src_file}"
 
     # insert input yaml
     yml_input=$(cat $yml_input_file)
@@ -110,12 +134,22 @@ EOF
       step_output_file="${this_script_dir}/_${_step_id}.sh.out"
       if [ -f "${step_output_file}" ]; then
         # read output and escape
-        json=$(cat "${step_output_file}")
-        json_escaped=$(printf '%s\n' "${json}" | sed 's,[\/&],\\&,g;s/$/\\/')
-        json_escaped=${json_escaped%?}
+        # json=$(cat "${step_output_file}")
+        # json_escaped=$(printf '%s\n' "${json}" | sed 's,[\/&],\\&,g;s/$/\\/')
+        # json_escaped=${json_escaped%?}
 
         # replace github actions variable with json blob
-        sed -i "s/\${{ steps\.${_step_id}\.outputs\.app-vars }}/$json_escaped/g" "${step_src_file}"
+        out_val="$(get_step_output_value 'app-vars' "${step_output_file}")"
+        out_val_escaped=$(printf '%s\n' "${out_val}" | sed 's,[\/&],\\&,g;s/$/\\/')
+        out_val_escaped=${out_val_escaped%?}
+        sed -i "s/\${{ steps\.${_step_id}\.outputs\.app-vars }}/$out_val_escaped/g" "${step_src_file}"
+
+        out_val="$(get_step_output_value 'app-vars-also' "${step_output_file}")"
+        out_val_escaped=$(printf '%s\n' "${out_val}" | sed 's,[\/&],\\&,g;s/$/\\/')
+        out_val_escaped=${out_val_escaped%?}
+        sed -i "s/\${{ steps\.${_step_id}\.outputs\.app-vars-also }}/$out_val_escaped/g" "${step_src_file}"
+
+        # sed -i "s/\${{ steps\.${_step_id}\.outputs\.app-vars }}/$json_escaped/g" "${step_src_file}"
       fi
     done
 

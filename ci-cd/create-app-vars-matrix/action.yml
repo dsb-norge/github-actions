@@ -35,8 +35,8 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - shell: bash
-      id: convert
+    - id: convert
+      shell: bash
       run: |
         # Convert app vars yaml to JSON
 
@@ -59,14 +59,12 @@ runs:
 
         # Convert yaml to JSON
         JSON_CONFIG=$(echo "${YAML_CONFIG}" | yq e -o=json -)
-        log-json "specification as JSON" "${JSON_CONFIG}"
 
-        echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${JSON_CONFIG}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        log-multiline "specification as JSON" "${JSON_CONFIG}"
+        set-multiline-output 'app-vars' "${JSON_CONFIG}"
 
-    - shell: bash
-      id: validate-input
+    - id: validate-input
+      shell: bash
       run: |
         # Validate given app vars structure
 
@@ -77,7 +75,7 @@ runs:
         ${{ steps.convert.outputs.app-vars }}
         EOF
         )
-        log-json "JSON input received" "${JSON_CONFIG}"
+        log-multiline "JSON input received" "${JSON_CONFIG}"
 
         # Check that app vars is of type array
         if [ ! "$( echo "${JSON_CONFIG}" | jq -r '. | type' )" == 'array' ]; then
@@ -96,8 +94,8 @@ runs:
           log-info "[OK] The specification is not an empty array."
         fi
 
-    - shell: bash
-      id: detect-type
+    - id: detect-type
+      shell: bash
       run: |
         # Set application type where not explicitly defined
 
@@ -108,7 +106,7 @@ runs:
         ${{ steps.convert.outputs.app-vars }}
         EOF
         )
-        log-json "JSON input received" "${IN_JSON}"
+        log-multiline "JSON input received" "${IN_JSON}"
 
         # Build output JSON object
         OUT_JSON='[]'
@@ -150,14 +148,11 @@ runs:
           OUT_JSON=$(echo "${OUT_JSON}" | jq '. += '["${OUT_OBJ}"']')
         done
 
-        log-json "JSON output returned" "${OUT_JSON}"
+        log-multiline "JSON output returned" "${OUT_JSON}"
+        set-multiline-output 'app-vars' "${OUT_JSON}"
 
-        echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${OUT_JSON}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-
-    - shell: bash
-      id: get-app-meta
+    - id: get-app-meta
+      shell: bash
       run: |
         # Attempt to read application metadata from pom.xml/package.json for fields that are not explicitly defined in input
 
@@ -168,7 +163,7 @@ runs:
         ${{ steps.detect-type.outputs.app-vars }}
         EOF
         )
-        log-json "JSON input received" "${IN_JSON}"
+        log-multiline "JSON input received" "${IN_JSON}"
 
         # Build output JSON object
         OUT_JSON='[]'
@@ -246,14 +241,11 @@ runs:
           unset OUT_OBJ APP_NAME APP_TYPE SRC_PATH SRC_DATA APP_DESC APP_JAVA_VERSION
         done
 
-        log-json "JSON output returned" "${OUT_JSON}"
+        log-multiline "JSON output returned" "${OUT_JSON}"
+        set-multiline-output 'app-vars' "${OUT_JSON}"
 
-        echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${OUT_JSON}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-
-    - shell: bash
-      id: validate-result
+    - id: validate-result
+      shell: bash
       run: |
         # Validate app vars structure, required fields and allowed values
 
@@ -264,7 +256,7 @@ runs:
         ${{ steps.get-app-meta.outputs.app-vars }}
         EOF
         )
-        log-json "JSON input received" "${JSON_CONFIG}"
+        log-multiline "JSON input received" "${JSON_CONFIG}"
 
         # Required fields
         REQ_FIELDS=(
@@ -314,8 +306,8 @@ runs:
         done
         [ ${DO_EXIT} -eq 1 ] && exit 1 || log-info "[OK] All required fields were found in the specification."
 
-    - shell: bash
-      id: create-app-vars-matrix
+    - id: create-app-vars-matrix
+      shell: bash
       run: |
         # Add additional dynamic app vars
 
@@ -326,7 +318,7 @@ runs:
         ${{ steps.get-app-meta.outputs.app-vars }}
         EOF
         )
-        log-json "JSON input received" "${IN_JSON}"
+        log-multiline "JSON input received" "${IN_JSON}"
 
         # Version and date
         APP_BUILDTIME="$(date -u +'%Y-%m-%dT%H:%M:%S.%3NZ')"
@@ -355,16 +347,12 @@ runs:
           OUT_JSON=$(echo "${OUT_JSON}" | jq '. += '["${OUT_OBJ}"']')
         done
 
-        log-json "JSON output returned" "${OUT_JSON}"
+        log-multiline "JSON output returned" "${OUT_JSON}"
+        set-multiline-output 'app-vars' "${OUT_JSON}"
+        set-output 'applications-version' "${APP_VERSION}"
 
-        echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${OUT_JSON}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-
-        echo "applications-version=${APP_VERSION}" >> $GITHUB_OUTPUT
-
-    - shell: bash
-      id: make-matrix-compatible
+    - id: make-matrix-compatible
+      shell: bash
       run: |
         # Create app vars matrix
 
@@ -375,7 +363,7 @@ runs:
         ${{ steps.create-app-vars-matrix.outputs.app-vars }}
         EOF
         )
-        log-json "JSON input received" "${IN_JSON}"
+        log-multiline "JSON input received" "${IN_JSON}"
 
         # Reshape JSON to conform to github matrix format:
         #{
@@ -387,8 +375,6 @@ runs:
         # Each element in the array will have one field 'app-vars' containing all app vars for a given app
         OUT_JSON=$(echo "${IN_JSON}" | jq '{ "application-name": map( .["application-name"]), "include": map({ "application-name": .["application-name"], "app-vars": . }) }')
 
-        log-json "app vars JSON re-formatted for Github matrix job" "${OUT_JSON}"
+        log-multiline "app vars JSON re-formatted for Github matrix job" "${OUT_JSON}"
 
-        echo 'app-vars<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${OUT_JSON}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        set-multiline-output 'app-vars' "${OUT_JSON}"

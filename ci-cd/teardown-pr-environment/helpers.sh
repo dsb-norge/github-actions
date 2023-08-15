@@ -1,7 +1,7 @@
 #!/bin/env bash
 
 # Helper consts
-_action_name='teardown-pr-environment'
+_action_name="$(basename "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)")"
 
 # Helper functions
 function _log { echo "${1}${_action_name}: ${2}"; }
@@ -17,18 +17,19 @@ function log-multiline {
   end-group
 }
 function mask-value { echo "::add-mask::${*}"; }
-
-function helm-release-exists {
-  local namespace release_name
-  namespace="${1}"
-  release_name="${2}"
-  if (helm status --namespace "${namespace}" "${release_name}" 2>/dev/null 1>&2); then true; else false; fi
-}
-
-function k8s-namespace-exists {
-  local namespace
-  namespace="${1}"
-  if (kubectl get namespace "${namespace}" 2>/dev/null 1>&2); then true; else false; fi
+function set-output { echo "${1}=${2}" >>$GITHUB_OUTPUT; }
+function set-multiline-output {
+  local outputName outputValue delimiter
+  outputName="${1}"
+  outputValue="${2}"
+  delimiter=$(echo $RANDOM | md5sum | head -c 20)
+  echo "${outputName}<<\"${delimiter}\"" >>$GITHUB_OUTPUT
+  echo "${outputValue}" >>$GITHUB_OUTPUT
+  echo "\"${delimiter}\"" >>$GITHUB_OUTPUT
 }
 
 log-info "'$(basename ${BASH_SOURCE[0]})' loaded."
+
+if [ -f "${GITHUB_ACTION_PATH}/helpers_additional.sh" ]; then
+  source "${GITHUB_ACTION_PATH}/helpers_additional.sh"
+fi

@@ -32,22 +32,14 @@ runs:
       with:
         node-version: ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
 
-    # npm install, build
-    - shell: bash
+    - id: npm-build
+      shell: bash
       env:
         BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
       run: |
         # npm install, build with support for additional custom commands
 
-        # Helper functions
-        # Check if field exists in BUILD_ENVS safely
-        function has-field { if [[ "$(echo "${BUILD_ENVS}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
-        # Get field value from BUILD_ENVS safely
-        function get-val { echo "${BUILD_ENVS}" | jq -r --arg name "$1" '.[$name]'; }
-        function log-info { echo "build-nodejs-project: $*"; }
-        function log-error { echo "ERROR: build-nodejs-project: $*"; }
-        function start-group { echo "::group::build-nodejs-project: $*"; }
-        function end-group { echo "::endgroup::"; }
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         log-info "Looking for project to build ..."
         WORK_DIR=${{ github.workspace }}/${{ fromJSON(inputs.dsb-build-envs).application-source-path }}

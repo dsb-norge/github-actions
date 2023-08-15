@@ -1,7 +1,7 @@
 name: "Deploy DSB app to ephemeral environment"
 description: |
   Deploys a DSB app to an ephemeral namspace in a given AKS cluster using custom helm charts and Argo CD.
-  Application and helm configuration is retreived from an external git repo.
+  Application and helm configuration is retrieved from an external git repo.
   This action will attempt to check out a branch from the configuration repo named by the field
   'config-repo-branch-name' in the 'dsb-build-envs' input. If this does not succeed HEAD @ main branch will be used for configuration instead.
 author: "Peder Schmedling"
@@ -46,10 +46,12 @@ runs:
         token: ${{ fromJSON(inputs.dsb-build-envs).app-config-repo-token }}
         path: ./_pr-deploy
 
-    # check if expected directory structure exists
-    - shell: bash
+    - id: check-dir-tree
+      shell: bash
       run: |
         # Look for files and directories
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         ROOT_DIR=./_pr-deploy
         PREVIEW_DIR="${ROOT_DIR}/preview"
@@ -58,19 +60,19 @@ runs:
 
         EXIT_CODE=0
         if [ ! -d "${ROOT_DIR}" ]; then
-          echo "ERROR: deploy-to-ephemeral: Unable to find config repo root directory '${ROOT_DIR}' after checkout!"
+          log-error "Unable to find config repo root directory '${ROOT_DIR}' after checkout!"
           EXIT_CODE=1
         fi
         if [ ! -d "${PREVIEW_DIR}" ]; then
-          echo "ERROR: deploy-to-ephemeral: Unable to find preview chart directory '${PREVIEW_DIR}' within config repo!"
+          log-error "Unable to find preview chart directory '${PREVIEW_DIR}' within config repo!"
           EXIT_CODE=1
         fi
         if [ ! -d "${APPS_DIR}" ]; then
-          echo "ERROR: deploy-to-ephemeral: Unable to find apps directory '${APPS_DIR}' within config repo!"
+          log-error "Unable to find apps directory '${APPS_DIR}' within config repo!"
           EXIT_CODE=1
         fi
         if [ ! -d "${ENV_DIR}" ]; then
-          echo "ERROR: deploy-to-ephemeral: Unable to find environment directory '${ENV_DIR}' under apps directory '${APPS_DIR}'!"
+          log-error "Unable to find environment directory '${ENV_DIR}' under apps directory '${APPS_DIR}'!"
           EXIT_CODE=1
         fi
 
@@ -82,23 +84,26 @@ runs:
       run: |
         # Save pr-deploy-additional-helm-values to file if defined
 
-        echo "::group::deploy-to-ephemeral: additional helm value overrides"
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        start-group "additional helm value overrides"
         VALUES_FILE=./_pr-deploy/pr-deploy-additional-helm-values.yml
-        echo "Writing to file: ${VALUES_FILE}"
+        log-info "Writing to file: ${VALUES_FILE}"
         tee ${VALUES_FILE} <<'EOF'
         ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-additional-helm-values }}
         EOF
-        echo "::endgroup::"
+        end-group
 
         if [ -z "$(cat ${VALUES_FILE})" ]; then
-          echo "commandline-parameter=" >> $GITHUB_OUTPUT
+          set-output 'commandline-parameter' ''
         else
-          echo "commandline-parameter=--values ${VALUES_FILE}" >> $GITHUB_OUTPUT
+          set-output 'commandline-parameter' "--values ${VALUES_FILE}"
         fi
 
     - uses: azure/login@v1
       with:
         creds: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-aks-creds }}
+
     # set target kubernetes cluster to
     - uses: azure/aks-set-context@v3
       with:
@@ -106,11 +111,14 @@ runs:
         resource-group: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-aks-resource-group }}
         admin: "true"
 
-    # install app in ephemeral environment
-    - shell: bash
+    - id: helm-install
+      shell: bash
       run: |
         # Perform Helm install with additional helm values if any
 
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        start-group 'helm upgrade --install'
         helm upgrade --install --atomic \
           --create-namespace \
           --namespace ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-namespace }} \
@@ -125,12 +133,15 @@ runs:
           ${{ steps.helm-values.outputs.commandline-parameter }} \
           ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-application-name }} \
           ./_pr-deploy/preview/
+        end-group
 
     # create comment to be added to PR
-    - shell: bash
-      id: create-comment
+    - id: create-comment
+      shell: bash
       run: |
         # Create comment to be added to PR
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         # The start of this comment must match exactly DELETE_COMMENTS_WITH_PREFIX in the next action
         COMMENT_PREFIX=$(cat <<'EOF'
@@ -157,16 +168,11 @@ runs:
           COMMENT_TEXT=$(echo "${COMMENT_TEXT}" $'\n' "${ADDITIONAL_TEXT}")
         fi
 
-        echo "deploy-to-ephemeral: Final PR comment prefix: ${COMMENT_PREFIX}"
-        echo "::group::deploy-to-ephemeral: Final PR comment text"
-        echo "${COMMENT_TEXT}"
-        echo "::endgroup::"
+        log-info "Final PR comment prefix: ${COMMENT_PREFIX}"
+        log-multiline "Final PR comment text" "${COMMENT_TEXT}"
 
-        echo "prefix=${COMMENT_PREFIX}" >> $GITHUB_OUTPUT
-
-        echo 'comment<<"${{ github.run_id }}"' >> $GITHUB_OUTPUT
-        echo "${COMMENT_TEXT}" >> $GITHUB_OUTPUT
-        echo '"${{ github.run_id }}"' >> $GITHUB_OUTPUT
+        set-output 'prefix' "${COMMENT_PREFIX}"
+        set-multiline-output 'comment' "${COMMENT_TEXT}"
 
     # add comment to PR
     - uses: dsb-norge/github-actions/ci-cd/comment-on-pr@v2

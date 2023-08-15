@@ -25,8 +25,8 @@ runs:
           pr-deploy-k8s-namespace
           pr-deploy-k8s-application-name
 
-    # require pull request for this action to run
-    - shell: bash
+    - id: check-pull-request
+      shell: bash
       run: |
         # Check if triggered by pull request event
 
@@ -71,7 +71,8 @@ runs:
         else
           log-info 'no release found, nothing to do.'
         fi
-        echo "result=${RESULT}" >> $GITHUB_OUTPUT
+
+        set-output 'result' "${RESULT}"
 
     - id: kubectl-delete-namespace
       shell: bash
@@ -96,9 +97,11 @@ runs:
         else
           log-info 'namespace does not exist, nothing to do.'
         fi
-        echo "result=${RESULT}" >> $GITHUB_OUTPUT
 
-    - shell: bash
+        set-output 'result' "${RESULT}"
+
+    - id: eval-result
+      shell: bash
       run: |
         # Log and evaluate result
 

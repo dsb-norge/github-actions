@@ -16,25 +16,30 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - shell: bash
+    - id: re-create
+      shell: bash
       run: |
-        echo '::group::List directory contents before cleanup'
+        # Delete and re-create ${{ inputs.directory }}
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        start-group 'List directory contents before cleanup'
         if [[ ! -d "${{ inputs.directory }}" ]]
         then
           echo 'The directory "${{ inputs.directory }}" does not exist, nothing to delete.'
-          echo '::endgroup::'
+          end-group
         else
           ls -lah '${{ inputs.directory }}'
-          echo '::endgroup::'
-          echo '::group::Perform Delete'
-          echo 'Deleting directory: "${{ inputs.directory }}"'
+          end-group
+          start-group 'Perform Delete'
+          log-info 'Deleting directory: "${{ inputs.directory }}"'
           rm -rf '${{ inputs.directory }}'
-          echo '::endgroup::'
+          end-group
         fi
         if [[ ! "${{ inputs.recreate }}" == "false" ]]
         then
-          echo '::group::Create directory'
-          echo 'Creating directory: "${{ inputs.directory }}"'
+          start-group 'Create directory'
+          log-info 'Creating directory: "${{ inputs.directory }}"'
           mkdir -m u=rwx,go= '${{ inputs.directory }}'
-          echo '::endgroup::'
+          end-group
         fi

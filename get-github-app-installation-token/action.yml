@@ -33,11 +33,12 @@ runs:
   steps:
     - id: get-token
       shell: bash
+      env:
+        GH_APP_KEY: "${{ inputs.github-app-private-key }}"
       run: |
-        # Auth as GiHub App and retreive GitHub App installation access token.
+        # Auth as GitHub App and retrieve GitHub App installation access token.
 
-        # Helper functions
-        function log-info { echo "get-github-app-installation-token: $*"; }
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
         log-info "Minting JWT ..."
         JWT_HEADER=$(jq -c -r . <<<"{\"alg\": \"RS256\", \"typ\": \"JWT\"}")
@@ -58,10 +59,8 @@ runs:
             -d '${{ inputs.token-request-body }}'
         )
 
-        # echo "DEBUG: get-github-app-installation-token: exit code: $?"
-        # echo "DEBUG: get-github-app-installation-token: response | jq: $(echo "${GH_APP_TOKEN_RESPONSE}" | jq)"
+        # log-debug "exit code: $?"
+        # log-debug "response | jq: $(echo "${GH_APP_TOKEN_RESPONSE}" | jq)"
 
         log-info "Returning the installation access token ..."
-        echo "github-token=$(echo "${GH_APP_TOKEN_RESPONSE}" | jq -r '.token')" >> $GITHUB_OUTPUT
-      env:
-        GH_APP_KEY: "${{ inputs.github-app-private-key }}"
+        set-output 'github-token' "$(echo "${GH_APP_TOKEN_RESPONSE}" | jq -r '.token')"

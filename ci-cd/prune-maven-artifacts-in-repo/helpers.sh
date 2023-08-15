@@ -1,7 +1,7 @@
 #!/bin/env bash
 
 # Helper consts
-_action_name='prune-maven-artifacts-in-repo'
+_action_name="$(basename "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)")"
 
 # Helper functions
 function _log { echo "${1}${_action_name}: ${2}"; }
@@ -17,10 +17,19 @@ function log-multiline {
   end-group
 }
 function mask-value { echo "::add-mask::${*}"; }
-function set-output { echo "${1}=${2}" >> $GITHUB_OUTPUT; }
-
-# working with JSON array input
-function get-first-val { echo "${JSON_ARRAY}" | jq -r --arg name "${1}" '. | map(.[$name] | select( . != null ))  | first // empty'; }
-
+function set-output { echo "${1}=${2}" >>$GITHUB_OUTPUT; }
+function set-multiline-output {
+  local outputName outputValue delimiter
+  outputName="${1}"
+  outputValue="${2}"
+  delimiter=$(echo $RANDOM | md5sum | head -c 20)
+  echo "${outputName}<<\"${delimiter}\"" >>$GITHUB_OUTPUT
+  echo "${outputValue}" >>$GITHUB_OUTPUT
+  echo "\"${delimiter}\"" >>$GITHUB_OUTPUT
+}
 
 log-info "'$(basename ${BASH_SOURCE[0]})' loaded."
+
+if [ -f "${GITHUB_ACTION_PATH}/helpers_additional.sh" ]; then
+  source "${GITHUB_ACTION_PATH}/helpers_additional.sh"
+fi
