@@ -72,11 +72,6 @@ inputs:
           url: "https://maven.pkg.github.com/dsb-norge/.github"
           username: "${env.DSB_GH_PKG_USERNAME}"
           password: "${env.DSB_GH_PKG_PASSWORD}"
-        - id: "dsb-nexus"
-          name: "On-prem: Nexus"
-          url: "https://repo.dsb.no/repository/dsb"
-          username: "${env.DSB_NEXUS_USERNAME}"
-          password: "${env.DSB_NEXUS_PASSWORD}"
   maven-extra-envs-from-github-yml:
     description: |
       A YAML map (as string) with extra environment variables to define in same scope as maven, prior to invoking maven.
@@ -93,9 +88,7 @@ inputs:
     required: false
     default: |
       from-secrets:
-        DSB_NEXUS_PASSWORD: "ORG_MAVEN_REPO_TOKEN"
       from-variables:
-        DSB_NEXUS_USERNAME: "ORG_MAVEN_REPO_USERNAME"
       from-github-context:
         DSB_GH_PKG_USERNAME: "actor"
         DSB_GH_PKG_PASSWORD: "token"
@@ -120,10 +113,8 @@ inputs:
     default: |
       release-repositories:
         github-dsb-norge: "https://maven.pkg.github.com/{{ github.repository }}"
-        dsb-nexus: "https://repo.dsb.no/repository/dsb-releases"
       snapshot-repositories:
         github-dsb-norge: "https://maven.pkg.github.com/{{ github.repository }}"
-        dsb-nexus: "https://repo.dsb.no/repository/dsb-snapshots"
   sonarqube-token:
     description: "Token used for SonarQube app, see https://docs.sonarqube.org/latest/analysis/github-integration/"
     required: true
