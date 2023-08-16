@@ -82,7 +82,7 @@ runs:
         ENV DSB_REVISION=${{ fromJSON(inputs.dsb-build-envs).application-source-revision }}
         EOF
 
-        log-multiline 'modified Dockerfile' "$(cat '${DOCKER_FILE}')"
+        log-multiline 'Modified Dockerfile' "$(cat "${DOCKER_FILE}")"
 
     # build, tag and push docker image
     - uses: docker/build-push-action@v3

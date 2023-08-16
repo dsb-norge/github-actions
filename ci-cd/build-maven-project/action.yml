@@ -299,7 +299,7 @@ runs:
               log-info "using maven version command from 'inputs.dsb-build-envs.maven-build-project-deploy-snapshot-version-command'."
               MVN_VERSION_CMD="$(get-val 'maven-build-project-deploy-snapshot-version-command') -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT"
             else
-              log-info "  d."
+              log-info "using default maven version command."
               MVN_VERSION_CMD="mvn -B --file ${POM_FILE} versions:set -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT"
             fi
             if has-field 'maven-build-project-deploy-snapshot-deploy-command'; then
