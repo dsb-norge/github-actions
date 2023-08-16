@@ -4,18 +4,22 @@ Collection of DSB custom github actions for CI/CD.
 ## File index
 ```
 ci-cd/
-├───build-docker-image        --> Build, tag and push docker image
-├───build-maven-project       --> Configure Java and build maven project
-├───build-nodejs-project      --> Configure Node.js and build node project
-├───build-spring-boot-image   --> Build spring boot OCI image with labels and tags
-├───create-app-vars-matrix    --> Create build/deploy vars for one or more DSB apps
-├───create-build-envs         --> Create common DSB CI/CD variables
-├───delete-pr-images-from-acr --> Delete ephemeral PR image repository from ACR
-├───deploy-to-ephemeral       --> Deploy DSB app to ephemeral environment
-├───deploy-to-static          --> Deploy DSB app to static environment
-├───prune-images-from-acr     --> Prune images from ACR
-├───require-build-envs        --> Test DSB build environment variables for non-zero values
-└───teardown-pr-environment   --> Tear down ephemeral PR environment in AKS
+├───build-docker-image              --> Build, tag and push docker image
+├───build-maven-project             --> Configure Java and build maven project
+├───build-nodejs-project            --> Configure Node.js and build node project
+├───build-spring-boot-image         --> Build spring boot OCI image with labels and tags
+├───collect-build-envs              --> Collect build output from previous steps stored as workflow artifacts
+├───comment-on-pr                   --> Add/update PR comment
+├───configure-maven-settings        --> Create maven user settings (settings.xml)
+├───create-app-vars-matrix          --> Create build/deploy vars for one or more DSB apps
+├───create-build-envs               --> Create common DSB CI/CD variables
+├───delete-pr-images-from-acr       --> Delete ephemeral PR image repository from ACR
+├───deploy-to-ephemeral             --> Deploy DSB app to ephemeral environment
+├───deploy-to-static                --> Deploy DSB app to static environment
+├───prune-images-from-acr           --> Prune images from ACR
+├───prune-maven-artifacts-in-repo   --> Prune maven artifacts from GitHub packages
+├───require-build-envs              --> Test DSB build environment variables for non-zero values
+└───teardown-pr-environment         --> Tear down ephemeral PR environment in AKS
 ```
 
 ## Usage and doc

@@ -4,8 +4,9 @@ Collection of DSB custom github reusable workflows.
 ## Index
 ```
 .github/workflows/
-└───ci-cd-build-deploy-maven-lib.yml  --> CI/CD workflow for maven artefacts ie. repos without apps to deploy.
+└───ci-cd-build-deploy-maven-lib.yml  --> CI/CD workflow for maven artifacts ie. repos without apps to deploy.
 └───ci-cd-default.yml                 --> Default CI/CD workflow, see doc below.
+└───maven-artifacts-pruner.yml        --> Reusable workflow for pruning packages stored in GitHub Packages.
 └───maven-versions-bumper.yml         --> Automatic update of third party dependencies, see doc below.
 ```
 
