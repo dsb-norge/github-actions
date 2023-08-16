@@ -94,7 +94,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   ci-cd:
-    uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@v2
+    # TODO revert to @v2
+    uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@more-pruning
     secrets: inherit # pass all secrets, ok since we trust our own workflow
     with:
       # Github requires inputs of type string, ultimately this will be parsed as yaml list
@@ -174,7 +175,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   autobump:
     name: Bump versions
-    uses: dsb-norge/github-actions/workflows/maven-versions-bumper.yml@v2
+    # TODO revert to @v2
+    uses: dsb-norge/github-actions/workflows/maven-versions-bumper.yml@more-pruning
     secrets: inherit # pass all secrets, ok since we trust our own workflow
     with:
       # Note: 'application-name' becomes part of the branch name for the bumping. If you have more than one
