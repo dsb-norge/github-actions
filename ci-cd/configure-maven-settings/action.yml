@@ -1,4 +1,4 @@
-name: "Create common DSB CI/CD variables"
+name: "Create maven user settings (settings.xml)"
 description: |
   This action overwrites the maven user settings (settings.xml) in the current users home directory with one generated
   from the input supplied to this action. And returns the path to the settings.xml file.
