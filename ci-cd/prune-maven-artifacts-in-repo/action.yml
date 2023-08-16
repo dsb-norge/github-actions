@@ -400,7 +400,7 @@ runs:
 
           log-info "Deleting ${PACKAGE_TYPE} package named '${PACKAGE_NAME}' ..."
           if is-dry-run; then
-            GH_CLI_EXITCODES[${PACKAGE_NAME}]=0
+            GH_CLI_EXITCODES[${PACKAGE_NAME}]="0"
           else
             set +e
             gh api \
@@ -467,7 +467,7 @@ runs:
 
           log-info "Deleting version '${VERSION_NAME}' last updated ${VERSION_UPDATED_AT} ..."
           if is-dry-run; then
-            GH_CLI_EXITCODES[${VERSION_ID}]=0
+            GH_CLI_EXITCODES[${VERSION_ID}]="0"
           else
             set +e
             gh api \
