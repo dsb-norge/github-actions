@@ -51,7 +51,7 @@ inputs:
     description: |
       GitHub Personal Access Token (PAT) with scopes [delete:packages, read:packages] in the calling repos organization.
     required: true
-  owner-and-repository-name: # TODO: implement
+  owner-and-repository-name:
     description: |
       Name of the owner (org. or user) and the repository name of where to look for packages.
       Ex. 'dsb-norge/github-actions'
@@ -77,13 +77,23 @@ runs:
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
+        if [ '' == '${{ inputs.owner-and-repository-name }}' ]; then
+          REPO_WITH_OWNER="${GITHUB_REPOSITORY}"
+          REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+        else
+          REPO_WITH_OWNER='${{ inputs.owner-and-repository-name }}'
+          REPO_OWNER="${REPO_WITH_OWNER%/*}" # remove suffix starting with '/'
+        fi
+        log-info "Repo owner is '${REPO_OWNER}'"
+        log-info "Repo is '${REPO_WITH_OWNER}'"
+
         log-info "Read repo packages:"
         PACKAGES_RESPONSE=$(
           gh api \
             --paginate \
             -H "Accept: application/vnd.github+json" \
-            "/orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=${PACKAGE_TYPE}&per_page=100" \
-            --jq "map(select(.repository.full_name == \"${GITHUB_REPOSITORY}\"))"
+            "/orgs/${REPO_OWNER}/packages?package_type=${PACKAGE_TYPE}&per_page=100" \
+            --jq "map(select(.repository.full_name == \"${REPO_WITH_OWNER}\"))"
         )
 
         PACKAGES_JSON=$(echo "${PACKAGES_RESPONSE}" | jq -s '. | flatten')
@@ -91,9 +101,9 @@ runs:
         PACKAGE_NAMES=$(echo "$PACKAGES_JSON" | jq -r '. | .[].name' | sort)
 
         if [ "${PACKAGE_COUNT}" == '0' ]; then
-          log-info "  The repo '${GITHUB_REPOSITORY}' has no packages of type '${PACKAGE_TYPE}'."
+          log-info "  The repo '${REPO_WITH_OWNER}' has no packages of type '${PACKAGE_TYPE}'."
         else
-          log-multiline "${PACKAGE_COUNT} package(s) of type '${PACKAGE_TYPE}' in the repo '${GITHUB_REPOSITORY}'" "${PACKAGE_NAMES}"
+          log-multiline "${PACKAGE_COUNT} package(s) of type '${PACKAGE_TYPE}' in the repo '${REPO_WITH_OWNER}'" "${PACKAGE_NAMES}"
         fi
 
         OUTPUT_JSON='{}'
@@ -105,7 +115,7 @@ runs:
             gh api \
               --paginate \
               -H "Accept: application/vnd.github+json" \
-              "/orgs/${GITHUB_REPOSITORY_OWNER}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions?per_page=100"
+              "/orgs/${REPO_OWNER}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions?per_page=100"
           )
 
           PACKAGE_VERSIONS_FOUND_COUNT=$(echo "${PACKAGE_VERSIONS}" | jq '. | length')
@@ -114,8 +124,8 @@ runs:
           else
             if [ ! "${PACKAGE_VERSIONS_FOUND_COUNT}" == "${PACKAGE_VERSIONS_COUNT}" ]; then
               log-warn "The GitHub API is conflicted in regards to what number of versions exists of the package '${PACKAGE_NAME}' with type '${PACKAGE_TYPE}'."
-              log-warn "${PACKAGE_VERSIONS_COUNT} versions was returned by 'https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=${PACKAGE_TYPE}'."
-              log-warn "Whilst ${PACKAGE_VERSIONS_FOUND_COUNT} versions was returned by 'https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions'."
+              log-warn "${PACKAGE_VERSIONS_COUNT} versions was returned by 'https://api.github.com/orgs/${REPO_OWNER}/packages?package_type=${PACKAGE_TYPE}'."
+              log-warn "Whilst ${PACKAGE_VERSIONS_FOUND_COUNT} versions was returned by 'https://api.github.com/orgs/${REPO_OWNER}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions'."
               log-warn "The latter is used as source of truth."
             fi
             start-group "Found ${PACKAGE_VERSIONS_FOUND_COUNT} version(s):"
@@ -182,6 +192,14 @@ runs:
 
         # will contain version types to be considered for pruning.
         declare -a CONSIDER_VERSION_TYPES
+
+        if [ '' == '${{ inputs.owner-and-repository-name }}' ]; then
+          REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+        else
+          REPO_WITH_OWNER='${{ inputs.owner-and-repository-name }}'
+          REPO_OWNER="${REPO_WITH_OWNER%/*}" # remove suffix starting with '/'
+        fi
+        log-info "Repo owner is '${REPO_OWNER}'"
 
         if ${IS_PR}; then
           if ${CLOSING_PR}; then
@@ -299,7 +317,7 @@ runs:
               # append to packages to delete output
               PACKAGES_TO_DELETE="$(
                 echo "${PACKAGES_TO_DELETE}" | jq \
-                  --arg org "${GITHUB_REPOSITORY_OWNER}" \
+                  --arg org "${REPO_OWNER}" \
                   --arg packagetype "${PACKAGE_TYPE}" \
                   --arg packagename "${PACKAGE_NAME}" \
                   '. + [{
@@ -315,7 +333,7 @@ runs:
                   echo "${VERSIONS_TO_DELETE}"
                   echo "${PACKAGE_DISCARD_VERSIONS}"
                 ) | jq \
-                  --arg org "${GITHUB_REPOSITORY_OWNER}" \
+                  --arg org "${REPO_OWNER}" \
                   --arg packagename "${PACKAGE_NAME}" \
                   '. + (
                     input
