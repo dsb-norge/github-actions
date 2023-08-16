@@ -386,7 +386,7 @@ runs:
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
-        DRY_RUN_INPUT='${{ inputs.owner-and-repository-name }}'
+        DRY_RUN_INPUT='${{ inputs.dry-run }}'
         if is-dry-run; then
           log-info 'Dry run requested. No packages will ACTUALLY be deleted.'
         fi
@@ -411,7 +411,7 @@ runs:
             set -e
             GH_CLI_EXITCODES[${PACKAGE_NAME}]="${GH_CLI_EXITCODE}"
           fi
-          if [ "${GH_CLI_EXITCODE}" == "0" ]; then
+          if [ "${GH_CLI_EXITCODES[${PACKAGE_NAME}]}" == "0" ]; then
             log-info "Done."
           else
             log-error "GitHub CLI failed during delete operation with code '${GH_CLI_EXITCODE}'!"
@@ -450,7 +450,7 @@ runs:
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
-        DRY_RUN_INPUT='${{ inputs.owner-and-repository-name }}'
+        DRY_RUN_INPUT='${{ inputs.dry-run }}'
         if is-dry-run; then
           log-info 'Dry run requested. No versions will ACTUALLY be deleted.'
         fi
@@ -478,7 +478,7 @@ runs:
             set -e
             GH_CLI_EXITCODES[${VERSION_ID}]="${GH_CLI_EXITCODE}"
           fi
-          if [ "${GH_CLI_EXITCODE}" == "0" ]; then
+          if [ "${GH_CLI_EXITCODES[${VERSION_ID}]}" == "0" ]; then
             log-info "Done."
           else
             log-error "GitHub CLI failed during delete operation with code '${GH_CLI_EXITCODE}'!"
