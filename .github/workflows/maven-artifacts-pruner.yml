@@ -32,6 +32,14 @@ on:
         type: number
         required: false
         default: 0
+      owner-and-repository-name:
+        type: string
+        required: false
+        default: ''
+      dry-run:
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   prune-maven-artifacts:
@@ -54,6 +62,8 @@ jobs:
           release-prune-keep-num-days: ${{ inputs.release-prune-keep-num-days }}
           snapshot-prune-keep-min-count: ${{ inputs.snapshot-prune-keep-min-count }}
           snapshot-prune-keep-num-days: ${{ inputs.snapshot-prune-keep-num-days }}
+          owner-and-repository-name: ${{ inputs.owner-and-repository-name }}
+          dry-run: ${{ inputs.dry-run }}
 
   # create a global result indicating if workflow steps succeeded or not,
   # handy for branch protection rules

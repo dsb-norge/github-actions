@@ -51,14 +51,14 @@ inputs:
     description: |
       GitHub Personal Access Token (PAT) with scopes [delete:packages, read:packages] in the calling repos organization.
     required: true
-  owner-and-repository-name: # TODO: implement
+  owner-and-repository-name:
     description: |
       Name of the owner (org. or user) and the repository name of where to look for packages.
       Ex. 'dsb-norge/github-actions'
       If this is left empty, the calling repo and organization/user will be used.
     default: ''
     required: false
-  dry-run: # TODO: implement
+  dry-run:
     description: |
       Non-destructive mode: If this flag is set to anything else than 'false' (default value) pruning/deletion will not occur.
     default: 'false'
@@ -77,13 +77,32 @@ runs:
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
+        DRY_RUN_INPUT='${{ inputs.dry-run }}'
+        if is-dry-run; then
+          log-info '💫 THIS IS A DRILL 💫'
+          log-info 'I repeat'
+          log-info '💫 THIS IS A DRILL 💫'
+          log-info 'NO DESTRUCTIVE OPERATIONS WILL BE PERFORMED DURING EXECUTION OF THIS ACTION'
+          log-info '(even though log messages to follow would indicate otherwise)'
+        fi
+
+        if [ '' == '${{ inputs.owner-and-repository-name }}' ]; then
+          REPO_WITH_OWNER="${GITHUB_REPOSITORY}"
+          REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+        else
+          REPO_WITH_OWNER='${{ inputs.owner-and-repository-name }}'
+          REPO_OWNER="${REPO_WITH_OWNER%/*}" # remove suffix starting with '/'
+        fi
+        log-info "Repo owner is '${REPO_OWNER}'"
+        log-info "Repo is '${REPO_WITH_OWNER}'"
+
         log-info "Read repo packages:"
         PACKAGES_RESPONSE=$(
           gh api \
             --paginate \
             -H "Accept: application/vnd.github+json" \
-            "/orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=${PACKAGE_TYPE}&per_page=100" \
-            --jq "map(select(.repository.full_name == \"${GITHUB_REPOSITORY}\"))"
+            "/orgs/${REPO_OWNER}/packages?package_type=${PACKAGE_TYPE}&per_page=100" \
+            --jq "map(select(.repository.full_name == \"${REPO_WITH_OWNER}\"))"
         )
 
         PACKAGES_JSON=$(echo "${PACKAGES_RESPONSE}" | jq -s '. | flatten')
@@ -91,9 +110,9 @@ runs:
         PACKAGE_NAMES=$(echo "$PACKAGES_JSON" | jq -r '. | .[].name' | sort)
 
         if [ "${PACKAGE_COUNT}" == '0' ]; then
-          log-info "  The repo '${GITHUB_REPOSITORY}' has no packages of type '${PACKAGE_TYPE}'."
+          log-info "  The repo '${REPO_WITH_OWNER}' has no packages of type '${PACKAGE_TYPE}'."
         else
-          log-multiline "${PACKAGE_COUNT} package(s) of type '${PACKAGE_TYPE}' in the repo '${GITHUB_REPOSITORY}'" "${PACKAGE_NAMES}"
+          log-multiline "${PACKAGE_COUNT} package(s) of type '${PACKAGE_TYPE}' in the repo '${REPO_WITH_OWNER}'" "${PACKAGE_NAMES}"
         fi
 
         OUTPUT_JSON='{}'
@@ -105,7 +124,7 @@ runs:
             gh api \
               --paginate \
               -H "Accept: application/vnd.github+json" \
-              "/orgs/${GITHUB_REPOSITORY_OWNER}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions?per_page=100"
+              "/orgs/${REPO_OWNER}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions?per_page=100"
           )
 
           PACKAGE_VERSIONS_FOUND_COUNT=$(echo "${PACKAGE_VERSIONS}" | jq '. | length')
@@ -114,8 +133,8 @@ runs:
           else
             if [ ! "${PACKAGE_VERSIONS_FOUND_COUNT}" == "${PACKAGE_VERSIONS_COUNT}" ]; then
               log-warn "The GitHub API is conflicted in regards to what number of versions exists of the package '${PACKAGE_NAME}' with type '${PACKAGE_TYPE}'."
-              log-warn "${PACKAGE_VERSIONS_COUNT} versions was returned by 'https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=${PACKAGE_TYPE}'."
-              log-warn "Whilst ${PACKAGE_VERSIONS_FOUND_COUNT} versions was returned by 'https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions'."
+              log-warn "${PACKAGE_VERSIONS_COUNT} versions was returned by 'https://api.github.com/orgs/${REPO_OWNER}/packages?package_type=${PACKAGE_TYPE}'."
+              log-warn "Whilst ${PACKAGE_VERSIONS_FOUND_COUNT} versions was returned by 'https://api.github.com/orgs/${REPO_OWNER}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions'."
               log-warn "The latter is used as source of truth."
             fi
             start-group "Found ${PACKAGE_VERSIONS_FOUND_COUNT} version(s):"
@@ -182,6 +201,14 @@ runs:
 
         # will contain version types to be considered for pruning.
         declare -a CONSIDER_VERSION_TYPES
+
+        if [ '' == '${{ inputs.owner-and-repository-name }}' ]; then
+          REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+        else
+          REPO_WITH_OWNER='${{ inputs.owner-and-repository-name }}'
+          REPO_OWNER="${REPO_WITH_OWNER%/*}" # remove suffix starting with '/'
+        fi
+        log-info "Repo owner is '${REPO_OWNER}'"
 
         if ${IS_PR}; then
           if ${CLOSING_PR}; then
@@ -299,7 +326,7 @@ runs:
               # append to packages to delete output
               PACKAGES_TO_DELETE="$(
                 echo "${PACKAGES_TO_DELETE}" | jq \
-                  --arg org "${GITHUB_REPOSITORY_OWNER}" \
+                  --arg org "${REPO_OWNER}" \
                   --arg packagetype "${PACKAGE_TYPE}" \
                   --arg packagename "${PACKAGE_NAME}" \
                   '. + [{
@@ -315,7 +342,7 @@ runs:
                   echo "${VERSIONS_TO_DELETE}"
                   echo "${PACKAGE_DISCARD_VERSIONS}"
                 ) | jq \
-                  --arg org "${GITHUB_REPOSITORY_OWNER}" \
+                  --arg org "${REPO_OWNER}" \
                   --arg packagename "${PACKAGE_NAME}" \
                   '. + (
                     input
@@ -368,6 +395,11 @@ runs:
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
+        DRY_RUN_INPUT='${{ inputs.dry-run }}'
+        if is-dry-run; then
+          log-info 'Dry run requested. No packages will ACTUALLY be deleted.'
+        fi
+
         # loop and delete one at a time, postpone failing on error until end
         start-group "Deleting packages ..."
         declare -A GH_CLI_EXITCODES
@@ -376,15 +408,19 @@ runs:
           IFS= read -r PACKAGE_NAME; do
 
           log-info "Deleting ${PACKAGE_TYPE} package named '${PACKAGE_NAME}' ..."
-          set +e
-          gh api \
-            --method DELETE \
-            -H "Accept: application/vnd.github+json" \
-            "/orgs/${GITHUB_ORG}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}"
-          GH_CLI_EXITCODE=${?}
-          set -e
-          GH_CLI_EXITCODES[${PACKAGE_NAME}]="${GH_CLI_EXITCODE}"
-          if [ "${GH_CLI_EXITCODE}" == "0" ]; then
+          if is-dry-run; then
+            GH_CLI_EXITCODES[${PACKAGE_NAME}]="0"
+          else
+            set +e
+            gh api \
+              --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              "/orgs/${GITHUB_ORG}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}"
+            GH_CLI_EXITCODE=${?}
+            set -e
+            GH_CLI_EXITCODES[${PACKAGE_NAME}]="${GH_CLI_EXITCODE}"
+          fi
+          if [ "${GH_CLI_EXITCODES[${PACKAGE_NAME}]}" == "0" ]; then
             log-info "Done."
           else
             log-error "GitHub CLI failed during delete operation with code '${GH_CLI_EXITCODE}'!"
@@ -423,6 +459,11 @@ runs:
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
+        DRY_RUN_INPUT='${{ inputs.dry-run }}'
+        if is-dry-run; then
+          log-info 'Dry run requested. No versions will ACTUALLY be deleted.'
+        fi
+
         # loop and delete one at a time, postpone failing on error until end
         start-group "Deleting package versions ..."
         declare -A GH_CLI_EXITCODES
@@ -434,15 +475,19 @@ runs:
           IFS= read -r VERSION_UPDATED_AT; do
 
           log-info "Deleting version '${VERSION_NAME}' last updated ${VERSION_UPDATED_AT} ..."
-          set +e
-          gh api \
-            --method DELETE \
-            -H "Accept: application/vnd.github+json" \
-            "/orgs/${GITHUB_ORG}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions/${VERSION_ID}"
-          GH_CLI_EXITCODE=${?}
-          set -e
-          GH_CLI_EXITCODES[${VERSION_ID}]="${GH_CLI_EXITCODE}"
-          if [ "${GH_CLI_EXITCODE}" == "0" ]; then
+          if is-dry-run; then
+            GH_CLI_EXITCODES[${VERSION_ID}]="0"
+          else
+            set +e
+            gh api \
+              --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              "/orgs/${GITHUB_ORG}/packages/${PACKAGE_TYPE}/${PACKAGE_NAME}/versions/${VERSION_ID}"
+            GH_CLI_EXITCODE=${?}
+            set -e
+            GH_CLI_EXITCODES[${VERSION_ID}]="${GH_CLI_EXITCODE}"
+          fi
+          if [ "${GH_CLI_EXITCODES[${VERSION_ID}]}" == "0" ]; then
             log-info "Done."
           else
             log-error "GitHub CLI failed during delete operation with code '${GH_CLI_EXITCODE}'!"
