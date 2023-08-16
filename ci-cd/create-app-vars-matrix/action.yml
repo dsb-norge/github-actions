@@ -35,8 +35,8 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - shell: bash
-      id: convert
+    - id: convert
+      shell: bash
       run: |
         # Convert app vars yaml to JSON
 
@@ -63,8 +63,8 @@ runs:
         log-multiline "specification as JSON" "${JSON_CONFIG}"
         set-multiline-output 'app-vars' "${JSON_CONFIG}"
 
-    - shell: bash
-      id: validate-input
+    - id: validate-input
+      shell: bash
       run: |
         # Validate given app vars structure
 
@@ -94,8 +94,8 @@ runs:
           log-info "[OK] The specification is not an empty array."
         fi
 
-    - shell: bash
-      id: detect-type
+    - id: detect-type
+      shell: bash
       run: |
         # Set application type where not explicitly defined
 
@@ -151,8 +151,8 @@ runs:
         log-multiline "JSON output returned" "${OUT_JSON}"
         set-multiline-output 'app-vars' "${OUT_JSON}"
 
-    - shell: bash
-      id: get-app-meta
+    - id: get-app-meta
+      shell: bash
       run: |
         # Attempt to read application metadata from pom.xml/package.json for fields that are not explicitly defined in input
 
@@ -244,8 +244,8 @@ runs:
         log-multiline "JSON output returned" "${OUT_JSON}"
         set-multiline-output 'app-vars' "${OUT_JSON}"
 
-    - shell: bash
-      id: validate-result
+    - id: validate-result
+      shell: bash
       run: |
         # Validate app vars structure, required fields and allowed values
 
@@ -306,8 +306,8 @@ runs:
         done
         [ ${DO_EXIT} -eq 1 ] && exit 1 || log-info "[OK] All required fields were found in the specification."
 
-    - shell: bash
-      id: create-app-vars-matrix
+    - id: create-app-vars-matrix
+      shell: bash
       run: |
         # Add additional dynamic app vars
 
@@ -351,8 +351,8 @@ runs:
         set-multiline-output 'app-vars' "${OUT_JSON}"
         set-output 'applications-version' "${APP_VERSION}"
 
-    - shell: bash
-      id: make-matrix-compatible
+    - id: make-matrix-compatible
+      shell: bash
       run: |
         # Create app vars matrix
 

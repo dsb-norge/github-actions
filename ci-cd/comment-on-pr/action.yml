@@ -17,8 +17,8 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    # require pull request for this action to run
-    - shell: bash
+    - id: check-pull-request
+      shell: bash
       run: |
         # Check if triggered by pull request event, and not a closing action
 
@@ -36,8 +36,8 @@ runs:
 
         exit ${EXIT_CODE}
 
-    # log action inputs
-    - shell: bash
+    - id: log-inputs
+      shell: bash
       run: |
         # Log inputs
 

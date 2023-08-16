@@ -25,8 +25,8 @@ runs:
           docker-image-repo
           application-image-name
 
-    # require pull request for this action to run
-    - shell: bash
+    - id: check-pull-request
+      shell: bash
       run: |
         # Check if triggered by pull request event
 
@@ -44,7 +44,8 @@ runs:
         creds: ${{ fromJSON(inputs.dsb-build-envs).acr-service-principal }}
         allow-no-subscriptions: true
 
-    - shell: bash
+    - id: delete-pr-image-repo
+      shell: bash
       run: |
         # Delete PR image repository from ACR
 

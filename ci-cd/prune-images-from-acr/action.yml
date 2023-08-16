@@ -34,8 +34,8 @@ runs:
         creds: ${{ fromJSON(inputs.dsb-build-envs).acr-service-principal }}
         allow-no-subscriptions: true
 
-    # perform delete
-    - shell: bash
+    - id: delete-images
+      shell: bash
       run: |
         # Delete images from ACR
 

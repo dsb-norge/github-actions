@@ -16,7 +16,8 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - shell: bash
+    - id: re-create
+      shell: bash
       run: |
         # Delete and re-create ${{ inputs.directory }}
 

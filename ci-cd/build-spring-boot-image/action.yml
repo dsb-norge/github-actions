@@ -260,8 +260,8 @@ runs:
         set-extra-envs: ${{ steps.extra-envs.outputs.json }}
         dsb-build-envs: ${{ steps.filter-build-envs.outputs.dsb-build-envs }}
 
-    # tag and push docker image
-    - shell: bash
+    - id: tag-and-push
+      shell: bash
       run: |
         # Tag and push with docker
 

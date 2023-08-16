@@ -29,7 +29,8 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - shell: bash
+    - id: check-envs
+      shell: bash
       env:
         JSON_CONFIG: "${{ inputs.dsb-build-envs }}"
         REQUIRED_KEYS: "${{ inputs.require }}"
@@ -62,7 +63,8 @@ runs:
 
         exit ${EXIT_CODE}
 
-    - shell: bash
+    - id: check-envs-array
+      shell: bash
       env:
         JSON_CONFIG: "${{ inputs.dsb-build-envs-array }}"
         REQUIRED_KEYS: "${{ inputs.require }}"

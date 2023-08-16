@@ -33,8 +33,8 @@ runs:
           caller-repo-calling-branch
           caller-repo-is-on-default-branch
 
-    # check what branch we are deploying from
-    - shell: bash
+    - id: check-branch
+      shell: bash
       run: |
         # Verify deploy is allowed from calling branch
 
@@ -59,8 +59,8 @@ runs:
         token: ${{ fromJSON(inputs.dsb-build-envs).app-config-repo-token }}
         path: ./_static-deploy
 
-    # check if expected directory structure and application config exists
-    - shell: bash
+    - id: check-dir-tree
+      shell: bash
       run: |
         # Look for files and directories
 
@@ -98,9 +98,10 @@ runs:
         exit ${EXIT_CODE}
 
     # update application version in given environments, commit and push
-    - shell: bash
+    - id: bump-version
+      shell: bash
       run: |
-        # Bump versions in git repo
+        # Bump version in git repo
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 

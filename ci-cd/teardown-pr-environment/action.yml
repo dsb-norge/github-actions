@@ -26,8 +26,8 @@ runs:
           pr-deploy-k8s-namespace
           pr-deploy-k8s-application-name
 
-    # require pull request for this action to run
-    - shell: bash
+    - id: check-pull-request
+      shell: bash
       run: |
         # Check if triggered by pull request event
 
@@ -101,7 +101,8 @@ runs:
 
         set-output 'result' "${RESULT}"
 
-    - shell: bash
+    - id: eval-result
+      shell: bash
       run: |
         # Log and evaluate result
 

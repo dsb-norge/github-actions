@@ -72,8 +72,8 @@ runs:
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
         overwrite-settings: false # do not overwrite settings.xml from the configure-maven-settings action
 
-    # Invoke maven
-    - shell: bash
+    - id: invoke-maven
+      shell: bash
       env:
         EXTRA_ENVS_FROM_GH: "${{ fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github }}"
       run: |

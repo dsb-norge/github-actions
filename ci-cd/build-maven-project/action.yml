@@ -231,8 +231,8 @@ runs:
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
         overwrite-settings: false # do not overwrite settings.xml from the configure-maven-settings action
 
-    # invoke maven
-    - shell: bash
+    - id: invoke-maven
+      shell: bash
       env:
         EXTRA_ENVS: "${{ inputs.set-extra-envs }}"
         EXTRA_ENVS_FROM_GH: "${{ fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github }}"
@@ -262,15 +262,15 @@ runs:
         unset-extra-envs "general" "${EXTRA_ENVS}"
         unset-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
 
-    # deploy maven build artifacts to configured maven deployment repos
-    - shell: bash
+    - id: deploy-artifacts
+      shell: bash
       env:
         BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
         EXTRA_ENVS: "${{ inputs.set-extra-envs }}"
         EXTRA_ENVS_FROM_GH: "${{ fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github }}"
         DEPLOY_TO_REPOS_YML: "${{ fromJSON(inputs.dsb-build-envs).maven-build-project-deploy-to-repositories-yml }}"
       run: |
-        # Use maven to deploy artifacts when allowed and requested
+        # Use maven to deploy build artifacts to configured maven deployment repos when allowed and requested
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
