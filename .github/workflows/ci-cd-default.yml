@@ -96,10 +96,12 @@ jobs:
         shell: bash
     steps:
       - name: 🧹 Clean workspace
+        id: clean
         # TODO revert to @v2
         uses: dsb-norge/github-actions/directory-recreate@more-pruning
 
       - name: ⬇ Checkout working branch
+        id: checkout
         uses: actions/checkout@v3
 
       # need this to have access to the configuration repo of the application
@@ -131,6 +133,7 @@ jobs:
           acr-service-principal: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_SERVICE_PRINCIPAL }}
 
       - name: "⚒ Spring Boot app: Build and analyze with Maven"
+        id: maven-build
         # Skip step when closing a PR, and only run for spring-boot apps
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
@@ -141,6 +144,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "🐳 Spring Boot app: Build, tag and push docker image"
+        id: maven-docker-build
         # Run step when:
         #   - app is spring-boot
         #   - running from PRa nd not closing
@@ -160,6 +164,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "⚒ Vue.js app: Build and test with npm"
+        id: npm-build
         # Skip step when closing a PR, and only run for vue apps
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
@@ -170,6 +175,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "🐳 Vue.js app: Build, tag and push docker image for vue"
+        id: npm-docker-build
         # Run step when:
         #   - app is vue
         #   - running from PR and not closing
@@ -189,6 +195,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🐙 Deploy to ephemeral PR environment
+        id: ephemeral-deploy
         # Run step when:
         #   - on PR
         #     - but not when closing PR
@@ -204,6 +211,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🗑 Teardown of ephemeral PR environment
+        id: ephemeral-teardown
         # Step only runs when closing a PR
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
         # TODO revert to @v2
@@ -212,6 +220,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🗑 Prune application docker images from ACR
+        id: prune-images
         # Run step when:
         #   - push or manual on default branch or when specifically allowing deploy from non-default branch
         if: |
@@ -225,6 +234,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: 🗑 Delete PR docker images from ACR
+        id: delete-pr-images
         # Step only runs when closing a PR
         # Step runs even if previous steps have failed, with the exception of 'build-env' which is required
         if: github.event_name == 'pull_request' && github.event.action == 'closed' && always() && steps.build-env.outcome == 'success'
@@ -246,10 +256,12 @@ jobs:
         shell: bash
     steps:
       - name: 🧹 Clean workspace
+        id: clean
         # TODO revert to @v2
         uses: dsb-norge/github-actions/directory-recreate@more-pruning
 
       - name: ⬇ Checkout working branch
+        id: checkout
         uses: actions/checkout@v3
 
       - name: 💾 Read build-envs from matrix job(s)
@@ -280,6 +292,7 @@ jobs:
           github-app-private-key: "${{ secrets.ORG_CICD_APP_PRIVATE_KEY }}"
 
       - name: 🐙 Deploy apps to static environment(s)
+        id: static-deploy
         # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
         # TODO revert to @v2
@@ -289,6 +302,7 @@ jobs:
           app-config-repo-token: ${{ steps.auth.outputs.github-token }}
 
       - name: 🏷️ Tag current git commit with application version
+        id: version-tag
         # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
         uses: actions/github-script@v6
@@ -317,7 +331,7 @@ jobs:
         shell: bash
     steps:
       - name: 🗑 Prune maven artifacts
-        id: prune
+        id: prune-artifacts
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
         # TODO revert to @v2
         uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@more-pruning

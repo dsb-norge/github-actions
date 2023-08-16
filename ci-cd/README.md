@@ -38,24 +38,24 @@ For documentation refer to the `description` section of each specific actions as
     - Find: `(^\s*)((- ){0,1}uses: dsb-norge/github-actions/.*@)v2`
     - Replace: `$1# TODO revert to @v2\n$1$2my-feature`
 
-2. Make your changes and commit your changes on a branch, for example `my-feature-branch`.
+2. Make your changes and commit your changes on a branch, for example `uncomfortable-silkworm `.
 3. Tag latest commit on you branch:
    ```bash
-   git tag -f -a 'my-feature'
-   git push -f origin 'refs/tags/my-feature'
+   git tag -f -a 'more-pruning'
+   git push -f origin 'refs/tags/more-pruning'
    ```
-4. To try out your changes, in the calling repo change the calling workflow to call using your **branch name**. Ex. with a dev branch named `my-feature-branch`:
+4. To try out your changes, in the calling repo change the calling workflow to call using your **branch name**. Ex. with a dev branch named `uncomfortable-silkworm `:
    ```yaml
     jobs:
         ci-cd:
             # TODO revert to '@v2'
-            uses: dsb-norge/github-actions/.github/workflows/ci-cd-default.yml@my-feature-branch
+            uses: dsb-norge/github-actions/.github/workflows/ci-cd-default.yml@uncomfortable-silkworm
    ```
 5. Test your changes from the calling repo. Make changes and remember to always move your tag `my-feature` to the latest commit.
 6. When ready remove your temporary tag:
    ```bash
-   git tag --delete 'my-feature'
-   git push --delete origin 'my-feature'
+   git tag --delete 'more-pruning'
+   git push --delete origin 'more-pruning'
    ```
     and revert from using the temporary tag to the version-tag for your release in actions, i.e. `@my-feature` becomes `@v2` or `@v3` or whatever.
 

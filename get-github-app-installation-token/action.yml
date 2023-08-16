@@ -36,7 +36,7 @@ runs:
       env:
         GH_APP_KEY: "${{ inputs.github-app-private-key }}"
       run: |
-        # Auth as GiHub App and retreive GitHub App installation access token.
+        # Auth as GitHub App and retrieve GitHub App installation access token.
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
