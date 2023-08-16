@@ -1,7 +1,7 @@
 #!/bin/env bash
 
 # Helper consts
-_action_name="$(basename "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"):${GITHUB_ACTION}"
+_action_name="$(basename "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)")"
 
 # Helper functions
 function _log { echo "${1}${_action_name}: ${2}"; }
