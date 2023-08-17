@@ -79,9 +79,11 @@ runs:
 
         DRY_RUN_INPUT='${{ inputs.dry-run }}'
         if is-dry-run; then
+          log-info '----------------------'
           log-info '💫 THIS IS A DRILL 💫'
-          log-info 'I repeat'
+          log-info '      I repeat'
           log-info '💫 THIS IS A DRILL 💫'
+          log-info '----------------------'
           log-info 'NO DESTRUCTIVE OPERATIONS WILL BE PERFORMED DURING EXECUTION OF THIS ACTION'
           log-info '(even though log messages to follow would indicate otherwise)'
         fi
@@ -183,7 +185,6 @@ runs:
       # skip this step if there are no package versions to evaluate for pruning
       if: steps.get-packages-and-versions.outputs.total-versions-count > 0
       env:
-        PACKAGES_JSON: "${{ steps.get-packages-and-versions.outputs.json }}"
         KEEP_RELEASES_COUNT: ${{ inputs.release-prune-keep-min-count }}
         KEEP_RELEASES_DAYS: ${{ inputs.release-prune-keep-num-days }}
         KEEP_SNAPSHOTS_COUNT: ${{ inputs.snapshot-prune-keep-min-count }}
@@ -198,6 +199,12 @@ runs:
         # Determine versions and packages to delete
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        # all repo packages grouped
+        PACKAGES_JSON=$(cat <<'EOF'
+        ${{ steps.get-packages-and-versions.outputs.json }}
+        EOF
+        )
 
         # will contain version types to be considered for pruning.
         declare -a CONSIDER_VERSION_TYPES
@@ -387,7 +394,6 @@ runs:
       # skip this step if there are no packages to delete
       if: steps.get-what-to-delete.outputs.delete-packages-count > 0
       env:
-        PACKAGES_TO_DELETE: "${{ steps.get-what-to-delete.outputs.delete-packages-json }}"
         GH_TOKEN: ${{ inputs.github-packages-token }}
       shell: bash
       run: |
@@ -399,6 +405,12 @@ runs:
         if is-dry-run; then
           log-info 'Dry run requested. No packages will ACTUALLY be deleted.'
         fi
+
+        # input from 'get-what-to-delete' step
+        PACKAGES_TO_DELETE=$(cat <<'EOF'
+        ${{ steps.get-what-to-delete.outputs.delete-packages-json }}
+        EOF
+        )
 
         # loop and delete one at a time, postpone failing on error until end
         start-group "Deleting packages ..."
@@ -451,7 +463,6 @@ runs:
           || steps.delete-packages.conclusion == 'skipped'
         )
       env:
-        VERSIONS_TO_DELETE: "${{ steps.get-what-to-delete.outputs.delete-versions-json }}"
         GH_TOKEN: ${{ inputs.github-packages-token }}
       shell: bash
       run: |
@@ -463,6 +474,12 @@ runs:
         if is-dry-run; then
           log-info 'Dry run requested. No versions will ACTUALLY be deleted.'
         fi
+
+        # input from 'get-what-to-delete' step
+        VERSIONS_TO_DELETE=$(cat <<'EOF'
+        ${{ steps.get-what-to-delete.outputs.delete-versions-json }}
+        EOF
+        )
 
         # loop and delete one at a time, postpone failing on error until end
         start-group "Deleting package versions ..."
