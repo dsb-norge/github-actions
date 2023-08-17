@@ -1,4 +1,4 @@
-name: "DSB retention policy for maven artifacts in gitHub packages"
+name: "DSB retention policy for maven artifacts in GitHub Packages"
 
 # The following secrets must be available in the github 'secrets' context:
 #   - secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT         <-- GitHub PAT with with scopes [delete:packages, read:packages] in the calling repos organization
