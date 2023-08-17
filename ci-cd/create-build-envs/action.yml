@@ -64,14 +64,30 @@ inputs:
     description: |
       A YAML list (as string) with information about maven repositories that will be used to create a maven settings.xml prior to invoking maven.
       The order of the repositories dictates in what order maven will search the repos for artifacts.
+
+      Since github actions do not support github variables in action input default values:
+        A special syntax is supported to allow for substituting in the caller repo fields of the YAML list.
+        Notice the missing dollar sign preceding the '{{ }}'-expression below.
+        Example:
+          When called from a repo 'foo' owned by the organization 'bar' and the configuration:
+            url: "https://maven.pkg.github.com/{{ github.repository }}"
+          becomes:
+            url: "https://maven.pkg.github.com/bar/foo"
     required: false
     default: |
       repositories:
+        # for consuming artifacts available in the org
         - id: "github-dsb-norge"
           name: "GitHub: dsb-norge"
           url: "https://maven.pkg.github.com/dsb-norge/.github"
-          username: "${env.DSB_GH_PKG_USERNAME}"
-          password: "${env.DSB_GH_PKG_PASSWORD}"
+          username: "${env.DSB_GH_PKG_READ_USER}" # org variable ref. 'maven-extra-envs-from-github-yml'
+          password: "${env.DSB_GH_PKG_READ_PAT}"  # org secret ref. 'maven-extra-envs-from-github-yml'
+        # for publishing artifacts to the calling repo
+        - id: "calling-repo"
+          name: "Calling GitHub repo"
+          url: "https://maven.pkg.github.com/{{ github.repository }}"
+          username: "${env.GH_ACTION_ACTOR}"        # the GitHub action actor
+          password: "${env.GH_ACTION_ACTOR_TOKEN}"  # the GitHub action actor's token
   maven-extra-envs-from-github-yml:
     description: |
       A YAML map (as string) with extra environment variables to define in same scope as maven, prior to invoking maven.
@@ -88,15 +104,17 @@ inputs:
     required: false
     default: |
       from-secrets:
+        DSB_GH_PKG_READ_PAT: "ORG_GITHUB_PACKAGES_READER_PAT"
       from-variables:
+        DSB_GH_PKG_READ_USER: "ORG_GITHUB_PACKAGES_READER_USERNAME"
       from-github-context:
-        DSB_GH_PKG_USERNAME: "actor"
-        DSB_GH_PKG_PASSWORD: "token"
+        GH_ACTION_ACTOR: "actor"
+        GH_ACTION_ACTOR_TOKEN: "token"
   maven-build-project-deploy-to-repositories-yml:
     description: |
       A YAML map (as string), when deploying maven artifacts maven will be invoked once for each key-value pair.
       Each 'key::value' will be passed as 'id::default::url' to the maven deploy mojo as parameter 'altDeploymentRepository':
-        key   -> id     : The id can be used to pick up the correct credentials from settings.xml
+        key   -> id     : The id can be used to pick up the correct credentials from settings.xml. The given id must exist in the 'maven-user-settings-repositories-yml' input.
         -     -> default: Hardcoded value for maven2 repo compatibility
         value -> url    : The location of the repository
       ref. https://maven.apache.org/plugins/maven-deploy-plugin/deploy-mojo.html
@@ -112,9 +130,9 @@ inputs:
     required: false
     default: |
       release-repositories:
-        github-dsb-norge: "https://maven.pkg.github.com/{{ github.repository }}"
+        calling-repo: "https://maven.pkg.github.com/{{ github.repository }}"
       snapshot-repositories:
-        github-dsb-norge: "https://maven.pkg.github.com/{{ github.repository }}"
+        calling-repo: "https://maven.pkg.github.com/{{ github.repository }}"
   sonarqube-token:
     description: "Token used for SonarQube app, see https://docs.sonarqube.org/latest/analysis/github-integration/"
     required: true
@@ -393,8 +411,8 @@ runs:
           PRETTY_VAL=$(echo "$(get-val 'pr-deploy-additional-helm-values')" | yq --input-format json --output-format yml --prettyPrint eval -)
         else
           log-info "using 'pr-deploy-additional-helm-values' from this action's input"
-          log-info "validating 'pr-deploy-additional-helm-values' as valid yaml ..."
-          PRETTY_VAL=$(echo "${PR_HELM_VALUES_YML}" | yq --input-format yml --output-format yml --prettyPrint eval -)
+          log-info "validating 'pr-deploy-additional-helm-values' as valid yaml and stripping comments ..."
+          PRETTY_VAL=$(echo "${PR_HELM_VALUES_YML}" | yq --input-format yml --output-format yml --prettyPrint eval '... comments=""' -)
         fi
         set-field "pr-deploy-additional-helm-values" "${PRETTY_VAL}"
         log-multiline "resulting value of 'pr-deploy-additional-helm-values'" "$(get-val 'pr-deploy-additional-helm-values')"
@@ -445,9 +463,24 @@ runs:
           log-info "using 'maven-user-settings-repositories-yml' from this action's input"
           REPOS_YML="${MVN_SETTINGS_REPOS_YML}"
         fi
-        log-info "validating app var 'maven-user-settings-repositories-yml' as yaml ..."
-        PRETTY_VAL=$(echo "${REPOS_YML}" | yq --input-format yml --output-format yml --prettyPrint eval -)
-        set-field "maven-user-settings-repositories-yml" "${PRETTY_VAL}"
+
+        log-info "validating app var 'maven-user-settings-repositories-yml' as yaml and stripping comments ..."
+        PRETTY_VAL=$(echo "${REPOS_YML}" | yq --input-format yml --output-format yml --prettyPrint eval '... comments=""' -)
+
+        log-info "injecting caller repo into 'maven-user-settings-repositories-yml' ..."
+        # loops over repo list and substitutes in the actual caller repo in strings
+        INJECTED_VAL=$(
+          echo "${PRETTY_VAL}" |
+            yq --input-format yml --output-format yml eval '
+              .[] |=
+              .[] |=
+              .[] |=
+              sub("{{ github.repository }}", "${{ github.repository }}")
+            '
+        )
+
+        set-field "maven-user-settings-repositories-yml" "${INJECTED_VAL}"
+        log-multiline "resulting value of 'maven-user-settings-repositories-yml'" "$(get-val 'maven-user-settings-repositories-yml')"
 
         # 'maven-extra-envs-from-github-yml' is expected to be yaml format (as multiline string)
         # and be converted to a JSON object named 'maven-extra-envs-from-github' compatible with the 'build-maven-project' action.
@@ -521,8 +554,8 @@ runs:
           DEPLOY_REPOS_YML="${MVN_DEPLOY_REPOS_YML}"
         fi
 
-        log-info "validating app var 'maven-build-project-deploy-to-repositories-yml' as yaml ..."
-        PRETTY_VAL=$(echo "${DEPLOY_REPOS_YML}" | yq --input-format yml --output-format yml --prettyPrint eval -)
+        log-info "validating app var 'maven-build-project-deploy-to-repositories-yml' as yaml and stripping comments ..."
+        PRETTY_VAL=$(echo "${DEPLOY_REPOS_YML}" | yq --input-format yml --output-format yml --prettyPrint eval '... comments=""' -)
 
         log-info "injecting caller repo into 'maven-build-project-deploy-to-repositories-yml' ..."
         # loops over repo maps and substitutes in the actual caller repo
