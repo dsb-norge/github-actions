@@ -99,3 +99,25 @@ git push -f origin 'refs/tags/v3'
 ```
 
 **Note:** If you are having problems pulling main after a release, try to force fetch the tags: `git fetch --tags -f`.
+
+
+#### Un-release (move major tag back)
+
+In case of trouble where a fix takes long time to develop, this is how to rollback the major tag to the previous minor release.
+
+Example un-release `v2.9` and revert to `v2.8`:
+```bash
+git checkout origin/main
+git pull origin main
+
+moveTag='v2'
+moveToTag='v2.8'
+moveToHash=$(git rev-parse --verify ${moveToTag})
+
+git push origin "refs/tags/${moveTag}"      # delete the old tag remotely
+git tag -fa ${moveTag} ${moveToHash}        # move tag locally
+git push -f origin "refs/tags/${moveTag}"   # push the updated tag remotely
+
+```
+
+**Note:** If you are having problems pulling main after a release, try to force fetch the tags: `git fetch --tags -f`.
