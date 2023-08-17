@@ -1,0 +1,28 @@
+query ($repoowner: String!, $endCursor: String) {
+  organization(login: $repoowner) {
+    repositories(
+      first: 50
+      after: $endCursor
+      orderBy: { field: NAME, direction: DESC }
+    ) {
+      edges {
+        cursor
+        node {
+          nameWithOwner
+          isArchived
+          defaultBranchRef {
+            name
+          }
+          packages {
+            totalCount
+          }
+        }
+      }
+      totalCount
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
