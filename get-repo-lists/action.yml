@@ -1,0 +1,173 @@
+name: 'Query for repositories'
+description: |
+  Queries a given GitHub organization for it's repositories using the GitHub graphql (GQL) API.
+  Outputs all repos found as well as several filtered lists of repositories.
+
+  The output format is identical for all outputs, something along these lines:
+    {
+      "repos": [
+        "dsb-norge/github-actions",
+        "dsb-norge/vue-keycloak-js",
+        "dsb-norge/helm-charts"
+      ],
+      "totalRepoCount": 3,
+      "totalPackageCount": 8
+    }
+author: 'Peder Schmedling'
+inputs:
+  github-token:
+    description: |
+      GitHub Personal Access Token (PAT) with scopes [read:packages, repo] in the calling repos organization.
+    required: true
+  repo-owner:
+    description: |
+      Name of the owner (org. or user) of where to look for repos.
+      If this is left empty repos of the calling organization/user will be queried.
+    default: ''
+    required: false
+outputs:
+  all-repos-json:
+    description: All repos in the organization.
+    value: ${{ steps.get-repos.outputs.all-repos-json }}
+  archived-repos-json:
+    description: Only archived repos found in the organization.
+    value: ${{ steps.get-repos.outputs.archived-repos-json }}
+  archived-repos-with-packages-json:
+    description: Only archived repos in the organization that have one or more packages stored in GitHub Packages.
+    value: ${{ steps.get-repos.outputs.archived-repos-with-packages-json }}
+  non-archived-repos-json:
+    description: Only repos that are not archived in the organization.
+    value: ${{ steps.get-repos.outputs.non-archived-repos-json }}
+  non-archived-repos-with-packages-json:
+    description: Only repos that are not archived in the organization that have one or more packages stored in GitHub Packages.
+    value: ${{ steps.get-repos.outputs.non-archived-repos-with-packages-json }}
+  non-archived-repos-with-master-as-default-branch-json:
+    description: Only repos that are not archived in the organization and that have 'master' as it's default branch.
+    value: ${{ steps.get-repos.outputs.non-archived-repos-with-master-as-default-branch-json }}
+  non-archived-repos-with-master-as-default-branch-and-packages-json:
+    description: Only repos that are not archived in the organization, that have 'master' as it's default branch and that have one or more packages stored in GitHub Packages.
+    value: ${{ steps.get-repos.outputs.non-archived-repos-with-master-as-default-branch-and-packages-json }}
+
+runs:
+  using: 'composite'
+  steps:
+    - id: get-repos
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      shell: bash
+      run: |
+        # Use github graphql API via github CLI to retrieve all repos
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        if [ '' == '${{ inputs.repo-owner }}' ]; then
+          REPO_OWNER='${{ github.repository_owner }}'
+        else
+          REPO_OWNER='${{ inputs.repo-owner }}'
+        fi
+        log-info "Querying for repos owned by '${REPO_OWNER}' ..."
+
+        GQL_QUERY=$(<${{ github.action_path }}/query_repos.graphql)
+        log-multiline 'The gql query' "${GQL_QUERY}"
+        log-multiline 'GitHub cli version' "$(gh --version)"
+
+        REPOS_RESPONSE=$(
+          gh api graphql \
+            -F repoowner="${REPO_OWNER}" \
+            --paginate -f query="${GQL_QUERY}"
+        )
+
+        # filter to transform the data structure
+        JQ_FILTER=$(
+          cat <<'EOF'
+          map(.data.organization.repositories.edges[].node) as $repos
+          | {
+            "repos": (
+              $repos
+              | map({
+                "nameWithOwner":  .nameWithOwner,
+                "isArchived":     .isArchived,
+                "defaultBranch":  .defaultBranchRef.name,
+                "packageCount":   .packages.totalCount
+              })
+            ),
+            "totalRepoCount": ( $repos | length ),
+            "totalPackageCount": ( $repos | map(.packages.totalCount) | add )
+          }
+        EOF
+        )
+
+        # transform the data structure
+        REPOS_JSON=$(
+          echo "${REPOS_RESPONSE}" |
+            jq --slurp "${JQ_FILTER}"
+        )
+
+        JQ_FILTER_ALL_REPOS=$(get-jq-filter '.')
+        ALL_REPOS_JSON=$(echo "$REPOS_JSON" | jq "${JQ_FILTER_ALL_REPOS}")
+        log-multiline "Output 'all-repos-json'" "${ALL_REPOS_JSON}"
+        set-multiline-output 'all-repos-json' "${ALL_REPOS_JSON}"
+
+        JQ_FILTER_ARCHIVED_REPOS=$(
+          get-jq-filter '
+            .isArchived == true
+          '
+        )
+        ARCHIVED_REPOS_JSON=$(echo "$REPOS_JSON" | jq "${JQ_FILTER_ARCHIVED_REPOS}")
+        log-multiline "Output 'archived-repos-json'" "${ARCHIVED_REPOS_JSON}"
+        set-multiline-output 'archived-repos-json' "${ARCHIVED_REPOS_JSON}"
+
+        JQ_FILTER_ARCHIVED_REPOS_WITH_PACKAGES=$(
+          get-jq-filter '
+            .isArchived == true
+            and
+            .packageCount > 0
+          '
+        )
+        ARCHIVED_REPOS_WITH_PACKAGES_JSON=$(echo "$REPOS_JSON" | jq "${JQ_FILTER_ARCHIVED_REPOS_WITH_PACKAGES}")
+        log-multiline "Output 'archived-repos-with-packages-json'" "${ARCHIVED_REPOS_WITH_PACKAGES_JSON}"
+        set-multiline-output 'archived-repos-with-packages-json' "${ARCHIVED_REPOS_WITH_PACKAGES_JSON}"
+
+        JQ_FILTER_NON_ARCHIVED_REPOS=$(
+          get-jq-filter '
+            .isArchived == false
+          '
+        )
+        NON_ARCHIVED_REPOS=$(echo "$REPOS_JSON" | jq "${JQ_FILTER_NON_ARCHIVED_REPOS}")
+        log-multiline "Output 'non-archived-repos-json'" "${NON_ARCHIVED_REPOS}"
+        set-multiline-output 'non-archived-repos-json' "${NON_ARCHIVED_REPOS}"
+
+        JQ_FILTER_NON_ARCHIVED_REPOS_WITH_PACKAGES=$(
+          get-jq-filter '
+            .isArchived == false
+            and
+            .packageCount > 0
+          '
+        )
+        NON_ARCHIVED_REPOS_WITH_PACKAGES_JSON=$(echo "$REPOS_JSON" | jq "${JQ_FILTER_NON_ARCHIVED_REPOS_WITH_PACKAGES}")
+        log-multiline "Output 'non-archived-repos-with-packages-json'" "${NON_ARCHIVED_REPOS_WITH_PACKAGES_JSON}"
+        set-multiline-output 'non-archived-repos-with-packages-json' "${NON_ARCHIVED_REPOS_WITH_PACKAGES_JSON}"
+
+        JQ_FILTER_NON_ARCHIVED_REPOS_WITH_MASTER_BRANCH=$(
+          get-jq-filter '
+            .isArchived == false
+            and
+            ( .defaultBranch | ascii_downcase  ) == "master"
+          '
+        )
+        NON_ARCHIVED_REPOS_WITH_MASTER_BRANCH=$(echo "$REPOS_JSON" | jq "${JQ_FILTER_NON_ARCHIVED_REPOS_WITH_MASTER_BRANCH}")
+        log-multiline "Output 'non-archived-repos-with-master-as-default-branch-json'" "${NON_ARCHIVED_REPOS_WITH_MASTER_BRANCH}"
+        set-multiline-output 'non-archived-repos-with-master-as-default-branch-json' "${NON_ARCHIVED_REPOS_WITH_MASTER_BRANCH}"
+
+        JQ_FILTER_NON_ARCHIVED_REPOS_WITH_MASTER_BRANCH_AND_PACKAGES=$(
+          get-jq-filter '
+            .isArchived == false
+            and
+            ( .defaultBranch | ascii_downcase  ) == "master"
+            and
+            .packageCount > 0
+          '
+        )
+        NON_ARCHIVED_REPOS_WITH_MASTER_BRANCH_AND_PACKAGES=$(echo "$REPOS_JSON" | jq "${JQ_FILTER_NON_ARCHIVED_REPOS_WITH_MASTER_BRANCH_AND_PACKAGES}")
+        log-multiline "Output 'non-archived-repos-with-master-as-default-branch-and-packages-json'" "${NON_ARCHIVED_REPOS_WITH_MASTER_BRANCH_AND_PACKAGES}"
+        set-multiline-output 'non-archived-repos-with-master-as-default-branch-and-packages-json' "${NON_ARCHIVED_REPOS_WITH_MASTER_BRANCH_AND_PACKAGES}"
