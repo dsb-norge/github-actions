@@ -71,7 +71,7 @@ jobs:
     if: always()
     name: ci-cd-conclusion
     needs: [prune-maven-artifacts]
-    runs-on: [self-hosted, dsb-builder, linux, x64]
+    runs-on: ubuntu-latest # no need to schedule this on our own runners
     defaults:
       run:
         shell: bash
