@@ -330,7 +330,7 @@ jobs:
     if: always()
     name: ci-cd-conclusion
     needs: [create-matrix, build-deploy, deploy-to-static, prune-maven-artifacts]
-    runs-on: [self-hosted, dsb-builder, linux, x64]
+    runs-on: ubuntu-latest # no need to schedule this on our own runners
     defaults:
       run:
         shell: bash
