@@ -117,7 +117,7 @@ runs:
 
         # exit code
         SUM_EXIT_CODES=$(IFS=+; echo "$((${PULL_RESULTS[*]}))")
-        log-error "pull operation failed for one or more Docker image!"
+        [[ ${SUM_EXIT_CODES} -ne 0 ]] && log-error "pull operation failed for one or more Docker image!" || :
         exit ${SUM_EXIT_CODES}
 
     # generate tags and labels
