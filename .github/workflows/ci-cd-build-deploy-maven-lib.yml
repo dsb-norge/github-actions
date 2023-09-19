@@ -66,7 +66,8 @@ jobs:
       # The create-app-vars-matrix action requires source code to be available
       - name: 🧹 Clean workspace
         id: clean
-        uses: dsb-norge/github-actions/directory-recreate@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@pull-images
 
       - name: ⬇ Checkout working branch
         id: checkout
@@ -74,7 +75,8 @@ jobs:
 
       - name: 🎰 Create app vars build matrix
         id: create-matrix
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@pull-images
         with:
           apps: ${{ inputs.apps }}
 
@@ -90,7 +92,8 @@ jobs:
     steps:
       - name: 🧹 Clean workspace
         id: clean
-        uses: dsb-norge/github-actions/directory-recreate@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@pull-images
 
       - name: ⬇ Checkout working branch
         id: checkout
@@ -98,7 +101,8 @@ jobs:
 
       - name: 🎰 Generate DSB build variables
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@pull-images
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -115,7 +119,8 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@pull-images
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -137,7 +142,8 @@ jobs:
       - name: 🗑 Prune maven artifacts
         id: prune
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
-        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@pull-images
         with:
           github-packages-token: ${{ secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT }}
           other-prune-keep-min-count: ${{ inputs.maven-artifacts-other-prune-keep-min-count }}

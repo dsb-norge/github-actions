@@ -37,7 +37,8 @@ jobs:
       # The create-app-vars-matrix action requires source code to be available
       - name: 🧹 Clean workspace
         id: clean
-        uses: dsb-norge/github-actions/directory-recreate@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@pull-images
 
       - name: ⬇ Checkout working branch
         id: checkout
@@ -45,7 +46,8 @@ jobs:
 
       - name: 🎰 Create app vars build matrix
         id: create-matrix
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@pull-images
         with:
           apps: ${{ inputs.apps }}
 
@@ -62,7 +64,8 @@ jobs:
     steps:
       - name: 🧹 Clean workspace
         id: clean
-        uses: dsb-norge/github-actions/directory-recreate@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@pull-images
 
       - name: ⬇ Checkout working branch
         id: checkout
@@ -70,7 +73,8 @@ jobs:
 
       - name: 🎰 Generate DSB build variables
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@pull-images
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -81,7 +85,8 @@ jobs:
         id: maven-bump
         # only run for spring-boot apps
         if: matrix.app-vars.application-type == 'spring-boot'
-        uses: dsb-norge/github-actions/run-maven-command@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/run-maven-command@pull-images
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
           goals: versions:update-properties versions:update-parent
@@ -98,7 +103,8 @@ jobs:
         id: auth
         # only if maven command was not skipped and completed successfully
         if: steps.maven-bump.outcome == 'success'
-        uses: dsb-norge/github-actions/get-github-app-installation-token@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/get-github-app-installation-token@pull-images
         with:
           github-app-id: ${{ vars.ORG_MAVEN_BUMPER_APP_ID }}
           github-app-installation-id: ${{ vars.ORG_MAVEN_BUMPER_APP_INSTALLATION_ID }}
