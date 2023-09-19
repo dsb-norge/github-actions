@@ -28,6 +28,9 @@ description: |
           'spring-boot-build-image-arguments' will be used.
         - When specific goals and/or arguments are defined the pom file reference will still be added to the final maven invocation. The resulting
           maven invocation command is: mvn <arguments> --file <pom file> <goals>
+    If 'spring-boot-build-image-pull-images-pre-build-yml' is specified:
+      Expected to be a YAML list of strings with docker images to pull before build process starts.
+      This can be used for pulling images from various registries to make them available to maven.
 author: "Peder Schmedling"
 inputs:
   dsb-build-envs:
@@ -42,6 +45,7 @@ inputs:
         spring-boot-build-image-command
         spring-boot-build-image-goals
         spring-boot-build-image-arguments
+        spring-boot-build-image-pull-images-pre-build-yml
     required: true
 runs:
   using: "composite"
@@ -70,6 +74,51 @@ runs:
         login-server: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
         username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
         password: ${{ fromJSON(inputs.dsb-build-envs).acr-password }}
+
+    # pull images before building, handy if mvn build requires any additional images from our acr
+    - id: pull-images-pre-build
+      shell: bash
+      env:
+        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
+      run: |
+        # Pull images prior to build
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        if ! has-field 'spring-boot-build-image-pull-images-pre-build-yml'; then
+          log-info "argument 'inputs.dsb-build-envs.spring-boot-build-image-pull-images-pre-build-yml' not specified."
+          log-info "nothing to do since input was missing."
+          exit 0
+        fi
+
+        PULL_IMAGES_RAW="$(get-val 'spring-boot-build-image-pull-images-pre-build-yml')"
+        log-multiline "argument 'inputs.dsb-build-envs.spring-boot-build-image-pull-images-pre-build-yml' was specified" "${PULL_IMAGES_RAW}"
+
+        log-info "validating app var 'spring-boot-build-image-pull-images-pre-build-yml' as yaml and stripping comments ..."
+        PULL_IMAGES_YML=$(echo "${PULL_IMAGES_RAW}" | yq --input-format yml --output-format yml --prettyPrint eval '... comments=""' -)
+
+        # loop unique images
+        readarray -t PULL_IMAGES < <(echo "${PULL_IMAGES_YML}" | yq eval 'unique|.[]')
+        declare -A PULL_RESULTS
+        for PULL_IMAGE in "${PULL_IMAGES[@]}"; do
+          # attempt pull and record result
+          start-group "pull '${PULL_IMAGE}'"
+          set +e
+          docker pull "${PULL_IMAGE}"
+          PULL_RESULTS["${PULL_IMAGE}"]=${?}
+          set -e
+          end-group
+        done
+
+        log-info "result summary:"
+        for PULL_IMAGE in "${PULL_IMAGES[@]}"; do
+          log-info "  - $([[ ${PULL_RESULTS["${PULL_IMAGE}"]} -ne 0 ]] && echo 'failure ->' || echo 'success ->') ${PULL_IMAGE}"
+        done
+
+        # exit code
+        SUM_EXIT_CODES=$(IFS=+; echo "$((${PULL_RESULTS[*]}))")
+        log-error "pull operation failed for one or more Docker image!"
+        exit ${SUM_EXIT_CODES}
 
     # generate tags and labels
     - uses: docker/metadata-action@v4
@@ -123,8 +172,7 @@ runs:
         EOF
         )
 
-        # Use jq to ensure valid JSON
-        function set-val { OUT_JSON="$(echo "${OUT_JSON}" | jq --arg name "${1}" --arg value "${2}" '.[$name] = $value')" ; }
+        # start with empty output object
         OUT_JSON='{}'
 
         # These labels are added to the docker image during build
@@ -161,12 +209,6 @@ runs:
         MVN_ARGUMENTS_DEFAULT='-B -DskipTests'
         MVN_GOALS_DEFAULT='spring-boot:build-image'
         MVN_IMAGE_REF_ARGUMENT="-Dspring-boot.build-image.imageName=${LOCAL_IMAGE_ID}"
-
-        # Helper functions
-        # Check if field exists in BUILD_ENVS safely
-        function has-field { if [[ "$(echo "${BUILD_ENVS}"| jq --arg name "$1" 'has($name)')" == 'true' ]]; then true; else false; fi; }
-        # Get field value from BUILD_ENVS safely
-        function get-val { echo "${BUILD_ENVS}" | jq -r --arg name "$1" '.[$name]'; }
 
         # Locate pom.xml
         POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
@@ -237,10 +279,6 @@ runs:
         # Make sure build-maven-project action does not attempt to deploy maven artifacts
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # Helper functions
-        # Add/overwrite fields in BUILD_ENVS safely
-        function set-field { BUILD_ENVS=$(echo "${BUILD_ENVS}" | jq --arg name "$1" --arg value "$2" '.[$name] = $value') ; }
 
         log-multiline "Received 'dsb-build-envs'" "${BUILD_ENVS}"
 
