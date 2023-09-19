@@ -382,6 +382,7 @@ runs:
           pr-deploy-k8s-namespace
           spring-boot-build-image-arguments
           spring-boot-build-image-command
+          spring-boot-build-image-pull-images-pre-build-yml
           spring-boot-build-image-goals
           spring-boot-build-image-version-arguments
           spring-boot-build-image-version-command
