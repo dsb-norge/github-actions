@@ -27,27 +27,50 @@ runs:
           nodejs-version
           application-source-path
 
+    - id: work-dir
+      shell: bash
+      run: |
+        # check that work dir exists and get full path
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        log-info "Looking for project to build ..."
+        REL_SOURCE_DIR="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
+        log-info "Configured 'application-source-path': '${REL_SOURCE_DIR}'"
+
+        WS_PATH="${{ github.workspace }}"
+        ABS_PATH_RAW="${WS_PATH}/${REL_SOURCE_DIR}"
+        if [ ! -d "${ABS_PATH_RAW}" ]; then
+          log-error "Unable to determine working directory!"
+          log-error "The given 'application-source-path' does not exist within the workspace at '${WS_PATH}'"
+          exit 1
+        fi
+
+        # sanitizes the path
+        # ex. removes extra '..' and '.' which does not go well with 'actions/setup-node'
+        ABS_PATH="$(realpath ${ABS_PATH_RAW})"
+        REL_PATH="$(ws-path ${ABS_PATH})"
+        log-info "Found project at '${REL_PATH}'"
+
+        set-output 'abs-path' "${ABS_PATH}"
+        set-output 'rel-path' "${REL_PATH}"
+
     # set up Node.js
     - uses: actions/setup-node@v3
       with:
         node-version: ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
+        cache: "npm"
+        cache-dependency-path: "${{ steps.work-dir.outputs.abs-path }}"
 
     - id: npm-build
       shell: bash
+      working-directory: "${{ steps.work-dir.outputs.abs-path }}"
       env:
         BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
       run: |
         # npm install, build with support for additional custom commands
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        log-info "Looking for project to build ..."
-        WORK_DIR=${{ github.workspace }}/${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
-        [ -d "${WORK_DIR}" ] \
-          && log-info "Found project at '${WORK_DIR}'" \
-          || log-error "given 'application-source-path' does not exist: '${WORK_DIR}'" \
-          || exit 1
-        pushd "${WORK_DIR}" >/dev/null
 
         if has-field 'nodejs-build-project-custom-command-pre-npm-ci'; then
           start-group "Custom command: pre npm ci"
@@ -96,5 +119,3 @@ runs:
         else
           log-info "Skipping custom final command, not defined"
         fi
-
-        popd >/dev/null
