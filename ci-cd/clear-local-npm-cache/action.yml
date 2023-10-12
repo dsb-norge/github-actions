@@ -1,0 +1,44 @@
+name: "Delete and re-create the local npm cache directory"
+description: |
+  This action deletes the directory returned by running `npm config get cache` if it exists.
+  Afterwards the directory is created as an empty directory.
+author: "Peder Schmedling"
+runs:
+  using: "composite"
+  steps:
+    - id: check-prereqs
+      shell: bash
+      run: |
+        # Make sure npm is available
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        start-group "check prerequisite: npm binary"
+        if ! command -v npm --version &>/dev/null; then
+          log-error "npm is not available on path, please install using the 'setup-node' action!"
+          exit 1
+        else
+          log-info "using $(npm --version)"
+        fi
+        end-group
+    - id: locate-cache
+      shell: bash
+      run: |
+        # check for existing cache directory
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        # hardcoded path to repo
+        LOCAL_CACHE_PATH="$(npm config get cache)"
+        set-output 'cache-dir-path' "${LOCAL_CACHE_PATH}"
+
+        log-info "Looking for directory '${LOCAL_CACHE_PATH}'"
+        if [ -d "${LOCAL_CACHE_PATH}" ]; then
+          log-info "the local npm cache directory exists."
+        else
+          log-info "the local npm cache  directory does not exist."
+        fi
+    - id: recreate
+      uses: dsb-norge/github-actions/directory-recreate@v2
+      with:
+        directory: ${{ steps.locate-cache.outputs.cache-dir-path }}

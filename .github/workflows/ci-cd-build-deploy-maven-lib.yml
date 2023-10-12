@@ -64,7 +64,7 @@ jobs:
       applications-version: ${{ steps.create-matrix.outputs.applications-version }}
     steps:
       # The create-app-vars-matrix action requires source code to be available
-      - name: 🧹 Clean workspace
+      - name: "🧹 Clean: 🏢 workspace"
         id: clean
         uses: dsb-norge/github-actions/directory-recreate@v2
 
@@ -88,15 +88,21 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: 🧹 Clean workspace
+      - name: "🧹 Clean: 🏢 workspace"
         id: clean
         uses: dsb-norge/github-actions/directory-recreate@v2
 
-      # we have enabled maven repo caching with the 'actions/setup-java' action
+      # we have enabled caching with the 'actions/setup-java' action
       # this prevents the local repo/cache from growing during the lifetime of our self hosted runners
-      - name: 🧹 Clean local maven repo
+      - name: "🧹 Clean: 🗄️ local maven repo"
         id: clean-maven-repo
         uses: dsb-norge/github-actions/ci-cd/clear-local-maven-repo@v2
+
+      # we have enabled caching with the 'actions/setup-node' action
+      # this prevents the local repo/cache from growing during the lifetime of our self hosted runners
+      - name: "🧹 Clean: 📚 local npm cache"
+        id: clean-npm-cache
+        uses: dsb-norge/github-actions/ci-cd/clear-local-npm-cache@v2
 
       - name: ⬇ Checkout working branch
         id: checkout
