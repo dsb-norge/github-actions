@@ -40,6 +40,6 @@ runs:
         then
           start-group 'Create directory'
           log-info 'Creating directory: "${{ inputs.directory }}"'
-          mkdir -m u=rwx,go= '${{ inputs.directory }}'
+          mkdir --parents --mode u=rwx,go= '${{ inputs.directory }}'
           end-group
         fi
