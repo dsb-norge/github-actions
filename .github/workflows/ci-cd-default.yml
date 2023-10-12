@@ -97,6 +97,12 @@ jobs:
         id: clean
         uses: dsb-norge/github-actions/directory-recreate@v2
 
+      # we have enabled caching with the 'actions/setup-java' action
+      # this prevents the local repo/cache from growing during the lifetime of our self hosted runners
+      - name: "🧹 Clean: 🗄️ local maven repo"
+        id: clean-maven-repo
+        uses: dsb-norge/github-actions/ci-cd/clear-local-maven-repo@v2
+
       - name: ⬇ Checkout working branch
         id: checkout
         uses: actions/checkout@v3
