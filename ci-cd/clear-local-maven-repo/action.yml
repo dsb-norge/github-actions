@@ -1,0 +1,29 @@
+name: "Delete and re-create the local maven repo directory"
+description: |
+  This action deletes the directory '${HOME}/.m2/repository' if it exists.
+  Afterwards the directory is created as an empty directory.
+author: "Peder Schmedling"
+runs:
+  using: "composite"
+  steps:
+    - id: test
+      shell: bash
+      run: |
+        # check for existing directory
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        # hardcoded path to repo
+        LOCAL_REPO_PATH="${HOME}/.m2/repository"
+        set-output 'repo-dir-path' "${LOCAL_REPO_PATH}"
+
+        log-info "Looking for directory '${LOCAL_REPO_PATH}'"
+        if [ -d "${LOCAL_REPO_PATH}" ]; then
+          log-info "the local maven repo directory exists."
+        else
+          log-info "the local maven repo directory does not exist."
+        fi
+    - id: recreate
+      uses: dsb-norge/github-actions/directory-recreate@v2
+      with:
+        directory: ${{ steps.test.outputs.repo-dir-path }}
