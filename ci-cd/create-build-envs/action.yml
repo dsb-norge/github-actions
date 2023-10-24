@@ -260,7 +260,7 @@ runs:
         # 'inputs.github-json' is loaded further down as it's too large to load into env var here, bash startup fails with argument too long
         SECRETS_JSON: "${{ inputs.secrets-json }}"
         VARS_JSON: "${{ inputs.vars-json }}"
-        PR_HELM_VALUES_YML: "${{ inputs.inputs.pr-deploy-additional-helm-values }}"
+        PR_HELM_VALUES_YML: "${{ inputs.pr-deploy-additional-helm-values }}"
         MVN_SETTINGS_REPOS_YML: "${{ inputs.maven-user-settings-repositories-yml }}"
         MVN_EXTRA_GH_ENVS_YML: "${{ inputs.maven-extra-envs-from-github-yml }}"
         MVN_DEPLOY_REPOS_YML: "${{ inputs.maven-build-project-deploy-to-repositories-yml }}"
