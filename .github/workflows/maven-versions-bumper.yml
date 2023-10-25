@@ -1,17 +1,15 @@
 name: "Update third party dependencies and create pull request"
-
+#
 # In order to use this workflow a github app must be installed in the calling workflow's organization.
 # The app must at minimum have 'contents: write' and 'pull-requests: write' permissions in the repo of the calling workflow.
 #
 # The following variables must available in the github 'vars' context:
 #   - vars.ORG_MAVEN_BUMPER_APP_ID              <-- app id from here: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-maven-versions-bumper
 #   - vars.ORG_MAVEN_BUMPER_APP_INSTALLATION_ID <-- app installation id found in url if you "configure" the app 'dsb-norge-maven-versions-bumper' from here: https://github.com/organizations/dsb-norge/settings/installations
-#   - vars.ORG_MAVEN_REPO_USERNAME              <-- user with read and write to maven repo
 #
 # The following secrets must be available in the github 'secrets' context:
 #   - secrets.ORG_MAVEN_BUMPER_APP_PRIVATE_KEY  <-- generated from the app in github: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-maven-versions-bumper
-#   - secrets.ORG_MAVEN_REPO_TOKEN              <-- token for maven repo user
-
+#
 on:
   workflow_call:
     inputs:

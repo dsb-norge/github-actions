@@ -1,10 +1,15 @@
 name: "DSB Build, push and deploy"
-
+#
+# A requirement for this workflow to run is that the following 'permissions' are granted by the calling workflow:
+#   permissions:
+#     contents: read        # required for actions/checkout
+#     pull-requests: write  # required for commenting on PRs
+#     actions: write        # required to be able to delete GitHub caches in the calling repo
+#
 # In order to use this workflow a github app must be installed in the calling workflow's organization.
 # The app must at minimum have 'contents: write' permissions in the application config repo(s) of the calling workflow.
 #
 # The following variables must available in the github 'vars' context:
-#   - vars.ORG_MAVEN_REPO_USERNAME            <-- user with read and write to maven repo
 #   - vars.ORG_AZURE_CONTAINER_REGISTRY_USER  <-- username of user with push+pull access to ACR, passed to the azure/docker-login action
 #   - vars.ORG_CICD_APP_ID                    <-- app id from here: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-cicd-access
 #   - vars.ORG_CICD_APP_INSTALLATION_ID       <-- app installation id found in url if you "configure" the app 'dsb-norge-cicd-access' from here: https://github.com/organizations/dsb-norge/settings/installations
@@ -16,9 +21,8 @@ name: "DSB Build, push and deploy"
 #   - secrets.ORG_CICD_APP_PRIVATE_KEY                        <-- generated from the app in github: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-cicd-access
 #   - secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT                   <-- GitHub PAT with with scopes [delete:packages, read:packages] in the calling repos organization
 #   - secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD             <-- jasypt password for local decryption of secrets during maven operations
-#   - secrets.ORG_MAVEN_REPO_TOKEN                            <-- token for maven repo user
 #   - secrets.ORG_SONAR_TOKEN                                 <-- token for sonar integration
-
+#
 on:
   workflow_call:
     inputs:
