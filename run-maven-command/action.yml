@@ -68,7 +68,6 @@ runs:
       with:
         distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
-        cache: 'maven'
         overwrite-settings: false # do not overwrite settings.xml from the configure-maven-settings action
 
     - id: invoke-maven
