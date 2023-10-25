@@ -59,8 +59,6 @@ runs:
     - uses: actions/setup-node@v3
       with:
         node-version: ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
-        cache: "npm"
-        cache-dependency-path: "${{ steps.work-dir.outputs.abs-path }}"
 
     - id: npm-build
       shell: bash
