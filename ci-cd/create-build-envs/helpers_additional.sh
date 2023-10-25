@@ -16,6 +16,9 @@ function has-field { if [[ "$(echo "${APP_VARS_JSON}" | jq --arg name "$1" 'has(
 # Get field value from APP_VARS_JSON safely
 function get-val { echo "${APP_VARS_JSON}" | jq -r --arg name "$1" '.[$name]'; }
 
+# Log the name and value of a field
+function log-field { log-info "The value of '$1' is '$(get-val "$1")'" ; }
+
 
 # Helper functions for working with the action input
 # ==================================================

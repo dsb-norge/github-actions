@@ -214,6 +214,55 @@ inputs:
       or you will loose comments on our PR. This string will in turn be prefixed with application name.
     required: false
     default: "auto-deployed to ephemeral PR environment:"
+  github-dependencies-cache-enabled:
+    description: |
+      Whether to enable GitHub actions cache for dependencies.
+      When this is enabled the dependencies directory is emptied before each build and a caching strategy using GitHub actions cache is applied.
+      In short the strategy is:
+        - For the builds of the default branch:
+          - A unique cache is created for each unique combination of runner OS, month of year and dependencies file (hash of pom/lock file(s)).
+          - If a unique cache exist, use it. A new cache is not created after successful build.
+          - If a unique cache does not exist, ignore the build dependencies file and fall back to using the previous cache based off of unique
+            combination of runner OS and month of year. A new cache is created after successful build, taking into account the build dependencies
+            file.
+          - If no cache exists for the current month of year, create a new cache. I.e. full re-download of dependencies the first build each
+            month of the year. This is to avoid the cache from growing uncontrolled. A new cache is created after the first successful build,
+            taking into account runner OS, month of year and the build dependencies file.
+        - For the builds of non-default branches:
+          - Caches from the default branch are available to feature branches.
+          - A unique cache is created for each unique combination of runner OS, pull request number and dependencies file (hash of pom/lock
+            file(s)).
+          - If a unique cache exist, use it. A new cache is not created after successful build.
+          - If a unique cache does not exist, ignore the build dependencies file and fall back to using the previous cache based off of unique
+            combination of runner OS and pull request number. A new cache is created after successful build, taking into account the build
+            dependencies file.
+          - If no cache exists for the current pull request number, fall back to using the latest available cache from the default branch. I.e.
+            when dependencies in a feature branch diverges from those of the default branch and a unique cache does not exist for the feature
+            branch, a new cache is created for the feature branch based off of the latest cache from the default branch.
+          - Caches from feature branches are not available to other branches. Therefore caches of feature branches are deleted upon merge of
+            the feature branch. This behavior can be changed by setting 'github-dependencies-cache-delete-on-pr-close' to 'false'
+    required: false
+    default: "true"
+  github-dependencies-cache-delete-on-pr-close:
+    description: |
+      Whether to delete the associated GitHub actions cache for dependencies when a PR is closed.
+      Due to cache isolation, caches from non-default branches are not available from other branches in the repo.
+      See https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#restrictions-for-accessing-a-cache
+      Set this to true to clean up on a faster cadence (than the default eviction policy) so as to ensure default branch is not thrashing.
+
+      NOTE:
+        `actions:write` permission is required to delete GitHub caches
+        Ref: https://docs.github.com/en/rest/actions/cache?apiVersion=2022-11-28#delete-a-github-actions-cache-for-a-repository-using-a-cache-id
+    required: false
+    default: "true"
+  github-dependencies-cache-path:
+    description: |
+      The path of where to restore to/save from when GitHub actions cache is enabled for dependencies.
+      Leaving this empty causes the use of default value, which will vary depending on the 'application-type' field:
+        - For maven application types (ex. 'spring-boot' and 'maven-library') this typically becomes "${HOME}/.m2/repository".
+        - For node application types (ex. 'vue') this typically becomes "${HOME}/.npm".
+    required: false
+    default: "" # results in "${HOME}/.m2/repository"
 outputs:
   json:
     description: "All envs as json"
@@ -316,6 +365,8 @@ runs:
           caller-repo-is-on-default-branch
           docker-image-prune-keep-min-images
           docker-image-prune-keep-num-days
+          github-dependencies-cache-key
+          github-dependencies-cache-restore-keys
           github-json
           maven-build-project-deploy-to-repositories-yml
           maven-extra-envs-from-github-yml
@@ -351,6 +402,11 @@ runs:
           docker-image-prune-keep-num-days
           docker-image-registry
           docker-image-repo
+          github-dependencies-cache-delete-on-pr-close
+          github-dependencies-cache-enabled
+          github-dependencies-cache-key
+          github-dependencies-cache-path
+          github-dependencies-cache-restore-keys
           java-distribution
           java-version
           maven-build-project-arguments
@@ -420,8 +476,7 @@ runs:
         # Differs depending on PR build or not, allow app vars to override
         PR_KUBERNETES_NAMESPACE="$(get-val 'application-name')"
         PR_KUBERNETES_APP_NAME="$(get-val 'application-name')"
-        if [ '${{ github.event_name }}' == 'pull_request' ]
-        then
+        if [ '${{ github.event_name }}' == 'pull_request' ]; then
           PR_KUBERNETES_NAMESPACE=${PR_KUBERNETES_NAMESPACE}-pr-${{ github.event.number }}
           PR_KUBERNETES_APP_NAME=${PR_KUBERNETES_APP_NAME}-pr-${{ github.event.number }}
         fi
@@ -435,8 +490,7 @@ runs:
         fi
 
         # If PR build these are hardcoded, allow app vars to override when not running from a PR
-        if [ '${{ github.event_name }}' == 'pull_request' ]
-        then
+        if [ '${{ github.event_name }}' == 'pull_request' ]; then
           set-field "docker-image-prune-keep-min-images" "5"
           set-field "docker-image-prune-keep-num-days" "0"
         else
@@ -484,6 +538,7 @@ runs:
 
         # 'maven-extra-envs-from-github-yml' is expected to be yaml format (as multiline string)
         # and be converted to a JSON object named 'maven-extra-envs-from-github' compatible with the 'build-maven-project' action.
+        start-group "create 'maven-extra-envs-from-github' from 'maven-extra-envs-from-github-yml'"
         if has-field "maven-extra-envs-from-github-yml"; then
           log-info "using 'maven-extra-envs-from-github-yml' from app vars."
           ENVS_YML="$(get-val 'maven-extra-envs-from-github-yml')"
@@ -543,6 +598,7 @@ runs:
 
         log-info "removing 'maven-extra-envs-from-github-yml' from output ..."
         rm-field "maven-extra-envs-from-github-yml"
+        end-group # create 'maven-extra-envs-from-github'
 
         # Handled specifically as app vars field is on JSON format and
         # 'maven-build-project-deploy-to-repositories-yml' is expected to be yaml format (as multiline string)
@@ -570,6 +626,157 @@ runs:
 
         set-field "maven-build-project-deploy-to-repositories-yml" "${INJECTED_VAL}"
         log-multiline "resulting value of 'maven-build-project-deploy-to-repositories-yml'" "$(get-val 'maven-build-project-deploy-to-repositories-yml')"
+
+        # Handle GitHub actions cache related logic
+        DEPS_CACHE_ENABLED="$(get-val 'github-dependencies-cache-enabled')"
+        if [ ! "${DEPS_CACHE_ENABLED}" == 'true' ]; then
+          log-info "Caching of dependencies using GitHub cache is not enabled."
+        else
+          start-group "Caching of dependencies using GitHub cache is enabled. Resolving configuration ..."
+
+          # dependencies cache type
+          DEPS_CACHE_TYPE_MAVEN_APP_TYPES=(
+            'spring-boot'
+            'maven-library'
+          )
+          DEPS_CACHE_TYPE_NPM_APP_TYPES=(
+            'vue'
+          )
+          APP_TYPE="$(get-val 'application-type')"
+          if [[ " ${DEPS_CACHE_TYPE_MAVEN_APP_TYPES[*]} " =~ " ${APP_TYPE} " ]]; then
+            DEPS_CACHE_TYPE='maven'
+          elif [[ " ${DEPS_CACHE_TYPE_NPM_APP_TYPES[*]} " =~ " ${APP_TYPE} " ]]; then
+            DEPS_CACHE_TYPE='npm'
+          else
+            log-error "Dependencies caching for application type '${APP_TYPE}' has not been implemented!"
+            exit 1
+          fi
+          log-info "Application type is '${APP_TYPE}', dependencies cache type will be '${DEPS_CACHE_TYPE}'."
+
+          if [ ! "${DEPS_CACHE_TYPE}" == 'maven' ] && [ ! "${DEPS_CACHE_TYPE}" == 'npm' ]; then
+            log-error "Dependencies caching for cache type '${DEPS_CACHE_TYPE}' has not been implemented!"
+            exit 1
+          fi
+
+          # dependencies cache path
+          if [ '' == "$(get-val 'github-dependencies-cache-path')" ]; then
+            log-info "Dependencies directory 'github-dependencies-cache-path' not configured, using defaults."
+            if [ "${DEPS_CACHE_TYPE}" == 'maven' ]; then
+              DEPS_CACHE_PATH='${HOME}/.m2/repository' # single quotes to avoid env expansion
+            elif [ "${DEPS_CACHE_TYPE}" == 'npm' ]; then
+              DEPS_CACHE_PATH='${HOME}/.npm' # single quotes to avoid env expansion
+            fi
+            set-field 'github-dependencies-cache-path' "${DEPS_CACHE_PATH}"
+          fi
+          log-info "Configured to cache dependencies from directory '$(get-val "github-dependencies-cache-path")'"
+
+          # all this to decide file pattern for dependencies cache key
+          if ! has-field 'application-source-path'; then
+            log-warn "'application-source-path' not defined, using default path."
+            SRC_PATH='${GITHUB_WORKSPACE}'
+          else
+            SRC_PATH="$(realpath ${GITHUB_WORKSPACE}/$(get-val 'application-source-path'))"
+          fi
+          log-info "'application-source-path' is '${SRC_PATH}'"
+          if [ "${DEPS_CACHE_TYPE}" == 'maven' ]; then
+            if [ -f "${SRC_PATH}" ]; then
+              log-info "Cache type is '${DEPS_CACHE_TYPE}' and 'application-source-path' exists as a file, the file will be used to determine 'github-dependencies-cache-key'."
+              DEPS_CACHE_PATTERN="${SRC_PATH}"
+            else
+              if [ -d "${SRC_PATH}" ]; then
+                log-info "Cache type is '${DEPS_CACHE_TYPE}' and 'application-source-path' exists as a directory, looking for pom.xml ..."
+                POM_FILE_PATH="${SRC_PATH}/pom.xml"
+                if [ -f "${POM_FILE_PATH}" ]; then
+                  log-info "pom.xml found, using '$(ws-path "${POM_FILE_PATH}")' to determine 'github-dependencies-cache-key'."
+                  DEPS_CACHE_PATTERN="${POM_FILE_PATH}"
+                else
+                  log-info "Unable to locate pom.xml, will use default file pattern for cache type '${DEPS_CACHE_TYPE}' in '$(ws-path "${SRC_PATH}")' to determine 'github-dependencies-cache-key'."
+                  DEPS_CACHE_PATTERN="${SRC_PATH}/**/pom.xml"
+                fi
+              else
+                log-warn "'application-source-path' does not exist as directory or file, will use default file pattern for cache type '${DEPS_CACHE_TYPE}' in root of the repo to determine 'github-dependencies-cache-key'."
+                DEPS_CACHE_PATTERN="${GITHUB_WORKSPACE}/**/pom.xml"
+              fi
+            fi
+          elif [ "${DEPS_CACHE_TYPE}" == 'npm' ]; then
+            CACHE_KEY_FILE='package-lock.json'
+            if [ -d "${SRC_PATH}" ]; then
+              log-info "Cache type is '${DEPS_CACHE_TYPE}' and 'application-source-path' exists as a directory, looking for ${CACHE_KEY_FILE} ..."
+              LOCK_FILE_PATH="${SRC_PATH}/${CACHE_KEY_FILE}"
+              if [ -f "${LOCK_FILE_PATH}" ]; then
+                log-info "${CACHE_KEY_FILE} found, using '$(ws-path "${LOCK_FILE_PATH}")' to determine 'github-dependencies-cache-key'."
+                DEPS_CACHE_PATTERN="${LOCK_FILE_PATH}"
+              else
+                log-info "Unable to locate ${CACHE_KEY_FILE}, will use default file pattern for cache type '${DEPS_CACHE_TYPE}' in '$(ws-path "${SRC_PATH}")' to determine 'github-dependencies-cache-key'."
+                DEPS_CACHE_PATTERN="${SRC_PATH}/**/${CACHE_KEY_FILE}"
+              fi
+            else
+              if [ -f "${SRC_PATH}" ]; then
+                log-info "Cache type is '${DEPS_CACHE_TYPE}' and 'application-source-path' exists as a file, looking for ${CACHE_KEY_FILE} ..."
+                SRC_PATH_DIR="$(dirname "${SRC_PATH}")"
+                LOCK_FILE_PATH="${SRC_PATH_DIR}/${CACHE_KEY_FILE}"
+                if [ -f "${LOCK_FILE_PATH}" ]; then
+                  log-info "${CACHE_KEY_FILE} found, using '$(ws-path "${LOCK_FILE_PATH}")' to determine 'github-dependencies-cache-key'."
+                  DEPS_CACHE_PATTERN="${LOCK_FILE_PATH}"
+                else
+                  log-info "Unable to locate ${CACHE_KEY_FILE}, will use default file pattern for cache type '${DEPS_CACHE_TYPE}' in '$(ws-path "${SRC_PATH_DIR}")' to determine 'github-dependencies-cache-key'."
+                  DEPS_CACHE_PATTERN="${SRC_PATH_DIR}/**/${CACHE_KEY_FILE}"
+                fi
+              else
+                log-warn "'application-source-path' does not exist as directory or file, will use default file pattern for cache type '${DEPS_CACHE_TYPE}' in root of the repo to determine 'github-dependencies-cache-key'."
+                DEPS_CACHE_PATTERN="${GITHUB_WORKSPACE}/**/${CACHE_KEY_FILE}"
+              fi
+            fi
+          fi
+          log-info "File pattern '${DEPS_CACHE_PATTERN}' will be used to determine 'github-dependencies-cache-key'."
+
+          # cache keys
+          # this makes a hash of hashes, supports multiple files in case file pattern is a glob
+          CACHE_KEY_HASH_FULL="$(md5sum ${DEPS_CACHE_PATTERN} | LC_ALL=C sort | md5sum)"
+          CACHE_KEY_HASH=${CACHE_KEY_HASH_FULL::8}
+
+          log-info "Fallback base cache key format is: [os]-[cache type]-[month num]-[year num]-"
+          CACHE_KEY_OS='${{ runner.os }}'
+          CACHE_KEY_MONTH="$(date +%b)"
+          CACHE_KEY_MINIMUM="${CACHE_KEY_OS,,}-${DEPS_CACHE_TYPE}-"
+          CACHE_KEY_BASE_FALLBACK="${CACHE_KEY_MINIMUM}${CACHE_KEY_MONTH,,}-$(date +%y)-"
+          log-info "Fallback base cache key is: ${CACHE_KEY_BASE_FALLBACK}"
+
+          log-info "Base cache key format is: [os]-[cache type]-[month num]-[year num]-[hash]"
+          CACHE_KEY_BASE="${CACHE_KEY_BASE_FALLBACK}${CACHE_KEY_HASH}"
+          log-info "Base cache key is: ${CACHE_KEY_BASE}"
+
+          log-info "Fallback PR cache key format: [os]-[cache type]-pr[pr number]-"
+          CACHE_KEY_PR_FALLBACK="${CACHE_KEY_MINIMUM}pr${{ github.event.number }}-"
+          log-info "Fallback PR cache key is: ${CACHE_KEY_PR_FALLBACK}"
+
+          log-info "PR cache key format: [os]-[cache type]-pr[pr number]-[hash]"
+          CACHE_KEY_PR="${CACHE_KEY_PR_FALLBACK}${CACHE_KEY_HASH}"
+          log-info "PR cache key is: ${CACHE_KEY_PR}"
+
+          if [ '${{ github.event_name }}' == 'pull_request' ]; then
+            log-info "Running from pull request event, PR cache key will be used."
+            CACHE_KEY="${CACHE_KEY_PR}"
+          else
+            log-info "Running from non-pull request event, base cache key will be used."
+            CACHE_KEY="${CACHE_KEY_BASE}"
+          fi
+          set-field 'github-dependencies-cache-key' "${CACHE_KEY}"
+          log-field 'github-dependencies-cache-key'
+
+          # determine dependencies restore keys
+          if [ '${{ github.event_name }}' == 'pull_request' ]; then
+            log-info "Running from pull request event, PR cache keys are added to cache restore keys."
+            CACHE_RESTORE_KEYS="$(printf '%s\n' ${CACHE_KEY_PR} ${CACHE_KEY_PR_FALLBACK} ${CACHE_KEY_BASE} ${CACHE_KEY_BASE_FALLBACK} ${CACHE_KEY_MINIMUM})"
+          else
+            log-info "Not Running from pull request, PR cache keys are not added to cache restore keys."
+            CACHE_RESTORE_KEYS="$(printf '%s\n' ${CACHE_KEY_BASE} ${CACHE_KEY_BASE_FALLBACK})"
+          fi
+          set-field 'github-dependencies-cache-restore-keys' "${CACHE_RESTORE_KEYS}"
+          log-field 'github-dependencies-cache-restore-keys'
+
+          end-group # Caching of dependencies
+        fi # end dependencies enabled == true
 
         # Generated fields, not possible to override from app vars
         IMAGE_ID="$(get-val 'docker-image-registry')/$(get-val 'docker-image-repo')/$(get-val 'application-image-name')"
