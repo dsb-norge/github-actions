@@ -50,7 +50,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: 🗑 Prune maven artifacts
+      - name: "🗑 Prune: 📦 maven artifacts"
         id: prune-artifacts
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
         uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v2
