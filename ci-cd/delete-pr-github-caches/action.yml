@@ -1,0 +1,96 @@
+name: "Delete GitHub caches created from a PR branch"
+description: |
+  This action deletes all GitHub caches created from a PR branch.
+  This is to force deletion of caches overriding default cache eviction policy.
+  Due to branch scope restrictions of GitHub caches, caches created from a non-default branch are not available
+  from other branches, so we might as well delete them when the PR branch is merged to ensure default branch is
+  not thrashing.
+
+  The action does not accept any inputs.
+  This action will fail if not called from a 'pull_request' event with 'closed' action.
+
+  Overriding default cache eviction policy:
+    https://github.com/actions/cache/blob/704facf57e6136b1bc63b828d79edcd491f0ee84/tips-and-workarounds.md#force-deletion-of-caches-overriding-default-cache-eviction-policy
+  Branch scope restriction:
+    https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#restrictions-for-accessing-a-cache
+
+author: "Peder Schmedling"
+runs:
+  using: "composite"
+  steps:
+    - id: check-prereqs
+      shell: bash
+      run: |
+        # Check if triggered by pull request event with close action, and if GitHub CLI is available
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        log-info "Check prerequisite: pull request event ..."
+        if [ '${{ github.event_name }}' == 'closed' ]; then
+          log-info "GitHub event name is '${{ github.event_name }}'."
+        else
+          log-error "GitHub event name is '${{ github.event_name }}', this action should only be called by pull request events!"
+          exit 1
+        fi
+
+        log-info "Check prerequisite: pull request close action ..."
+        if [ '${{ github.event.action }}' == 'closed' ]; then
+          log-info "GitHub event action is '${{ github.event.action }}'."
+        else
+          log-error "GitHub event action is '${{ github.event.action }}', this action should only be called by a PR closing action!"
+          exit 1
+        fi
+
+        start-group "Check prerequisite: GitHub CLI"
+        CMD_TO_CHECK='gh --version'
+        if ! command -v ${CMD_TO_CHECK} &>/dev/null; then
+          log-error "GitHub CLI is not available on path, please install it!"
+          exit 1
+        else
+          log-info "using $(${CMD_TO_CHECK})"
+        fi
+        end-group
+
+    - id: delete-caches
+      shell: bash
+      run: |
+        # Query caches and delete
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        log-info "Installing the 'gh-actions-cache' GitHub CLI extension ..."
+        gh extension install actions/gh-actions-cache
+
+        CALLING_REPO='${{ github.repository }}'
+        CALLING_BRANCH='refs/pull/${{ github.event.pull_request.number }}/merge'
+
+        log-info "Action called from repo '${CALLING_REPO}'."
+        log-info "Action called from branch '${CALLING_BRANCH}'."
+
+        log-info "Fetching list of caches ..."
+        CACHE_IDS="$(gh actions-cache list -R "${CALLING_REPO}" -B "${CALLING_BRANCH}" | cut -f 1)"
+
+        # delete and summarize
+        if [ '' == "${CACHE_IDS}" ]; then
+          log-info "No caches found."
+        else
+          declare -A DELETE_RESULTS
+          CACHE_COUNT="$(echo "${CACHE_IDS}" | wc -l)"
+          start-group "Deleting ${CACHE_COUNT} cache(s) ..."
+          for CACHE_ID in ${CACHE_IDS}; do
+            set +e
+            gh actions-cache delete "${CACHE_ID}" -R "${CALLING_REPO}" -B "${CALLING_BRANCH}" --confirm
+            DELETE_RESULTS["${CACHE_ID}"]=${?}
+            set -e
+          done
+          end-group
+
+          log-info "Summary:"
+          for CACHE_ID in ${CACHE_IDS}; do
+            log-info "  - $([[ ${DELETE_RESULTS["${CACHE_ID}"]} -ne 0 ]] && echo 'failure ->' || echo 'success ->') ${CACHE_ID}"
+          done
+
+          # exit code
+          SUM_EXIT_CODES=$(IFS=+; echo "$((${DELETE_RESULTS[*]}))")
+          exit ${SUM_EXIT_CODES}
+        fi

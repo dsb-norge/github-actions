@@ -133,6 +133,15 @@ jobs:
           pr-deploy-aks-creds: ${{ secrets.ORG_AZURE_DEV_AKS_CONTRIBUTOR_SERVICE_PRINCIPAL }}
           acr-service-principal: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_SERVICE_PRINCIPAL }}
 
+      - name: "🔄 Restore 📚 build dependencies cache"
+        id: cache-restore
+        # Skip step when closing a PR, and only run when deps cache is enabled
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
+        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@v2
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build
@@ -192,6 +201,18 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
+      - name: "💾 Save 📚 build dependencies cache"
+        id: cache-save
+        # Skip step when closing a PR, only run when deps cache is enabled, and skip if cache already exists (aka. cache-hit)
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
+          && steps.cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v3
+        with:
+          path: ${{ steps.cache-restore.outputs.cache-normalized-path }} # use the expanded and normalized path
+          key: ${{ fromJSON(steps.build-env.outputs.json).github-dependencies-cache-key }}
+
       - name: "🐙 Deploy: 🌍 to ephemeral PR environment"
         id: ephemeral-deploy
         # Run step when:
@@ -236,6 +257,19 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🗑 Delete: 📚 PR build dependencies caches"
+        id: cache-delete
+        # Step only runs when closing a PR
+        # Step runs even if previous steps have failed
+        # Step only runs when dependencies cache is enabled
+        # Step only runs when deletion of PR dependencies caches is enabled
+        if: |
+          github.event_name == 'pull_request' && github.event.action == 'closed'
+          && always()
+          && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
+          && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-delete-on-pr-close
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@v2
 
   deploy-to-static:
     name: Deploy app(s) to static environments
