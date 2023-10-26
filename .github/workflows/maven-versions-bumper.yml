@@ -37,11 +37,11 @@ jobs:
         id: clean
         uses: dsb-norge/github-actions/directory-recreate@v2
 
-      - name: ⬇ Checkout working branch
+      - name: "⬇ Checkout working branch"
         id: checkout
         uses: actions/checkout@v3
 
-      - name: 🎰 Create app vars build matrix
+      - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
         uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2
         with:
@@ -62,11 +62,11 @@ jobs:
         id: clean
         uses: dsb-norge/github-actions/directory-recreate@v2
 
-      - name: ⬇ Checkout working branch
+      - name: "⬇ Checkout working branch"
         id: checkout
         uses: actions/checkout@v3
 
-      - name: 🎰 Generate DSB build variables
+      - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
         uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
         with:
@@ -75,7 +75,7 @@ jobs:
           secrets-json: ${{ toJSON(secrets) }}
           vars-json: ${{ toJSON(vars) }}
 
-      - name: "⚒ Spring Boot app: Run Maven command"
+      - name: "🍃 Spring Boot app: ⌨️ Run Maven command"
         id: maven-bump
         # only run for spring-boot apps
         if: matrix.app-vars.application-type == 'spring-boot'
@@ -85,14 +85,14 @@ jobs:
           goals: versions:update-properties versions:update-parent
           arguments: -DgenerateBackupPoms=false
 
-      - name: 🧹 Remove build info (so it won't be committed)
+      - name: "🧹 Remove build info (so it won't be committed)"
         id: rm-build-info
         # only if maven command was not skipped and completed successfully
         if: steps.maven-bump.outcome == 'success'
         run: |
           rm -rf _create-build-envs
 
-      - name: 🔑 Obtain GitHub app installation access token
+      - name: "🔑 Obtain GitHub app installation access token for the bumper app"
         id: auth
         # only if maven command was not skipped and completed successfully
         if: steps.maven-bump.outcome == 'success'
@@ -103,7 +103,7 @@ jobs:
           github-app-private-key: "${{ secrets.ORG_MAVEN_BUMPER_APP_PRIVATE_KEY }}"
           token-request-body: '{"repository":"${{ github.repository }}","permissions":{"contents":"write","pull_requests":"write"}}'
 
-      - name: 🌱 Commit to new branch (or update existing) & create pull request
+      - name: "🌱 Commit to new branch (or update existing) & create pull request"
         id: create-pr
         # only if maven command was not skipped and completed successfully
         if: steps.maven-bump.outcome == 'success'

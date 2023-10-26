@@ -79,10 +79,10 @@ jobs:
         id: clean
         uses: dsb-norge/github-actions/directory-recreate@v2
 
-      - name: ⬇ Checkout working branch
+      - name: "⬇ Checkout working branch"
         uses: actions/checkout@v3
 
-      - name: 🎰 Create app vars build matrix
+      - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
         uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2
         with:
@@ -103,12 +103,12 @@ jobs:
         id: clean
         uses: dsb-norge/github-actions/directory-recreate@v2
 
-      - name: ⬇ Checkout working branch
+      - name: "⬇ Checkout working branch"
         id: checkout
         uses: actions/checkout@v3
 
       # need this to have access to the configuration repo of the application
-      - name: 🔑 Obtain GitHub app installation access token for the CI/CD app
+      - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
         id: auth
         uses: dsb-norge/github-actions/get-github-app-installation-token@v2
         with:
@@ -116,7 +116,7 @@ jobs:
           github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
           github-app-private-key: "${{ secrets.ORG_CICD_APP_PRIVATE_KEY }}"
 
-      - name: 🎰 Generate DSB build variables
+      - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
         uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
         with:
@@ -133,7 +133,8 @@ jobs:
           pr-deploy-aks-creds: ${{ secrets.ORG_AZURE_DEV_AKS_CONTRIBUTOR_SERVICE_PRINCIPAL }}
           acr-service-principal: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_SERVICE_PRINCIPAL }}
 
-      - name: "⚒ Spring Boot app: Build and analyze with Maven"
+
+      - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build
         # Skip step when closing a PR, and only run for spring-boot apps
         if: |
@@ -143,7 +144,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: "🐳 Spring Boot app: Build, tag and push docker image"
+      - name: "🍃 Spring Boot app: 🐳 Build, tag and push docker image"
         id: maven-docker-build
         # Run step when:
         #   - app is spring-boot
@@ -162,7 +163,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: "⚒ Vue.js app: Build and test with npm"
+      - name: "🌐 Vue.js app: ⚒ Build and test with npm"
         id: npm-build
         # Skip step when closing a PR, and only run for vue apps
         if: |
@@ -172,7 +173,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: "🐳 Vue.js app: Build, tag and push docker image for vue"
+      - name: "🌐 Vue.js app: 🐳 Build, tag and push docker image for vue"
         id: npm-docker-build
         # Run step when:
         #   - app is vue
@@ -191,7 +192,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: 🐙 Deploy to ephemeral PR environment
+      - name: "🐙 Deploy: 🌍 to ephemeral PR environment"
         id: ephemeral-deploy
         # Run step when:
         #   - on PR
@@ -206,7 +207,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: 🗑 Teardown of ephemeral PR environment
+      - name: "🗑 Teardown: 🌍 of ephemeral PR environment"
         id: ephemeral-teardown
         # Step only runs when closing a PR
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
@@ -214,7 +215,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: 🗑 Prune application docker images from ACR
+      - name: "🗑 Prune: 🐳 application docker images from ACR"
         id: prune-images
         # Run step when:
         #   - push or manual on default branch or when specifically allowing deploy from non-default branch
@@ -227,7 +228,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: 🗑 Delete PR docker images from ACR
+      - name: "🗑 Delete: 🐳 PR docker images from ACR"
         id: delete-pr-images
         # Step only runs when closing a PR
         # Step runs even if previous steps have failed, with the exception of 'build-env' which is required
@@ -252,17 +253,17 @@ jobs:
         id: clean
         uses: dsb-norge/github-actions/directory-recreate@v2
 
-      - name: ⬇ Checkout working branch
+      - name: "⬇ Checkout working branch"
         id: checkout
         uses: actions/checkout@v3
 
-      - name: 💾 Read build-envs from matrix job(s)
+      - name: "💾 Read build-envs from matrix job(s)"
         id: read-build-envs
         uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v2
         with:
           build-envs-artifact-name: build-envs-${{ needs.create-matrix.outputs.applications-version }}
 
-      - name: ✔ Check if deploy is allowed from calling branch
+      - name: "✔ Check if deploy is allowed from calling branch"
         id: deploy-static-check
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
         uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@v2
@@ -270,7 +271,7 @@ jobs:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
 
       # need this to have access to the configuration repo(s) of the application(s)
-      - name: 🔑 Obtain GitHub app installation access token for the CI/CD app
+      - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
         id: auth
         # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
@@ -280,7 +281,7 @@ jobs:
           github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
           github-app-private-key: "${{ secrets.ORG_CICD_APP_PRIVATE_KEY }}"
 
-      - name: 🐙 Deploy apps to static environment(s)
+      - name: "🐙 Deploy: 🌍 apps to static environment(s)"
         id: static-deploy
         # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
@@ -289,7 +290,7 @@ jobs:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
           app-config-repo-token: ${{ steps.auth.outputs.github-token }}
 
-      - name: 🏷️ Tag current git commit with application version
+      - name: "🏷️ Tag current git commit with application version"
         id: version-tag
         # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
@@ -318,7 +319,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: 🗑 Prune maven artifacts
+      - name: "🗑 Prune: 📦 maven artifacts"
         id: prune-artifacts
         uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v2
         with:
@@ -335,7 +336,8 @@ jobs:
   ci-cd-conclusion:
     if: always()
     name: ci-cd-conclusion
-    needs: [create-matrix, build-deploy, deploy-to-static, prune-maven-artifacts]
+    needs:
+      [create-matrix, build-deploy, deploy-to-static, prune-maven-artifacts]
     runs-on: ubuntu-latest # no need to schedule this on our own runners
     defaults:
       run:
