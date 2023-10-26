@@ -13,11 +13,11 @@ action_def_file="${this_script_dir}/action.yml"
 source "${this_script_dir}/test_action_source_helpers.sh"
 
 if [ "${1-}" == "clean" ]; then
-  del_files=$(find "${this_script_dir}" -name '_*' -print | sort)
+  del_files="$(find "${this_script_dir}" -name '_*' -print | sort)"
   if [ ! -z "${del_files}" ]; then
     echo "deleting these:"
-    echo "${del_files}" | xargs realpath --relative-to=$(pwd)
-    echo "${del_files}" | xargs rm
+    echo "${del_files}" | xargs -I {} realpath --relative-to=$(pwd) "{}"
+    echo "${del_files}" | xargs -I {} rm "{}"
   else
     echo "nothing to delete"
   fi

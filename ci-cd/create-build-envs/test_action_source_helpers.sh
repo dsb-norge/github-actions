@@ -148,16 +148,50 @@ test_action() {
     # the source code for the step will be written to this file
     step_src_file="${this_script_dir}/_${i}_${step_id}.sh"
 
+    # default var values
+    GITHUB_ACTION_PATH="${this_script_dir}"
+    GITHUB_ACTION=${step_id}
+    GITHUB_EVENT_NAME=push
+    GITHUB_HEAD_REF=headRefSha
+    GITHUB_OUTPUT="${this_script_dir}/_${step_id}.sh.out"
+    GITHUB_REF_NAME=refs/pull/999/merge
+    GITHUB_REPOSITORY=my-org/my-repo
+    GITHUB_RUN_ID='123'
+    GITHUB_SERVER_URL=https://github.com
+    GITHUB_SHA='somRandomShaString'
+    GITHUB_WORKSPACE=.
+    RUNNER_OS=Linux
+
+    # custom vars for step 'build-env'
+    GH_EVENT_NUMBER=999
+    GH_TOKEN='theGitHubToken'
+    CONFIG_BRANCH_REF=someOtherRepo/SomeOtherBranch
+
     # add some init code
     cat <<EOF >"${step_src_file}"
 #!/bin/env bash
 set -euo pipefail
 __dirname="${this_script_dir}"
-GITHUB_ACTION_PATH="${this_script_dir}"
-GITHUB_OUTPUT="${this_script_dir}/_${step_id}.sh.out"
-GITHUB_RUN_ID='123'
-GITHUB_ACTION=${step_id}
-_GITHUB_EVENT_NAME=push
+
+# defaults
+GITHUB_ACTION_PATH=${GITHUB_ACTION_PATH}
+GITHUB_ACTION=${GITHUB_ACTION}
+GITHUB_EVENT_NAME=${GITHUB_EVENT_NAME}
+GITHUB_HEAD_REF=${GITHUB_HEAD_REF}
+GITHUB_OUTPUT=${GITHUB_OUTPUT}
+GITHUB_REF_NAME=${GITHUB_REF_NAME}
+GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+GITHUB_RUN_ID=${GITHUB_RUN_ID}
+GITHUB_SERVER_URL=${GITHUB_SERVER_URL}
+GITHUB_SHA=${GITHUB_SHA}
+GITHUB_WORKSPACE=${GITHUB_WORKSPACE}
+RUNNER_OS=${RUNNER_OS}
+
+# custom for step 'build-env'
+GH_EVENT_NUMBER=${GH_EVENT_NUMBER}
+GH_TOKEN=${GH_TOKEN}
+CONFIG_BRANCH_REF=${CONFIG_BRANCH_REF}
+
 echo "" > \$GITHUB_OUTPUT
 
 EOF
@@ -251,21 +285,25 @@ OEOF
 
     # fix actions output in step source
     sed -i "s/echo 'json<</# echo 'app-vars<</g" "${step_src_file}"
-    sed -i "s/echo '\"\${{ github\.run_id/# echo '\"\${{ github\.run_id/g" "${step_src_file}"
+    sed -i "s/echo '\"\${{ github\.run_id/\${GITHUB_RUN_ID}/g" "${step_src_file}"
     sed -i "s/echo \"json-without-secrets-path=/# echo \"json-without-secrets-path=/g" "${step_src_file}"
     sed -i "s/echo \"build-envs-artifact-name=/# echo \"build-envs-artifact-name=/g" "${step_src_file}"
 
     # replace github action vars
-    sed -i "s/\${{ github\.event\.number }}/9999/g" "${step_src_file}"
-    sed -i "s/'\${{ github\.event_name }}'/"\${_GITHUB_EVENT_NAME}"/g" "${step_src_file}"
-    sed -i "s/\${{ github\.event_name }}/\${_GITHUB_EVENT_NAME}/g" "${step_src_file}"
-    sed -i "s/\${{ github\.server_url }}/https:\/\/github.com/g" "${step_src_file}"
-    sed -i "s/\${{ github\.ref_name }}/the-calling-branch/g" "${step_src_file}"
-    sed -i "s/\${{ github\.repository }}/calling-owner\/calling-repo/g" "${step_src_file}"
+    function sed-escape { printf '%s\n' "${1}" | sed 's,[\/],\\\/,g' ; }
+    sed -i "s/\${{ github\.event\.number }}/$(sed-escape ${GH_EVENT_NUMBER})/g" "${step_src_file}"
+    sed -i "s/\${{ github\.event_name }}/$(sed-escape ${GITHUB_EVENT_NAME})/g" "${step_src_file}"
+    sed -i "s/\${{ github\.server_url }}/$(sed-escape ${GITHUB_SERVER_URL})/g" "${step_src_file}"
+    sed -i "s/\${{ github\.ref_name }}/$(sed-escape ${GITHUB_REF_NAME})/g" "${step_src_file}"
+    sed -i "s/\${{ github\.repository }}/$(sed-escape ${GITHUB_REPOSITORY})/g" "${step_src_file}"
     sed -i "s/\${{ github\.action_path }}/\${__dirname}/g" "${step_src_file}"
-    sed -i "s/\${{ github\.sha }}/randomSha/g" "${step_src_file}"
-    sed -i "s/\${{ github\.head_ref }}/headRefSha/g" "${step_src_file}"
-    sed -i "s/\${{ runner\.os }}/Linux/g" "${step_src_file}"
+    sed -i "s/\${{ github\.sha }}/$(sed-escape ${GITHUB_SHA})/g" "${step_src_file}"
+    sed -i "s/\${{ github\.token }}/$(sed-escape ${GH_TOKEN})/g" "${step_src_file}"
+    sed -i "s/\${{ github\.head_ref }}/$(sed-escape ${GITHUB_HEAD_REF})/g" "${step_src_file}"
+    sed -i "s/\${{ runner\.os }}/$(sed-escape ${RUNNER_OS})/g" "${step_src_file}"
+
+    # custom for step 'build-env'
+    sed -i "s/\${{ steps\.checkout-config-branch\.outputs\.ref }}/$(sed-escape ${CONFIG_BRANCH_REF})/g" "${step_src_file}"
 
     # prevent curling to github
     sed -i "s/REPO_DEFAULT_BRANCH=/REPO_DEFAULT_BRANCH='main' # REPO_DEFAULT_BRANCH=/g" "${step_src_file}"
@@ -273,9 +311,6 @@ OEOF
     # control path of output file
     out_json_file=$(echo "${this_script_dir}/_${step_id}.OUT_JSON_FILE.out" | sed 's,[\/&],\\&,g;s/$/\\/')
     sed -i "s/OUT_JSON_FILE=/OUT_JSON_FILE='${out_json_file}' # OUT_JSON_FILE=/g" "${step_src_file}"
-
-    # remove some debug
-    sed -i "s/echo \"\${DEBUG_VARS_JSON/# echo \"\${DEBUG_VARS_JSON/g" "${step_src_file}"
 
     # DEBUG
     # exit 1
