@@ -1,0 +1,70 @@
+name: "Restore build dependencies cache from GitHub cache"
+description: |
+  Restores build dependencies cache from GitHub cache.
+  Given a path, cache key and cache restore keys this will attempt to restore a cache.
+  Before restore the given path is wiped clean.
+  If the cache identified by the given cache key does not exist, the given cache restore keys will be used to look for other caches to restore.
+  If the cache identified by the given cache key exist, the output 'cache-hit' is set to 'true'
+author: "Peder Schmedling"
+inputs:
+  dsb-build-envs:
+    description: |
+      DSB build environment variables JSON.
+      Required fields:
+        See first step.
+      Optional fields:
+        None.
+    required: true
+outputs:
+  cache-hit:
+    description: A boolean value to indicate an exact match was found for the key.
+    value: ${{ steps.cache-restore.outputs.cache-hit }}
+  cache-normalized-path:
+    description: |
+      The path to where the cache potentially is restored.
+      This is the input 'github-dependencies-cache-path' normalized and with environment variables expanded.
+    value: ${{ steps.resolve-path.outputs.cache-abs-path }}
+runs:
+  using: "composite"
+  steps:
+    # we need to verify inputs since they are optional input to create-build-envs action
+    - id: check-input
+      uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+      with:
+        dsb-build-envs: ${{ inputs.dsb-build-envs }}
+        require: |
+          github-dependencies-cache-key
+          github-dependencies-cache-path
+          github-dependencies-cache-restore-keys
+
+    - id: resolve-path
+      shell: bash
+      env:
+        INPUT_PATH: ${{ fromJSON(inputs.dsb-build-envs).github-dependencies-cache-path }}
+      run: |
+        # resolve and sanitize cache path
+
+        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+
+        # path string may contain environment variables, this expands those known
+        log-info "Configured 'github-dependencies-cache-path': '${INPUT_PATH}'"
+        EXPAND_PATH="$(eval echo ${INPUT_PATH})"
+        log-info "Cache path after expanding environment variables: '${EXPAND_PATH}'"
+
+        # normalize the path, ex. removes extra '..' and '.'
+        ABS_PATH="$(readlink --canonicalize-missing ${EXPAND_PATH})"
+        log-info "Cache path after normalizing: '${ABS_PATH}'"
+
+        set-output 'cache-abs-path' "${ABS_PATH}"
+
+    - id: recreate-dir
+      uses: dsb-norge/github-actions/directory-recreate@v2
+      with:
+        directory: ${{ steps.resolve-path.outputs.cache-abs-path }}
+
+    - id: cache-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: ${{ steps.resolve-path.outputs.cache-abs-path }}
+        key: ${{ fromJSON(inputs.dsb-build-envs).github-dependencies-cache-key }}
+        restore-keys: ${{ fromJSON(inputs.dsb-build-envs).github-dependencies-cache-restore-keys }}
