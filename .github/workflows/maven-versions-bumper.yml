@@ -75,16 +75,6 @@ jobs:
           secrets-json: ${{ toJSON(secrets) }}
           vars-json: ${{ toJSON(vars) }}
 
-      - name: "🔄 Restore 📚 build dependencies cache"
-        id: cache-restore
-        # Skip step when closing a PR, and only run when deps cache is enabled
-        if: |
-          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
-          && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
-        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@v2
-        with:
-          dsb-build-envs: ${{ steps.build-env.outputs.json }}
-
       - name: "🍃 Spring Boot app: ⌨️ Run Maven command"
         id: maven-bump
         # only run for spring-boot apps
@@ -94,18 +84,6 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
           goals: versions:update-properties versions:update-parent
           arguments: -DgenerateBackupPoms=false
-
-      - name: "💾 Save 📚 build dependencies cache"
-        id: cache-save
-        # Skip step when closing a PR, only run when deps cache is enabled, and skip if cache already exists (aka. cache-hit)
-        if: |
-          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
-          && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
-          && steps.cache-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v3
-        with:
-          path: ${{ steps.cache-restore.outputs.cache-normalized-path }} # use the expanded and normalized path
-          key: ${{ fromJSON(steps.build-env.outputs.json).github-dependencies-cache-key }}
 
       - name: "🧹 Remove build info (so it won't be committed)"
         id: rm-build-info
