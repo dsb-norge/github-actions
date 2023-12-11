@@ -31,7 +31,7 @@ description: |
       - And 'maven-build-project-command' is defined in 'dsb-build-envs', this will be used (replaces the whole maven invocation command).
       - And 'maven-build-project-command' is NOT defined in 'dsb-build-envs':
         - And 'maven-build-project-goals' is defined in 'dsb-build-envs', goals from 'maven-build-project-goals' will be used. Otherwise
-          default goals will be used: 'clean verify install org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'.
+          default goals will be used: 'clean install org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'.
         - And 'maven-build-project-arguments' is defined in 'dsb-build-envs', arguments from 'maven-build-project-arguments' will be used.
           Otherwise default argument will be used: '-B'.
         - The pom file used will be the one defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing
