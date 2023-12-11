@@ -154,7 +154,7 @@ runs:
         MVN_VERSION_ARGUMENTS_DEFAULT='-B'
         MVN_VERSION_GOALS_DEFAULT='versions:set'
         MVN_ARGUMENTS_DEFAULT='-B'
-        MVN_GOALS_DEFAULT='clean verify install org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'
+        MVN_GOALS_DEFAULT='clean install org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'
 
         # Locate pom.xml
         POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
