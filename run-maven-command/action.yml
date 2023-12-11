@@ -5,7 +5,7 @@ description: |
   Required inputs:
     - 'dsb-build-envs': JSON structure. Field 'application-source-path' should point to the pom.xml to use, or to a directory containing it.
   Optional inputs:
-    - 'goals': list of goals to run. Defaults to 'clean verify install'.
+    - 'goals': list of goals to run. Defaults to 'clean install'.
     - 'arguments': list of arguments, e.g. '-DskipTests'
   The resulting maven invocation command is: mvn <arguments> --file <pom file> <goals>
 inputs:
@@ -18,7 +18,7 @@ inputs:
   goals:
     description: "Override goals to run when invoking maven."
     required: false
-    default: "clean verify install"
+    default: "clean install"
   arguments:
     description: "Set arguments to use when invoking maven."
     required: false
