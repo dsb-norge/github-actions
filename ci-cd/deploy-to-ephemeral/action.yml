@@ -53,18 +53,23 @@ runs:
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
-        ROOT_DIR=./_pr-deploy
-        PREVIEW_DIR="${ROOT_DIR}/preview"
-        APPS_DIR="${ROOT_DIR}/apps"
+        CFG_ROOT_DIR=./_pr-deploy
+        PREVIEW_DIR="${CFG_ROOT_DIR}/preview"
+        PREVIEW_VALUES_FILE="${PREVIEW_DIR}/values.yaml"
+        APPS_DIR="${CFG_ROOT_DIR}/apps"
         ENV_DIR="${APPS_DIR}/dev"
 
         EXIT_CODE=0
-        if [ ! -d "${ROOT_DIR}" ]; then
-          log-error "Unable to find config repo root directory '${ROOT_DIR}' after checkout!"
+        if [ ! -d "${CFG_ROOT_DIR}" ]; then
+          log-error "Unable to find config repo root directory '${CFG_ROOT_DIR}' after checkout!"
           EXIT_CODE=1
         fi
         if [ ! -d "${PREVIEW_DIR}" ]; then
           log-error "Unable to find preview chart directory '${PREVIEW_DIR}' within config repo!"
+          EXIT_CODE=1
+        fi
+        if [ ! -f "${PREVIEW_VALUES_FILE}" ]; then
+          log-error "Unable to find values.yaml in preview chart directory '${PREVIEW_DIR}' within config repo!"
           EXIT_CODE=1
         fi
         if [ ! -d "${APPS_DIR}" ]; then
@@ -76,29 +81,49 @@ runs:
           EXIT_CODE=1
         fi
 
+        set-output 'config-repo-root-dir' "${CFG_ROOT_DIR}"
+        set-output 'pr-chart-dir' "${PREVIEW_DIR}"
+        set-output 'pr-chart-values-file-path' "${PREVIEW_VALUES_FILE}"
+
         exit ${EXIT_CODE}
 
     # test for additional Helm values and save to file
     - id: helm-values
       shell: bash
+      env:
+        CFG_ROOT_DIR: "${{ steps.check-dir-tree.outputs.config-repo-root-dir }}"
       run: |
         # Save pr-deploy-additional-helm-values to file if defined
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
-        start-group "additional helm value overrides"
-        VALUES_FILE=./_pr-deploy/pr-deploy-additional-helm-values.yml
-        log-info "Writing to file: ${VALUES_FILE}"
-        tee ${VALUES_FILE} <<'EOF'
+        # create output file
+        VALUES_FILE_OUT="${CFG_ROOT_DIR}/pr-deploy-additional-helm-values.yml"
+        echo "" > "${VALUES_FILE_OUT}"
+
+        start-group "additional helm value overrides supplied"
+        VALUES_IN_FILE="${CFG_ROOT_DIR}/overrides-supplied.yml"
+        log-info "Writing to file: ${VALUES_IN_FILE}"
+        tee ${VALUES_IN_FILE} <<'EOF'
         ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-additional-helm-values }}
         EOF
         end-group
 
-        if [ -z "$(cat ${VALUES_FILE})" ]; then
-          set-output 'commandline-parameter' ''
-        else
-          set-output 'commandline-parameter' "--values ${VALUES_FILE}"
+        if [ ! -z "$(cat ${VALUES_IN_FILE})" ]; then
+          # this parsing makes us able to support both flat and nested yaml,
+          # and ensures that the helm value overrides file is always valid helm values yaml syntax
+          log-info "Parsing helm value overrides ..."
+          PARSED_YAML=$(format-helm-value-overrides "${VALUES_IN_FILE}")
+          log-info "Done."
+
+          start-group "write parsed helm value overrides to file"
+          log-info "Writing to file: ${VALUES_FILE_OUT}"
+          echo "${PARSED_YAML}" | tee "${VALUES_FILE_OUT}"
+          end-group
         fi
+        rm --force "${VALUES_IN_FILE}" || :
+
+        set-output 'overrides-file-path' "${VALUES_FILE_OUT}"
 
     - uses: azure/login@v1
       with:
@@ -113,6 +138,8 @@ runs:
 
     - id: helm-install
       shell: bash
+      env:
+        PREVIEW_DIR: "${{ steps.check-dir-tree.outputs.pr-chart-dir }}"
       run: |
         # Perform Helm install with additional helm values if any
 
@@ -123,16 +150,16 @@ runs:
           --create-namespace \
           --namespace ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-namespace }} \
           --set application=${{ fromJSON(inputs.dsb-build-envs).application-name }} \
-          --set parameters.dsb-spring-boot\\.image=${{ fromJSON(inputs.dsb-build-envs).application-image-id }} \
-          --set parameters.dsb-spring-boot\\.tag=${{ fromJSON(inputs.dsb-build-envs).application-version }} \
-          --set parameters.dsb-nginx-frontend\\.image=${{ fromJSON(inputs.dsb-build-envs).application-image-id }} \
-          --set parameters.dsb-nginx-frontend\\.tag=${{ fromJSON(inputs.dsb-build-envs).application-version }} \
-          --set parameters.dsb-spring-boot-job\\.image=${{ fromJSON(inputs.dsb-build-envs).application-image-id }} \
-          --set parameters.dsb-spring-boot-job\\.tag=${{ fromJSON(inputs.dsb-build-envs).application-version }} \
+          --set helmValues.dsb-spring-boot.image=${{ fromJSON(inputs.dsb-build-envs).application-image-id }} \
+          --set helmValues.dsb-spring-boot.tag=${{ fromJSON(inputs.dsb-build-envs).application-version }} \
+          --set helmValues.dsb-nginx-frontend.image=${{ fromJSON(inputs.dsb-build-envs).application-image-id }} \
+          --set helmValues.dsb-nginx-frontend.tag=${{ fromJSON(inputs.dsb-build-envs).application-version }} \
+          --set helmValues.dsb-spring-boot-job.image=${{ fromJSON(inputs.dsb-build-envs).application-image-id }} \
+          --set helmValues.dsb-spring-boot-job.tag=${{ fromJSON(inputs.dsb-build-envs).application-version }} \
           --set gitTargetRevision=${{ fromJSON(inputs.dsb-build-envs).pr-deploy-app-config-branch }} \
-          ${{ steps.helm-values.outputs.commandline-parameter }} \
+          --values '${{ steps.helm-values.outputs.overrides-file-path }}' \
           ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-k8s-application-name }} \
-          ./_pr-deploy/preview/
+          ${PREVIEW_DIR}/
         end-group
 
     # create comment to be added to PR
