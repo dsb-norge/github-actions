@@ -21,7 +21,8 @@ runs:
   using: "composite"
   steps:
     # verify required inputs exists for all apps
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    # TODO revert to @v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@newfeat
       with:
         dsb-build-envs-array: ${{ inputs.dsb-build-envs-array }}
         require: |

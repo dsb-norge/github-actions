@@ -27,7 +27,8 @@ runs:
   steps:
     # we need to verify inputs since they are optional input to create-build-envs action
     - id: check-input
-      uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+      # TODO revert to @v2
+      uses: dsb-norge/github-actions/ci-cd/require-build-envs@newfeat
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
