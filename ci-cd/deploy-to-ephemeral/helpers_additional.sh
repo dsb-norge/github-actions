@@ -191,6 +191,8 @@ function convert-from-flat-keys-with-array-to-nested {
 }
 
 # convert JSON file to YAML file using yq
+# replace all occurances of '\$' with '$' in all string values
+# replace all occurances of '\{' with '{' in all string values
 # style all string values as single-quoted
 # all keys with dot in key name as double-quoted (default behavior of yq)
 function convert-helm-value-params-overrides-json-to-yaml {
@@ -199,10 +201,18 @@ function convert-helm-value-params-overrides-json-to-yaml {
   outFile=$(mktemp)
   # shellcheck disable=SC2016
   yq '
-    (
+      (
+        .. |
+        select(tag == "!!str")
+      ) |= sub("\\\{"; "{") |
+      (
+        .. |
+        select(tag == "!!str")
+      ) |= sub("\\\$"; "$") |
+      (
       .. |
       select(tag == "!!str")
-    ) style="single"
+      ) style="single"
     ' --input-format json --output-format yaml "${inFile}" >"${outFile}"
   echo "${outFile}"
 }
@@ -318,6 +328,9 @@ function format-helm-value-overrides {
   fixedParamsJsonFile=$(convert-from-flat-keys-with-array-to-nested "${nestedParamsJsonFile}" "${flatArraysList}")
 
   # convert JSON file back to YAML file
+  # style all string values as single-quoted
+  # replace all occurances of '\$' with '$' in all string values
+  # replace all occurances of '\{' with '{' in all string values
   fixedParamsYamlFile=$(convert-helm-value-params-overrides-json-to-yaml "${fixedParamsJsonFile}")
 
   # merge modified YAML file into original YAML file
