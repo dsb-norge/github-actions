@@ -97,11 +97,11 @@ runs:
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
-        # create output file
+        # create empty output file
         VALUES_FILE_OUT="${CFG_ROOT_DIR}/pr-deploy-additional-helm-values.yml"
         echo "" > "${VALUES_FILE_OUT}"
 
-        start-group "additional helm value overrides supplied"
+        start-group "additional helm value overrides"
         VALUES_IN_FILE="${CFG_ROOT_DIR}/overrides-supplied.yml"
         log-info "Writing to file: ${VALUES_IN_FILE}"
         tee ${VALUES_IN_FILE} <<'EOF'
@@ -112,9 +112,9 @@ runs:
         if [ ! -z "$(cat ${VALUES_IN_FILE})" ]; then
           # this parsing makes us able to support both flat and nested yaml,
           # and ensures that the helm value overrides file is always valid helm values yaml syntax
-          log-info "Parsing helm value overrides ..."
+          log-info "parsing helm value overrides ..."
           PARSED_YAML=$(format-helm-value-overrides "${VALUES_IN_FILE}")
-          log-info "Done."
+          log-info "done."
 
           start-group "write parsed helm value overrides to file"
           log-info "Writing to file: ${VALUES_FILE_OUT}"

@@ -6,96 +6,97 @@
 #
 #####################################################################
 
-# convert a YAML file into a JSON file using the yq
-function convert-helm-value-overrides-yaml-to-json {
+# parse YAML file using yq
+# removes any comments in the YAML file using the yq
+# default to empty map if input is empty
+function strip-comments-from-helm-value-overrides-yaml {
   local inFile outFile
   inFile="$1"
   outFile=$(mktemp)
-  # default to empty map if input is empty
   # make sure any comments are stripped out
   yq '
     . // {} |
     ... comments=""
+    ' --input-format yaml --output-format yaml "${inFile}" >"${outFile}"
+  echo "${outFile}"
+}
+
+# parse YAML file using yq
+# convert a YAML file into a JSON file using the yq
+# default to empty map if input is empty
+# NOTE: this only converts data of .parameters of the input YAML file
+function convert-helm-value-params-overrides-yaml-to-json {
+  local inFile outFile
+  inFile="$1"
+  outFile=$(mktemp)
+  yq '
+    . // {} |
+    .parameters // {}
     ' --input-format yaml --output-format json "${inFile}" >"${outFile}"
   echo "${outFile}"
 }
 
-# return a random placeholder string
-function get-placeholder {
-  local placeholder
-  placeholder="c78b8714e8d25869"
-  echo "${placeholder}"
-}
-
-# replace any occurence of '.\' in key names with a palceholder string
-function add-placeholder-for-slah-dot {
-  local inFile outFile placeholder
-  inFile="$1"
-  outFile=$(mktemp)
-  placeholder=$(get-placeholder)
-  jq -r --arg replaceWith "$placeholder" '
-    walk(
-      if type == "object"
-      then with_entries(
-        .key |=
-        gsub("\\\\\\."; $replaceWith)
-      )
-      else .
-      end
-    )' "${inFile}" >"${outFile}"
-  echo "${outFile}"
-}
-
-# replace the placeholder string with '.\' in key names
-function remove-placeholder-for-slah-dot {
-  local inFile outFile placeholder
-  inFile="$1"
-  outFile=$(mktemp)
-  placeholder=$(get-placeholder)
-  jq -r --arg replaceWith "$placeholder" '
-    walk(
-      if type == "object"
-      then with_entries(
-        .key |=
-        gsub($replaceWith; "\\.")
-      )
-      else .
-      end
-    )' "${inFile}" >"${outFile}"
-  echo "${outFile}"
-}
-
-# return a json list of all keys with dot in key name
+# parse YAML file using yq
+# return a JSON list of all keys with dot in key name
+# NOTE: this only looks at .parameters of the input YAML file
 function get-list-of-flat-keys-with-dot {
   local inFile outData
   inFile="$1"
-  outData=$(jq -r '
+  # shellcheck disable=SC2016
+  outData=$(yq '
+    .parameters as $params |
     [
-      paths[] |
-      select(type == "string") |
-      select(test("\\."))
-    ]' "${inFile}")
+      $params |
+      ... |
+      select(
+        is_key
+        and style != "single"
+        and style != "double"
+      )
+    ] as $paramKeys |
+    [
+      $paramKeys.[] |
+      select(test("\."))
+    ] as $keysToFix |
+    [ $keysToFix.[] ]
+    ' --input-format yaml --output-format json "${inFile}")
   echo "${outData}"
 }
 
-# return a json list of all keys with indexed array notation in key name
+# parse YAML file using yq
+# return a JSON list of all keys with indexed array notation in key name
+# NOTE: this only looks at .parameters of the input YAML file
 # eg. 'list[0]' in this example:
-#   my:
-#     list[0]: a
-#     list[1]: b
+#   parameters:
+#     my:
+#       list[0]: a
+#       list[1]: b
 function get-list-of-flat-keys-with-array {
   local inFile outData
   inFile="$1"
-  outData=$(jq -r '
+  # shellcheck disable=SC2016
+  outData=$(yq '
+    .parameters as $params |
     [
-      paths[] |
-      select(type == "string") |
-      select(test(".+\\[[0-9]+\\]"))
-    ]' "${inFile}")
+      $params |
+      ... |
+      select(
+        is_key
+        and style != "single"
+        and style != "double"
+      )
+    ] as $paramKeys |
+    [
+      $paramKeys.[] |
+      select(test(".+\[[0-9]+\]"))
+    ] as $arraysToFix |
+    [ $arraysToFix.[] ]
+  ' --input-format yaml --output-format json "${inFile}")
   echo "${outData}"
 }
 
-# flattened keys with dot in key name to nested yaml structure
+# parse JSON file using jq
+# flattened keys with dot in key name to nested JSON structure
 # ex
 #   a.b.c: 1
 #   a.b.d: 2
@@ -115,8 +116,10 @@ function convert-from-flat-keys-with-dot-to-nested {
       then (
         reduce(
           to_entries[] |
-          .key |
-          split(".")
+          if .key | ( test("^\\\"") | not )
+          then .key | split(".")
+          else .key
+          end
         ) as $item
         (
           .;
@@ -141,7 +144,8 @@ function convert-from-flat-keys-with-dot-to-nested {
   echo "${outFile}"
 }
 
-# flattened arrays with index notation to yaml lists
+# parse JSON file using jq
+# flattened arrays with index notation to JSON arrays
 # ex
 #   a[0]: b
 #   a[0]: c
@@ -186,34 +190,40 @@ function convert-from-flat-keys-with-array-to-nested {
   echo "${outFile}"
 }
 
-#  Convert JSON to YAML using yq, style all string values as single-quoted
-function convert-helm-value-overrides-json-to-yaml {
-  local inFile outFile
-  inFile="$1"
-  outFile=$(mktemp)
-  yq '
-    (
-      .. |
-      select(tag == "!!str")
-    ) style="single"' --input-format json --output-format yaml "${inFile}" >"${outFile}"
-  echo "${outFile}"
-}
-
-# migrate legacy PR helm chart input to new format
-#  1. remove '.parameters' if it exists
-#  2. merge data from '.parameters' into '.helmValues'
-function migrate-helm-value-overrides-parameters-to-helmvalues {
+# convert JSON file to YAML file using yq
+# style all string values as single-quoted
+# all keys with dot in key name as double-quoted (default behavior of yq)
+function convert-helm-value-params-overrides-json-to-yaml {
   local inFile outFile
   inFile="$1"
   outFile=$(mktemp)
   # shellcheck disable=SC2016
   yq '
     (
-      .parameters // {}
-    ) as $params |
-    . += {"helmValues": .parameters} * . |
-    del(.parameters)
-  ' --input-format yaml --output-format yaml "${inFile}" >"${outFile}"
+      .. |
+      select(tag == "!!str")
+    ) style="single"
+    ' --input-format json --output-format yaml "${inFile}" >"${outFile}"
+  echo "${outFile}"
+}
+
+# parse YAML files using yq
+# merge YAML of input file 2 into '.helmValues' of input file 1,
+# letting existing values of input file 1 win
+# if '.parameters' exists, remove it
+function migrate-helm-value-overrides-parameters-to-helmvalues {
+  local inFileOrigValues inFileUpdatedParams outFile
+  inFileOrigValues="$1"
+  inFileUpdatedParams="$2"
+  outFile=$(mktemp)
+  # shellcheck disable=SC2016
+  yq eval-all '
+    select(fileIndex == 0) // {} as $origValues |
+    select(fileIndex == 1) // {} as $paramValues |
+    $origValues |= { "helmValues": $paramValues } * . |
+    del($origValues.parameters) |
+    $origValues
+  ' --input-format yaml --output-format yaml "${inFileOrigValues}" "${inFileUpdatedParams}" >"${outFile}"
   echo "${outFile}"
 }
 
@@ -224,29 +234,24 @@ function migrate-helm-value-overrides-parameters-to-helmvalues {
 #####################################################################
 
 # some magic to parse flat keys yaml syntax into a nested structure and move to using updated PR chart input
-#   - converts keys with dots in their name into nested yaml structure, eg. 'a.b.c'
-#   - converts keys with indexed array notation into yaml lists, eg. 'list[0]'
+#   - for members of '.parameters' in the input file:
+#     - converts keys with dots in their name into nested yaml structure, eg. 'a.b.c'
+#     - converts keys with indexed array notation into yaml lists, eg. 'list[0]'
 #   - converts legacy PR helm chart input to new format, eg. replace '.parameters' with '.helmValues'
-#   - handles when yaml syntax is already in nested structure
-#   - handles if the input file contains both flat keys and nested structure
-#   - does not modify keys with escaped dots in their name, eg. 'orgs\.k8s\.snyk\.io/v1'
 
-# example - input file contains flat keys and keys with '\.' in their name
+# example - input file contains flat keys
 # input:
 #   parameters:
 #    a.b.c: 1
 #    a.b.d: 2
-#    a.deploymentAnnotations.orgs\.k8s\.snyk\.io/v1: '-'
 # output:
 #   helmValues:
 #     a:
 #       b:
 #         c: 1
 #         d: 2
-#       deploymentAnnotations:
-#         orgs\.k8s\.snyk\.io/v1: '-'
 
-# example - input file contains nested structure (no change)
+# example - input file contains nested structure (only .parameters change --> .helmValues)
 # input:
 #   parameters:
 #     a:
@@ -287,50 +292,48 @@ function migrate-helm-value-overrides-parameters-to-helmvalues {
 
 # example - input file is empty
 # output:
-#   {}
+#   helmValues: {}
 function format-helm-value-overrides {
-  local inFile inputAsJsonFile jsonWithPlaceholderFile flatKeysList flatArraysList nestedDotJsonFile
-  local nestedArraysJsonFile fixedJsonFile fixedYamlFile migratedYamlFile
+  local inFile inputWithoutCommentsYamlFile flatKeysList flatArraysList
+  local paramsAsJsonFile nestedParamsJsonFile fixedParamsJsonFile
+  local fixedParamsYamlFile migratedYamlFile deleteFiles deleteFile
   inFile=$1
 
-  # convert to JSON
-  inputAsJsonFile=$(convert-helm-value-overrides-yaml-to-json "${inFile}")
+  # strip comments from YAML file and handle empty input
+  inputWithoutCommentsYamlFile=$(strip-comments-from-helm-value-overrides-yaml "${inFile}")
 
-  # avoid modifying key names with escaped dots in them by replacing '.\' with a placeholder
-  jsonWithPlaceholderFile=$(add-placeholder-for-slah-dot "${inputAsJsonFile}")
+  # list of flat keys with dot in key name found under '.parameters' in YAML file
+  flatKeysList=$(get-list-of-flat-keys-with-dot "${inputWithoutCommentsYamlFile}")
 
-  # list of flat keys with dot in key name
-  flatKeysList=$(get-list-of-flat-keys-with-dot "${jsonWithPlaceholderFile}")
+  # list of flat keys with idexed array notation in key name found under '.parameters' in YAML file
+  flatArraysList=$(get-list-of-flat-keys-with-array "${inputWithoutCommentsYamlFile}")
 
-  # list of flat keys with idexed array notation in key name
-  flatArraysList=$(get-list-of-flat-keys-with-array "${jsonWithPlaceholderFile}")
+  # convert contents of '.parameters' in YAML file to JSON file
+  paramsAsJsonFile=$(convert-helm-value-params-overrides-yaml-to-json "${inputWithoutCommentsYamlFile}")
 
-  # restructure from flattened keys to nested yaml for entries with dot in key name
-  nestedDotJsonFile=$(convert-from-flat-keys-with-dot-to-nested "${jsonWithPlaceholderFile}" "${flatKeysList}")
+  # modify JSON file: restructure from flattened keys to nested yaml for entries with dot in key name
+  nestedParamsJsonFile=$(convert-from-flat-keys-with-dot-to-nested "${paramsAsJsonFile}" "${flatKeysList}")
 
-  # restructure from flattened arrays with index notation to yaml lists
-  nestedArraysJsonFile=$(convert-from-flat-keys-with-array-to-nested "${nestedDotJsonFile}" "${flatArraysList}")
+  # modify JSON file: restructure from flattened arrays with index notation to yaml lists
+  fixedParamsJsonFile=$(convert-from-flat-keys-with-array-to-nested "${nestedParamsJsonFile}" "${flatArraysList}")
 
-  # remove placeholder for '.\' in key names
-  fixedJsonFile=$(remove-placeholder-for-slah-dot "${nestedArraysJsonFile}")
+  # convert JSON file back to YAML file
+  fixedParamsYamlFile=$(convert-helm-value-params-overrides-json-to-yaml "${fixedParamsJsonFile}")
 
-  # convert back to YAML
-  fixedYamlFile=$(convert-helm-value-overrides-json-to-yaml "${fixedJsonFile}")
-
+  # merge modified YAML file into original YAML file
   # convert legacy PR helm chart format to new format:
   #   1. remove '.parameters' if it exists
   #   2. merge data from '.parameters' into '.helmValues'
-  migratedYamlFile=$(migrate-helm-value-overrides-parameters-to-helmvalues "${fixedYamlFile}")
+  migratedYamlFile=$(migrate-helm-value-overrides-parameters-to-helmvalues "${inputWithoutCommentsYamlFile}" "${fixedParamsYamlFile}")
 
   # return
   cat "${migratedYamlFile}"
 
   # cleanup temp files
-  deleteFiles=("${inputAsJsonFile}" "${jsonWithPlaceholderFile}" "${nestedDotJsonFile}" "${nestedArraysJsonFile}" "${fixedJsonFile}" "${fixedYamlFile}" "${migratedYamlFile}")
+  deleteFiles=("${inputWithoutCommentsYamlFile}" "${paramsAsJsonFile}" "${nestedParamsJsonFile}" "${fixedParamsJsonFile}" "${fixedParamsYamlFile}" "${migratedYamlFile}")
   for deleteFile in "${deleteFiles[@]}"; do
-    rm -f "${deleteFile}" >/dev/null 2>&1 || :
+    rm --force "${deleteFile}" >/dev/null 2>&1 || :
   done
 }
-
 
 log-info "'$(basename ${BASH_SOURCE[0]})' loaded."
