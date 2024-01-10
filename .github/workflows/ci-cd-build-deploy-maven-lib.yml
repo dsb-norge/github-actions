@@ -154,6 +154,7 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+        continue-on-error: true # do not fail job when this fails, GitHub's eviction policy will clean up eventually
 
 
   prune-maven-artifacts:
