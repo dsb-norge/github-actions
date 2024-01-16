@@ -28,9 +28,9 @@ runs:
 
     # log into Azure CLI with service principal
     - uses: azure/login@v1
-      if: fromJSON(inputs.dsb-build-envs).acr-service-principal != ''
+      if: inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).acr-service-principal != ''
       with:
-        creds: ${{ fromJSON(inputs.dsb-build-envs).acr-service-principal }}
+        creds: ${{ inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).acr-service-principal }}
         allow-no-subscriptions: true
 
     - id: delete-images
