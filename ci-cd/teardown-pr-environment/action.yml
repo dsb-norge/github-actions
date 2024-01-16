@@ -40,7 +40,8 @@ runs:
 
     - uses: azure/login@v1
       with:
-        creds: ${{ fromJSON(inputs.dsb-build-envs).pr-deploy-aks-creds }}
+        creds: ${{ inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).pr-deploy-aks-creds }}
+
     # set target kubernetes cluster to
     - uses: azure/aks-set-context@v3
       with:

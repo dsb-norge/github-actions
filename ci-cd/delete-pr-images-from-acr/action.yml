@@ -40,7 +40,7 @@ runs:
     # log into Azure CLI with service principal
     - uses: azure/login@v1
       with:
-        creds: ${{ fromJSON(inputs.dsb-build-envs).acr-service-principal }}
+        creds: ${{ inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).acr-service-principal }}
         allow-no-subscriptions: true
 
     - id: delete-pr-image-repo
