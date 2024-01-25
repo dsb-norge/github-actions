@@ -19,7 +19,7 @@ runs:
   steps:
     # download artifact
     - id: download-artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: ${{ inputs.build-envs-artifact-name }}
         path: ./_collect-build-envs

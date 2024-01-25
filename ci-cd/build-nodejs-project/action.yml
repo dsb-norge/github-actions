@@ -56,7 +56,7 @@ runs:
         set-output 'rel-path' "${REL_PATH}"
 
     # set up Node.js
-    - uses: actions/setup-node@v3
+    - uses: actions/setup-node@v4
       with:
         node-version: ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
 

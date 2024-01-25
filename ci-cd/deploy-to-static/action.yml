@@ -52,7 +52,7 @@ runs:
         fi
 
     # checkout config repo
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         repository: ${{ fromJSON(inputs.dsb-build-envs).app-config-repo }}
         token: ${{ fromJSON(inputs.dsb-build-envs).app-config-repo-token }}

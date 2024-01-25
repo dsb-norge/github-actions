@@ -121,7 +121,7 @@ runs:
         exit ${SUM_EXIT_CODES}
 
     # generate tags and labels
-    - uses: docker/metadata-action@v4
+    - uses: docker/metadata-action@v5
       id: meta
       with:
         images: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}

@@ -349,7 +349,7 @@ runs:
         # this step has been externalized into a separate file
         set -o allexport; source "${{ github.action_path }}/step-build-env.sh"; set +o allexport;
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.build-env.outputs.build-envs-artifact-name }}
         path: ${{ steps.build-env.outputs.json-without-secrets-path }}

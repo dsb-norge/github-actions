@@ -61,7 +61,7 @@ runs:
         fi
 
     # add comment to PR
-    - uses: actions/github-script@v6
+    - uses: actions/github-script@v7
       env:
         NEW_COMMENT_BODY: ${{ inputs.pr-comment-text }}
         DELETE_COMMENTS_WITH_PREFIX: ${{ inputs.delete-comments-starting-with }}
