@@ -223,7 +223,7 @@ runs:
         user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
 
     # set up JDK
-    - uses: actions/setup-java@v3
+    - uses: actions/setup-java@v4
       with:
         distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}

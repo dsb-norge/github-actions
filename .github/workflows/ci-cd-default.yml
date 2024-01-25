@@ -80,7 +80,7 @@ jobs:
         uses: dsb-norge/github-actions/directory-recreate@v2
 
       - name: "⬇ Checkout working branch"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
@@ -105,7 +105,7 @@ jobs:
 
       - name: "⬇ Checkout working branch"
         id: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # need this to have access to the configuration repo of the application
       - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
@@ -208,7 +208,7 @@ jobs:
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
           && steps.cache-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         with:
           path: ${{ steps.cache-restore.outputs.cache-normalized-path }} # use the expanded and normalized path
           key: ${{ fromJSON(steps.build-env.outputs.json).github-dependencies-cache-key }}
@@ -292,7 +292,7 @@ jobs:
 
       - name: "⬇ Checkout working branch"
         id: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: "💾 Read build-envs from matrix job(s)"
         id: read-build-envs
@@ -331,7 +331,7 @@ jobs:
         id: version-tag
         # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             github.rest.git.createRef({

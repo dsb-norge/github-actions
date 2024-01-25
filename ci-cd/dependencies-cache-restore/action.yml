@@ -63,7 +63,7 @@ runs:
         directory: ${{ steps.resolve-path.outputs.cache-abs-path }}
 
     - id: cache-restore
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: ${{ steps.resolve-path.outputs.cache-abs-path }}
         key: ${{ fromJSON(inputs.dsb-build-envs).github-dependencies-cache-key }}

@@ -68,7 +68,7 @@ jobs:
 
       - name: "⬇ Checkout working branch"
         id: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
@@ -92,7 +92,7 @@ jobs:
 
       - name: "⬇ Checkout working branch"
         id: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
@@ -135,7 +135,7 @@ jobs:
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
           && steps.cache-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         with:
           path: ${{ steps.cache-restore.outputs.cache-normalized-path }} # use the expanded and normalized path
           key: ${{ fromJSON(steps.build-env.outputs.json).github-dependencies-cache-key }}
