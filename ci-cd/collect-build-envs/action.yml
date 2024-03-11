@@ -18,6 +18,7 @@ runs:
   using: 'composite'
   steps:
     # download artifact
+    # TODO Deprecated, should migrate to v4 with breaking changes
     - id: download-artifact
       uses: actions/download-artifact@v3
       with:

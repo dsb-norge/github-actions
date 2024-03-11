@@ -27,7 +27,7 @@ runs:
           docker-image-prune-keep-num-days
 
     # log into Azure CLI with service principal
-    - uses: azure/login@v1
+    - uses: azure/login@v2
       if: inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).acr-service-principal != ''
       with:
         creds: ${{ inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).acr-service-principal }}
