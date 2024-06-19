@@ -34,8 +34,7 @@ runs:
           acr-password
 
     # log into azure container registry (ACR)
-    # TODO this project might be stale. Should migrate to https://github.com/marketplace/actions/docker-login instead
-    - uses: azure/docker-login@v1
+    - uses: azure/docker-login@v2
       with:
         login-server: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
         username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
