@@ -5,8 +5,8 @@ description: |
   This action pulls down the JSON files, merges them and returns them as output.
 author: 'Peder Schmedling'
 inputs:
-  build-envs-artifact-name:
-    description: Artifact name used when uploading to github in create-build-envs action.
+  build-envs-artifact-name-prefix:
+    description: Prefix used when naming build envs artifact during upload to github in create-build-envs action.
     default: build-envs
     required: false
 outputs:
@@ -18,11 +18,11 @@ runs:
   using: 'composite'
   steps:
     # download artifact
-    # TODO Deprecated, should migrate to v4 with breaking changes
     - id: download-artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        name: ${{ inputs.build-envs-artifact-name }}
+        pattern: ${{ inputs.build-envs-artifact-name-prefix }}-*
+        merge-multiple: true
         path: ./_collect-build-envs
 
     # merge json files
@@ -34,7 +34,7 @@ runs:
 
         set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
 
-        log-multiline "Files received from artifact '${{ inputs.build-envs-artifact-name }}'" "$(ls -lah)"
+        log-multiline "Files received from artifact(s) '${{ inputs.build-envs-artifact-name-prefix }}-*'" "$(ls -lah)"
 
         OUTPUT_ENV_JSON=$(jq -s '.' *.json)
 
