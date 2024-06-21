@@ -72,17 +72,19 @@ After merge to main use tags to release.
 
 Ex. for smaller backwards compatible changes. Add a new minor version tag ex `v2.1` with a description of the changes and amend the description to the major version tag.
 
-Example for release `v2.17`:
+Example for release `v2.22`:
 ```bash
 git checkout origin/main
 git pull origin main
 # review latest release tag to determine which is the next one
 git tag --sort=-creatordate | head -n 5
-git tag -a 'v2.17'
+# output changes since last release
+git log v2..HEAD --pretty=format:"%s"
+git tag -a 'v2.22'
 # you are prompted for the tag annotation (change description)
 git tag -f -a 'v2'
 # you are prompted for the tag annotation, amend the change description
-git push -f origin 'refs/tags/v2.17'
+git push -f origin 'refs/tags/v2.22'
 git push -f origin 'refs/tags/v2'
 ```
 
@@ -98,6 +100,8 @@ git checkout origin/main
 git pull origin main
 # review latest release tag to determine which is the next one
 git tag --sort=-creatordate | head -n 5
+# output changes since last release
+git log v2..HEAD --pretty=format:"%s"
 git tag -a 'v3.0'
 # you are prompted for the tag annotation (change description)
 git tag -a 'v3'
