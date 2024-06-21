@@ -506,7 +506,12 @@ log-multiline "non-secret envs JSON" "$(echo "${APP_VARS_JSON_NOT_SECRET}" | tee
 # =============================================================================
 
 set-output 'json-without-secrets-path' "${OUT_JSON_FILE}"
-set-output 'build-envs-artifact-name' "build-envs-$(get-val 'application-version')"
+
+# used to upload/download the build envs to/from github
+#   - build-envs-artifact-name must be unique and is intended to be used as 'name' input to
+#     actions/upload-artifact and actions/download-artifact to handle the build envs for this specific application
+#     Example: 'build-envs-2024.06.21.8737-elements-service'
+set-output 'build-envs-artifact-name' "build-envs-$(get-val 'application-version')-$(get-val 'application-name')"
 
 set-multiline-output 'json' "${APP_VARS_JSON}"
 
