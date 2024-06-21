@@ -298,7 +298,7 @@ jobs:
         id: read-build-envs
         uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v2
         with:
-          build-envs-artifact-name: build-envs-${{ needs.create-matrix.outputs.applications-version }}
+          build-envs-artifact-name-prefix: build-envs-${{ needs.create-matrix.outputs.applications-version }}
 
       - name: "✔ Check if deploy is allowed from calling branch"
         id: deploy-static-check
