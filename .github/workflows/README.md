@@ -113,74 +113,16 @@ jobs:
 
 ### **Overriding defaults**
 
-Note that most of the default `inputs` of the [create-build-envs](../ci-cd/create-build-envs/action.yml) action can be overridden when specifying the `apps` input to the workflow.
+Note that most of the default `inputs` of the [create-build-envs](../../ci-cd/create-build-envs/action.yml) action can be overridden when specifying the `apps` input to the workflow.
 
 Ex. if you want to build the above spring-boot backend with a specific Java version, the specification would be:
 ```yaml
 jobs:
   ci-cd:
-...
+    # ...
     with:
       apps: |
         - application-name: my-backend-app
           application-source-path: ./backend
           java-version: '16'
-```
-## Workflow: maven-versions-bumper.yml
-A workflow for automatic update of third party dependencies for a backend maven project.
-
-### **Inputs**
-
-#### **`apps`**
-
-Specification of applications to build and/or deploy.
-YAML list (as string) with specifications of applications to build and/or deploy.
-
-**Required fields are:**
-- **`application-name`** - string
-
-#### **`Build and deploy variables and secrets`**
-
-There are github secrets and github variables that are required to be available from the repo calling the workflow. See details in [.github/workflows/maven-versions-bumper.yml](maven-versions-bumper.yml).
-
-### **Example usage**
-
-Basic example of how to add automatic dependency update to a github repo containing a spring-boot backend (under `./backend`).
-
-The following would be saved as `.github/workflows/autobump-deps.yml` in the application repo.
-
-```yaml
-name: 'Autobump deps'
-
-on:
-  # ⬇ Allows workflow to be triggered manually
-  workflow_dispatch:
-  schedule:
-    # NOTE: Runners are not available in weekends p.t. so should run weekdays only.
-    # Trigger at set times, e.g. '2 2 * * 1-5' triggers every weekday at 02:04 UTC
-    #
-    #        ┌───────────── minute (0-59)
-    #        │ ┌───────────── hour (0-23)
-    #        │ │ ┌───────────── day of the month (1-31)
-    #        │ │ │ ┌───────────── month (1-12 or JAN-DEC)
-    #        │ │ │ │ ┌───────────── day of the week (0-6 or SUN-SAT)
-    #        │ │ │ │ │
-    #        │ │ │ │ │
-    #        │ │ │ │ │
-    - cron: '4 2 * * 1-5'
-
-# a single branch/tag should only run one workflow at a time
-concurrency: ${{ github.workflow }}-${{ github.ref }}
-
-jobs:
-  autobump:
-    name: Bump versions
-    uses: dsb-norge/github-actions/workflows/maven-versions-bumper.yml@v2
-    secrets: inherit # pass all secrets, ok since we trust our own workflow
-    with:
-      # Note: 'application-name' becomes part of the branch name for the bumping. If you have more than one
-      # maven app within the same github repo, each app must be listed here with a unique 'application-name'.
-      apps: |
-        - application-name: my-backend-app
-          application-source-path: ./backend
 ```
