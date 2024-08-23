@@ -260,6 +260,23 @@ runs:
         unset-extra-envs "general" "${EXTRA_ENVS}"
         unset-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
 
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@567cc7f8dcea3eba5da355f6ebc95663310d8a07
+      if: always()
+      with:
+        files: |
+          ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/surefire-reports/**/*.xml
+          ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/*.xml
+          !${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/failsafe-summary.xml
+
+    - name: Log Test Results
+      uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5
+      if: success() || failure()
+      with:
+        name: 'Maven Test Results'
+        path: '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/surefire-reports/**/*.xml, ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/TEST*.xml'
+        reporter: java-junit
+
     - id: deploy-artifacts
       shell: bash
       env:
