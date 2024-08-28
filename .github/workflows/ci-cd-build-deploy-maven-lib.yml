@@ -64,7 +64,8 @@ jobs:
       # The create-app-vars-matrix action requires source code to be available
       - name: "🧹 Clean: 🏢 workspace"
         id: clean
-        uses: dsb-norge/github-actions/directory-recreate@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@test-reports-fix
 
       - name: "⬇ Checkout working branch"
         id: checkout
@@ -72,7 +73,8 @@ jobs:
 
       - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@test-reports-fix
         with:
           apps: ${{ inputs.apps }}
 
@@ -88,7 +90,8 @@ jobs:
     steps:
       - name: "🧹 Clean: 🏢 workspace"
         id: clean
-        uses: dsb-norge/github-actions/directory-recreate@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/directory-recreate@test-reports-fix
 
       - name: "⬇ Checkout working branch"
         id: checkout
@@ -96,7 +99,8 @@ jobs:
 
       - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@test-reports-fix
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -115,7 +119,8 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
-        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@test-reports-fix
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -124,7 +129,8 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@test-reports-fix
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -151,7 +157,8 @@ jobs:
           && always() && steps.build-env.outcome == 'success'
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-delete-on-pr-close
-        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@test-reports-fix
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
         continue-on-error: true # do not fail job when this fails, GitHub's eviction policy will clean up eventually
@@ -175,7 +182,8 @@ jobs:
       - name: "🗑 Prune: 📦 maven artifacts"
         id: prune
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
-        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v2
+        # TODO revert to @v2
+        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@test-reports-fix
         with:
           github-packages-token: ${{ secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT }}
           other-prune-keep-min-count: ${{ inputs.maven-artifacts-other-prune-keep-min-count }}
