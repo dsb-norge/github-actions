@@ -262,20 +262,6 @@ runs:
         unset-extra-envs "general" "${EXTRA_ENVS}"
         unset-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
 
-    - name: Log Workflow Info
-      shell: bash
-      run: |
-        echo "Workflow Name: ${{ github.workflow }}"
-        echo "Workflow Run ID: ${{ github.run_id }}"
-        echo "Workflow Run Number: ${{ github.run_number }}"
-        echo "Repository: ${{ github.repository }}"
-        echo "Actor: ${{ github.actor }}"
-        echo "Event Name: ${{ github.event_name }}"
-        echo "Branch: ${{ github.ref }}"
-        echo "SHA: ${{ github.sha }}"
-        echo "CALLING WORKFLOW: ${{ github.event.workflow_run.name }}"
-        echo "ACTION: ${{ github.action }}"
-
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@567cc7f8dcea3eba5da355f6ebc95663310d8a07
       if: ${{ !cancelled() && github.action == 'maven-build' }}
