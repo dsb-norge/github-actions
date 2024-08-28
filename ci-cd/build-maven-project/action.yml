@@ -113,8 +113,7 @@ runs:
   using: "composite"
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    # TODO revert to @v2
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@test-reports-fix
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -219,8 +218,7 @@ runs:
         set-output 'mvn-cmd' "${MVN_CMD}"
 
     # configure maven settings
-    # TODO revert to @v2
-    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@test-reports-fix
+    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v2
       with:
         user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
 
