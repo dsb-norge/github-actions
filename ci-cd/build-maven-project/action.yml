@@ -278,7 +278,7 @@ runs:
 
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@567cc7f8dcea3eba5da355f6ebc95663310d8a07
-      if: ${{ !cancelled() }}
+      if: ${{ !cancelled() && github.action == 'maven-build' }}
       with:
         check_name: 'Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}'
         files: |
@@ -288,7 +288,7 @@ runs:
 
     - name: Log Test Results
       uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5
-      if: ${{ !cancelled() }}
+      if: ${{ !cancelled() && github.action == 'maven-build'}}
       with:
         name: 'Maven Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}'
         path: '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/surefire-reports/**/*.xml, ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/TEST*.xml'
