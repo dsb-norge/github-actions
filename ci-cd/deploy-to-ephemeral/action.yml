@@ -19,7 +19,8 @@ runs:
   using: "composite"
   steps:
     # we need to verify inputs since they are optional input to create-build-envs action
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    # TODO revert to @v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@test-reports-fix
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -175,7 +176,8 @@ runs:
         set-multiline-output 'comment' "${COMMENT_TEXT}"
 
     # add comment to PR
-    - uses: dsb-norge/github-actions/ci-cd/comment-on-pr@v2
+    # TODO revert to @v2
+    - uses: dsb-norge/github-actions/ci-cd/comment-on-pr@test-reports-fix
       with:
         pr-comment-text: ${{ steps.create-comment.outputs.comment }}
         delete-comments-starting-with: ${{ steps.create-comment.outputs.prefix }}

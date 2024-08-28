@@ -113,7 +113,8 @@ runs:
   using: "composite"
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    # TODO revert to @v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@test-reports-fix
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -218,7 +219,8 @@ runs:
         set-output 'mvn-cmd' "${MVN_CMD}"
 
     # configure maven settings
-    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v2
+    # TODO revert to @v2
+    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@test-reports-fix
       with:
         user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
 
@@ -260,10 +262,25 @@ runs:
         unset-extra-envs "general" "${EXTRA_ENVS}"
         unset-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
 
+    - name: Log Workflow Info
+      shell: bash
+      run: |
+        echo "Workflow Name: ${{ github.workflow }}"
+        echo "Workflow Run ID: ${{ github.run_id }}"
+        echo "Workflow Run Number: ${{ github.run_number }}"
+        echo "Repository: ${{ github.repository }}"
+        echo "Actor: ${{ github.actor }}"
+        echo "Event Name: ${{ github.event_name }}"
+        echo "Branch: ${{ github.ref }}"
+        echo "SHA: ${{ github.sha }}"
+        echo "CALLING WORKFLOW: ${{ github.event.workflow_run.name }}"
+        echo "ACTION: ${{ github.action }}"
+
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@567cc7f8dcea3eba5da355f6ebc95663310d8a07
       if: ${{ !cancelled() }}
       with:
+        check_name: 'Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}'
         files: |
           ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/surefire-reports/**/*.xml
           ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/*.xml
@@ -273,7 +290,7 @@ runs:
       uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5
       if: ${{ !cancelled() }}
       with:
-        name: 'Maven Test Results'
+        name: 'Maven Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}'
         path: '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/surefire-reports/**/*.xml, ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/TEST*.xml'
         reporter: java-junit
 
