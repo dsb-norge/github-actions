@@ -120,7 +120,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "🧮 Library: ⚒ Build and analyze with Maven"
-        id: maven-build
+        id: maven-build-lib
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'

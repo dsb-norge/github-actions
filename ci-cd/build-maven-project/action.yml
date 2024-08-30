@@ -277,6 +277,7 @@ runs:
         name: 'Maven Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}'
         path: '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/surefire-reports/**/*.xml, ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/TEST*.xml'
         reporter: java-junit
+        fail-on-empty: 'false'
 
     - id: deploy-artifacts
       shell: bash
