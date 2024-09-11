@@ -266,16 +266,15 @@ runs:
       with:
         check_name: 'Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}'
         files: |
-          ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/surefire-reports/**/*.xml
-          ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/*.xml
-          !${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/failsafe-summary.xml
+          ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/surefire-reports/**/TEST-*.xml
+          ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/TEST-*.xml
 
     - name: Log Test Results
       uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5
       if: ${{ !cancelled() && github.action == 'maven-build'}}
       with:
         name: 'Maven Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}'
-        path: '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/surefire-reports/**/*.xml, ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/TEST*.xml'
+        path: '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/**/TEST-*.xml'
         reporter: java-junit
         fail-on-empty: 'false'
 
