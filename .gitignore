@@ -35,3 +35,6 @@
 # files from action test
 ci-cd/create-app-vars-matrix/_*
 ci-cd/create-build-envs/_*
+
+#node_modules
+**/node_modules/

@@ -1,0 +1,24 @@
+{
+  "name": "directory-recreate",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "package": "npx ncc build src/index.ts -o dist --source-map --license licenses.txt"
+  },
+  "keywords": [],
+  "author": "Chris Aurora Neumann Ruud",
+  "contributors": [
+    "Peder Schmedling"
+  ],
+  "license": "ISC",
+  "description": "This action removes and re-creates a directory including all files and sub-directories within.",
+  "dependencies": {
+    "@actions/core": "1.10.1",
+    "@actions/github": "6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.5.4",
+    "typescript": "5.6.2",
+    "@vercel/ncc": "0.38.1"
+  }
+}
