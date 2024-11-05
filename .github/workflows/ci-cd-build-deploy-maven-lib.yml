@@ -8,6 +8,7 @@ name: "DSB Build and deploy Maven artefact"
 #   - secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT         <-- GitHub PAT with with scopes [delete:packages, read:packages] in the calling repos organization
 #   - secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD   <-- jasypt password for local decryption of secrets during maven operations
 #   - secrets.ORG_SONAR_TOKEN                       <-- token for sonar integration
+#   - secrets.ORG_NPM_TOKEN                         <-- token for npmjs integration
 #
 on:
   workflow_call:
@@ -105,6 +106,7 @@ jobs:
           sonarqube-token: ${{ secrets.ORG_SONAR_TOKEN }}
           jasypt-password: ${{ secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD }}
           github-repo-token: ${{ secrets.GITHUB_TOKEN }}
+          npmjs-token: ${{ secrets.ORG_NPM_TOKEN }}
           acr-username: ${{ vars.ORG_AZURE_CONTAINER_REGISTRY_USER }}
           acr-password: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_PASSWORD }}
 

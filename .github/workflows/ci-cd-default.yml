@@ -129,6 +129,7 @@ jobs:
           acr-username: ${{ vars.ORG_AZURE_CONTAINER_REGISTRY_USER }}
           acr-password: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_PASSWORD }}
           github-repo-token: ${{ secrets.GITHUB_TOKEN }}
+          npmjs-token: ${{ secrets.ORG_NPM_TOKEN }}
           app-config-repo-token: ${{ steps.auth.outputs.github-token }}
           pr-deploy-aks-creds: ${{ secrets.ORG_AZURE_DEV_AKS_CONTRIBUTOR_SERVICE_PRINCIPAL }}
           acr-service-principal: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_SERVICE_PRINCIPAL }}
