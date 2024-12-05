@@ -84,7 +84,7 @@ runs:
         log-multiline 'Modified Dockerfile' "$(cat "${DOCKER_FILE}")"
 
     # build, tag and push docker image
-    - uses: docker/build-push-action@v5
+    - uses: docker/build-push-action@v6
       with:
         pull: true
         push: true

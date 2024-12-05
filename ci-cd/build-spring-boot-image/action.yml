@@ -314,3 +314,8 @@ runs:
           docker push "${IMAGE_SPEC}"
           end-group
         done
+        
+        # Clean up local image after push
+        start-group "Cleaning up local image after push '${IMAGE_SPEC}'"
+        docker rmi ${{ steps.mvn-cmd.outputs.local-image-id }}
+        end-group
