@@ -16,7 +16,7 @@ runs:
   using: "composite"
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1_codeql
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -34,7 +34,7 @@ runs:
           acr-password
 
     # log into azure container registry (ACR)
-    - uses: azure/docker-login@v1_codeql
+    - uses: azure/docker-login@v2
       with:
         login-server: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
         username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}

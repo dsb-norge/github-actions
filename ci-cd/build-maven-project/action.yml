@@ -113,7 +113,7 @@ runs:
   using: "composite"
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1_codeql
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -134,7 +134,7 @@ runs:
           sonarqube-token
 
     # log into azure container registry (ACR) to enable maven to access internal images
-    - uses: azure/docker-login@v1_codeql
+    - uses: azure/docker-login@v2
       with:
         login-server: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
         username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
@@ -218,7 +218,7 @@ runs:
         set-output 'mvn-cmd' "${MVN_CMD}"
 
     # configure maven settings
-    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v1_codeql
+    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v2
       with:
         user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
 

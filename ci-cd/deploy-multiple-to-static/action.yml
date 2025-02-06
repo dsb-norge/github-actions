@@ -21,7 +21,7 @@ runs:
   using: "composite"
   steps:
     # verify required inputs exists for all apps
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1_codeql
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
       with:
         dsb-build-envs-array: ${{ inputs.dsb-build-envs-array }}
         require: |
