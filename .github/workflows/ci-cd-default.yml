@@ -148,13 +148,13 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: Initialize CodeQL for Java
+      - name: Initialize CodeQL for Java and Kotlin
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
         uses: github/codeql-action/init@v3
         with:
-          languages: java
+          languages: java, kotlin
 
       - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build
@@ -193,13 +193,15 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: Initialize CodeQL for JavaScript
+      - name: Initialize CodeQL for JavaScript and Typescript
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
         uses: github/codeql-action/init@v3
         with:
-          languages: javascript
+          languages: javascript, typescript
+          config-file: .github/codeql-config.yml
+
 
       - name: "🌐 Vue.js app: ⚒ Build and test with npm"
         id: npm-build
