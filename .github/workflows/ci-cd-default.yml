@@ -200,8 +200,8 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: javascript, typescript
-          config-file: .github/codeql-config.yml
-
+          paths-ignore: |
+            dist/**
 
       - name: "🌐 Vue.js app: ⚒ Build and test with npm"
         id: npm-build
