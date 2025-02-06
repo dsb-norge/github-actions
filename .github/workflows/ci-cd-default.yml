@@ -216,7 +216,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v3
 
       - name: "🌐 Vue.js app: 🐳 Build, tag and push docker image for vue"
         id: npm-docker-build
