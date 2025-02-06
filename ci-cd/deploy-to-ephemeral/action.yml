@@ -19,7 +19,7 @@ runs:
   using: "composite"
   steps:
     # we need to verify inputs since they are optional input to create-build-envs action
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v1_codeql
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -100,7 +100,7 @@ runs:
           set-output 'commandline-parameter' "--values ${VALUES_FILE}"
         fi
 
-    - uses: azure/login@v2
+    - uses: azure/login@v1_codeql
       with:
         creds: ${{ inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).pr-deploy-aks-creds }}
 
@@ -175,7 +175,7 @@ runs:
         set-multiline-output 'comment' "${COMMENT_TEXT}"
 
     # add comment to PR
-    - uses: dsb-norge/github-actions/ci-cd/comment-on-pr@v2
+    - uses: dsb-norge/github-actions/ci-cd/comment-on-pr@v1_codeql
       with:
         pr-comment-text: ${{ steps.create-comment.outputs.comment }}
         delete-comments-starting-with: ${{ steps.create-comment.outputs.prefix }}
