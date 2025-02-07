@@ -144,6 +144,14 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
+      - name: "🔎 Initialize CodeQL for Java and Kotlin"
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'spring-boot'
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java, kotlin
+
       - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build
         # Skip step when closing a PR, and only run for spring-boot apps
@@ -153,6 +161,12 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🔎 Perform CodeQL Analysis for Java and Kotlin"
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'spring-boot'
+        uses: github/codeql-action/analyze@v3
 
       - name: "🍃 Spring Boot app: 🐳 Build, tag and push docker image"
         id: maven-docker-build
@@ -173,6 +187,17 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
+      - name: "🔎 Initialize CodeQL for JavaScript and Typescript"
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'vue'
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript, typescript
+          config: |
+            paths-ignore: 
+              - dist/**
+
       - name: "🌐 Vue.js app: ⚒ Build and test with npm"
         id: npm-build
         # Skip step when closing a PR, and only run for vue apps
@@ -182,6 +207,12 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🔎 Perform CodeQL Analysis for JavaScript and Typescript"
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'vue'
+        uses: github/codeql-action/analyze@v3
 
       - name: "🌐 Vue.js app: 🐳 Build, tag and push docker image for vue"
         id: npm-docker-build
