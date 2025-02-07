@@ -148,7 +148,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: Initialize CodeQL for Java and Kotlin
+      - name: "🔎 Initialize CodeQL for Java and Kotlin"
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
@@ -167,7 +167,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: Perform CodeQL Analysis for Java
+      - name: "🔎 Perform CodeQL Analysis for Java and Kotlin"
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
@@ -193,7 +193,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: Initialize CodeQL for JavaScript and Typescript
+      - name: "🔎 Initialize CodeQL for JavaScript and Typescript"
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
@@ -215,7 +215,7 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: Perform CodeQL Analysis for JavaScript
+      - name: "🔎 Perform CodeQL Analysis for JavaScript and Typescript"
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
