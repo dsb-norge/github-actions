@@ -84,8 +84,7 @@ jobs:
 
       - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v2
         with:
           apps: ${{ inputs.apps }}
 
@@ -111,8 +110,7 @@ jobs:
       # need this to have access to the configuration repo of the application
       - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
         id: auth
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/get-github-app-installation-token@v1codeql
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v2
         with:
           github-app-id: ${{ vars.ORG_CICD_APP_ID }}
           github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
@@ -120,8 +118,7 @@ jobs:
 
       - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v2
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -143,8 +140,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -162,8 +158,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -188,8 +183,7 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -210,8 +204,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -236,8 +229,7 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/build-docker-image@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/build-docker-image@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -264,8 +256,7 @@ jobs:
           github.event_name == 'pull_request'
           && github.event.action != 'closed'
           && github.actor != 'renovate[bot]'
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -273,8 +264,7 @@ jobs:
         id: ephemeral-teardown
         # Step only runs when closing a PR
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/teardown-pr-environment@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/teardown-pr-environment@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -287,8 +277,7 @@ jobs:
           && (( fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch )
             || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/prune-images-from-acr@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/prune-images-from-acr@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -297,8 +286,7 @@ jobs:
         # Step only runs when closing a PR
         # Step runs even if previous steps have failed, with the exception of 'build-env' which is required
         if: github.event_name == 'pull_request' && github.event.action == 'closed' && always() && steps.build-env.outcome == 'success'
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -313,8 +301,7 @@ jobs:
           && always() && steps.build-env.outcome == 'success'
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-delete-on-pr-close
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@v2
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
         continue-on-error: true # do not fail job when this fails, GitHub's eviction policy will clean up eventually
@@ -341,16 +328,14 @@ jobs:
 
       - name: "💾 Read build-envs from matrix job(s)"
         id: read-build-envs
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v2
         with:
           build-envs-artifact-name-prefix: build-envs-${{ needs.create-matrix.outputs.applications-version }}
 
       - name: "✔ Check if deploy is allowed from calling branch"
         id: deploy-static-check
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@v2
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
 
@@ -359,8 +344,7 @@ jobs:
         id: auth
         # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/get-github-app-installation-token@v1codeql
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v2
         with:
           github-app-id: ${{ vars.ORG_CICD_APP_ID }}
           github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
@@ -370,8 +354,7 @@ jobs:
         id: static-deploy
         # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@v2
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
           app-config-repo-token: ${{ steps.auth.outputs.github-token }}
@@ -407,8 +390,7 @@ jobs:
     steps:
       - name: "🗑 Prune: 📦 maven artifacts"
         id: prune-artifacts
-        # TODO revert to @v2
-        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v1codeql
+        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v2
         with:
           github-packages-token: ${{ secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT }}
           other-prune-keep-min-count: ${{ inputs.maven-artifacts-other-prune-keep-min-count }}
