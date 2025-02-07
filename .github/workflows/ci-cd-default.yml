@@ -196,7 +196,7 @@ jobs:
           languages: javascript, typescript
           config: |
             paths-ignore: 
-              - **/dist/**
+              - '**/dist/**'
 
       - name: "🌐 Vue.js app: ⚒ Build and test with npm"
         id: npm-build
