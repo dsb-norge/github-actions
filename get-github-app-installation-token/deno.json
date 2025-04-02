@@ -1,0 +1,24 @@
+{
+  "imports": {
+    "common/": "./common/"
+  },
+  "tasks": {
+    "test": "deno test --allow-all --no-check"
+  },
+  "test": {
+    "include": [
+      "./action/test_*.ts"
+    ]
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "semiColons": false,
+    "singleQuote": true,
+    "proseWrap": "preserve",
+    "include": [
+      "./**"
+    ]
+  }
+}

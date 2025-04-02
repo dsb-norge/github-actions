@@ -3,7 +3,7 @@ description: |
   Given DSB build environment variables JSON and a list of variable names, this action will test for existence and empty values of these.
   If one or more of the variables does not exist, this action will fail.
   If one or more of the variables are empty, this action will fail.
-author: 'Peder Schmedling'
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
   dsb-build-envs:
     description: |
@@ -29,73 +29,20 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: 🦕 Deno install
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
     - id: check-envs
       shell: bash
       env:
-        JSON_CONFIG: "${{ inputs.dsb-build-envs }}"
-        REQUIRED_KEYS: "${{ inputs.require }}"
-      run: |
-        # Test build envs
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # Exit early if no input given
-        if [ -z "${JSON_CONFIG}" ]; then
-          log-info "'dsb-build-envs' not supplied, nothing to check."
-          exit 0
-        fi
-
-        REQUIRED_KEYS_ARR=($(cat <<EOF
-        ${REQUIRED_KEYS}
-        EOF
-        ))
-
-        EXIT_CODE=0
-        for KEY in "${REQUIRED_KEYS_ARR[@]}"; do
-          if [ ! "$( jq 'has("'${KEY}'")' <<< ${JSON_CONFIG} )" == "true" ]; then
-            log-error "Build env '${KEY}' is required but was not found in 'dsb-build-envs' JSON."
-            EXIT_CODE=1
-          elif [ "$( jq -r '."'${KEY}'"' <<< ${JSON_CONFIG} )" == '' ]; then
-            log-error "It is required that build env '${KEY}' is set to a value, an empty string was found in 'dsb-build-envs' JSON."
-            EXIT_CODE=1
-          fi
-        done
-
-        exit ${EXIT_CODE}
-
+        INPUT_JSON_CONFIG: '${{ inputs.dsb-build-envs }}'
+        INPUT_REQUIRED_KEYS: '${{ inputs.require }}'
+      run: deno run --allow-env --allow-read "${{ github.action_path }}/action/1_check-envs.ts"
     - id: check-envs-array
       shell: bash
       env:
-        JSON_CONFIG: "${{ inputs.dsb-build-envs-array }}"
-        REQUIRED_KEYS: "${{ inputs.require }}"
-      run: |
-        # Test build envs array
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # Exit early if no input given
-        if [ -z "${JSON_CONFIG}" ]; then
-          log-info "'dsb-build-envs-array' not supplied, nothing to check."
-          exit 0
-        fi
-
-        REQUIRED_KEYS_ARR=($(cat <<EOF
-        ${REQUIRED_KEYS}
-        EOF
-        ))
-
-        EXIT_CODE=0
-        for OBJ in $(echo "${JSON_CONFIG}" | jq -r '.[] | @base64'); do
-          JSON_OBJ="$(_jq '.')"
-          for KEY in "${REQUIRED_KEYS_ARR[@]}"; do
-          if ! has-field "${KEY}"; then
-            log-error "Build env '${KEY}' is required but was not found for the app '$( get-val 'application-name')' in 'dsb-build-envs-array' JSON."
-            EXIT_CODE=1
-          elif [ "$( get-val "${KEY}")" == '' ]; then
-            log-error "It is required that build env '${KEY}' is set to a value, an empty string was found for the app '$( get-val 'application-name')' in 'dsb-build-envs-array' JSON."
-            EXIT_CODE=1
-          fi
-          done
-        done
-
-        exit ${EXIT_CODE}
+        INPUT_JSON_CONFIG: '${{ inputs.dsb-build-envs-array }}'
+        INPUT_REQUIRED_KEYS: '${{ inputs.require }}'
+      run: deno run --allow-env --allow-read "${{ github.action_path }}/action/2_check-envs-array.ts"

@@ -1,0 +1,97 @@
+{
+  "application-name": [
+    "eksplosiv-backend",
+    "eksplosiv-frontend",
+    "eksplosiv-permitchecker",
+    "eksplosiv-saksbehandler"
+  ],
+  "include": [
+    {
+      "application-name": "eksplosiv-backend",
+      "app-vars": {
+        "application-name": "eksplosiv-backend",
+        "application-source-path": "./testdata/spring-boot-app",
+        "maven-build-project-deploy-release-artifacts": true,
+        "maven-build-project-deploy-snapshot-artifacts": true,
+        "java-version": 17,
+        "pr-deploy-additional-helm-values": {
+          "parameters": {
+            "dsb-spring-boot.database_container.enabled": true,
+            "dsb-spring-boot.config.spring.datasource.url": "jdbc:sqlserver://\\$\\{DATABASE_CONTAINER_HOST_AND_PORT};database=\\$\\{DATABASE_CONTAINER_DATABASE};encrypt=false",
+            "dsb-spring-boot.config.spring.datasource.username": "\\$\\{DATABASE_CONTAINER_USER}",
+            "dsb-spring-boot.config.spring.datasource.password": "\\$\\{DATABASE_CONTAINER_PASSWORD}",
+            "dsb-spring-boot.config.spring.r2dbc.url": "r2dbc:pool:sqlserver://\\$\\{DATABASE_CONTAINER_HOST_AND_PORT}/\\$\\{DATABASE_CONTAINER_DATABASE}",
+            "dsb-spring-boot.config.spring.r2dbc.username": "\\$\\{DATABASE_CONTAINER_USER}",
+            "dsb-spring-boot.config.spring.r2dbc.password": "\\$\\{DATABASE_CONTAINER_PASSWORD}"
+          }
+        },
+        "application-type": "spring-boot",
+        "application-description": "DSB's spring boot test application for Kubernetes.",
+        "application-version": "2024.01.01.43200",
+        "application-build-timestamp": "2024-01-01T12:00:00Z",
+        "application-image-name": "eksplosiv-backend"
+      }
+    },
+    {
+      "application-name": "eksplosiv-frontend",
+      "app-vars": {
+        "application-name": "eksplosiv-frontend",
+        "application-source-path": "./testdata/vue-app",
+        "nodejs-build-project-custom-command-pre-npm-run-build": "npm exec vue-demi-fix --prefix ./node_modules/pinia/node_modules/vue-demi/",
+        "nodejs-version": 18,
+        "pr-deploy-comment-additional-text": "Available at https://pr-719.dev.tld.zip/",
+        "pr-deploy-additional-helm-values": {
+          "parameters": {
+            "dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST": "http://app-name-pr-719.app-name-pr-719.svc.cluster.local:8080",
+            "dsb-nginx-frontend.ingress_host": "pr-719.dev.tld.zip"
+          }
+        },
+        "application-type": "vue",
+        "application-description": "Frontend app for testapplication",
+        "application-version": "2024.01.01.43200",
+        "application-build-timestamp": "2024-01-01T12:00:00Z",
+        "application-image-name": "eksplosiv-frontend"
+      }
+    },
+    {
+      "application-name": "eksplosiv-permitchecker",
+      "app-vars": {
+        "application-name": "eksplosiv-permitchecker",
+        "application-source-path": "./testdata/vue-app",
+        "nodejs-version": 19,
+        "pr-deploy-comment-additional-text": "Available at https://pr-719-motta.dev.tld.zip/",
+        "pr-deploy-additional-helm-values": {
+          "parameters": {
+            "dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST": "http://app-name-pr-719.app-name-pr-719.svc.cluster.local:8080",
+            "dsb-nginx-frontend.ingress_host": "pr-719-motta.dev.tld.zip"
+          }
+        },
+        "application-type": "vue",
+        "application-description": "Frontend app for testapplication",
+        "application-version": "2024.01.01.43200",
+        "application-build-timestamp": "2024-01-01T12:00:00Z",
+        "application-image-name": "eksplosiv-permitchecker"
+      }
+    },
+    {
+      "application-name": "eksplosiv-saksbehandler",
+      "app-vars": {
+        "application-name": "eksplosiv-saksbehandler",
+        "application-source-path": "./testdata/vue-app",
+        "nodejs-version": 21,
+        "pr-deploy-comment-additional-text": "Available at https://pr-719-saksbehandler.dev.tld.zip/",
+        "pr-deploy-additional-helm-values": {
+          "parameters": {
+            "dsb-nginx-frontend.config.LOC_API_PROXY_PASS_HOST": "http://app-name-pr-719.app-name-pr-719.svc.cluster.local:8080",
+            "dsb-nginx-frontend.ingress_host": "pr-719-saksbehandler.dev.tld.zip"
+          }
+        },
+        "application-type": "vue",
+        "application-description": "Frontend app for testapplication",
+        "application-version": "2024.01.01.43200",
+        "application-build-timestamp": "2024-01-01T12:00:00Z",
+        "application-image-name": "eksplosiv-saksbehandler"
+      }
+    }
+  ]
+}

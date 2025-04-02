@@ -1,0 +1,10 @@
+{
+  "name": "get-github-app-installation-token",
+  "version": "0.0.1",
+  "description": "Given the required input this action returns a GitHub App installation access token that enables a GitHub App to make authenticated API requests for the app's installation on an organization or individual account.",
+  "dependencies": {
+    "@actions/core": "1.11.1",
+    "jose": "6.0.10"
+  },
+  "type": "module"
+}

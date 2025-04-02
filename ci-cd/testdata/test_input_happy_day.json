@@ -1,0 +1,46 @@
+{
+  "_COMMENT": "Used for testing this actions code, see test_action_source.sh",
+  "acr-password": "***",
+  "acr-service-principal": "***",
+  "acr-username": "name of acr user",
+  "app-config-repo-token": "***",
+  "github-repo-token": "***",
+  "jasypt-password": "***",
+  "pr-deploy-aks-creds": "***",
+  "sonarqube-token": "***",
+  "app-vars": {
+    "application-build-timestamp": "2023-05-31T07:00:14.566Z",
+    "application-description": "An app of DSB",
+    "application-image-name": "app-name",
+    "application-name": "app-name",
+    "application-source-path": "/backend",
+    "application-type": "spring-boot",
+    "application-version": "2023.05.31.32414",
+    "java-version": "17",
+    "maven-build-project-deploy-release-artifacts": true,
+    "maven-build-project-deploy-snapshot-artifacts": true,
+    "pr-deploy-additional-helm-values": {
+      "parameters": {
+        "dsb-spring-boot.database_container.enabled": true,
+        "dsb-spring-boot.config.spring.datasource.url": "jdbc:sqlserver://\\$\\{DATABASE_CONTAINER_HOST_AND_PORT};database=\\$\\{DATABASE_CONTAINER_DATABASE};encrypt=false",
+        "dsb-spring-boot.config.spring.datasource.username": "\\$\\{DATABASE_CONTAINER_USER}",
+        "dsb-spring-boot.config.spring.datasource.password": "\\$\\{DATABASE_CONTAINER_PASSWORD}",
+        "dsb-spring-boot.config.spring.r2dbc.url": "r2dbc:pool:sqlserver://\\$\\{DATABASE_CONTAINER_HOST_AND_PORT}/\\$\\{DATABASE_CONTAINER_DATABASE}",
+        "dsb-spring-boot.config.spring.r2dbc.username": "\\$\\{DATABASE_CONTAINER_USER}",
+        "dsb-spring-boot.config.spring.r2dbc.password": "\\$\\{DATABASE_CONTAINER_PASSWORD}"
+      }
+    }
+  },
+  "secrets-json": {
+    "ORG_GITHUB_PACKAGES_READER_PAT": "the token to read from GitHub packages",
+    "other secret": "1\n2"
+  },
+  "github-json": {
+    "actor": "Liam Neeson",
+    "token": "super secret"
+  },
+  "vars-json": {
+    "ORG_GITHUB_PACKAGES_READER_USERNAME": "the username to use when reading from GitHub packages",
+    "OTHER_VAR": "1\n2"
+  }
+}
