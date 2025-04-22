@@ -24,14 +24,15 @@ export async function run(): Promise<void> {
     // --- Get and Validate YAML Input ---
     const pullImagesRawYaml = appVars?.[yamlKey]
 
-    if (typeof pullImagesRawYaml !== 'string' || !pullImagesRawYaml.trim()) {
+    if ((typeof pullImagesRawYaml !== 'string' || !pullImagesRawYaml.trim()) && (!Array.isArray(pullImagesRawYaml) || pullImagesRawYaml.length === 0)) {
       core.info(`Key '${yamlKey}' not found or empty in dsb-build-envs. Nothing to pull.`)
       return // Graceful exit, nothing to do
     }
 
     if (core.isDebug()) {
       core.startGroup(`Raw YAML input from '${yamlKey}'`)
-      core.debug(pullImagesRawYaml)
+      const yamlString = Array.isArray(pullImagesRawYaml) ? pullImagesRawYaml.join('\n') : pullImagesRawYaml
+      core.debug(yamlString)
       core.endGroup()
     }
 
@@ -39,7 +40,7 @@ export async function run(): Promise<void> {
     let imagesToPull: string[] = []
     try {
       // Standard YAML parsers ignore comments by default
-      const parsedYaml = tryParseYaml(pullImagesRawYaml)
+      const parsedYaml = Array.isArray(pullImagesRawYaml) ? pullImagesRawYaml : tryParseYaml(pullImagesRawYaml)
 
       if (!Array.isArray(parsedYaml)) {
         throw new Error('Expected YAML content to be an array of image names.')

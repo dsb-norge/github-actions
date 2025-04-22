@@ -62,7 +62,7 @@ export interface AppVars {
   // Spring Boot Build Image
   'spring-boot-build-image-arguments'?: string
   'spring-boot-build-image-command'?: string
-  'spring-boot-build-image-pull-images-pre-build-yml'?: string // YAML string
+  'spring-boot-build-image-pull-images-pre-build-yml'?: string | string[] // YAML string
   'spring-boot-build-image-goals'?: string
   'spring-boot-build-image-version-arguments'?: string
   'spring-boot-build-image-version-command'?: string
