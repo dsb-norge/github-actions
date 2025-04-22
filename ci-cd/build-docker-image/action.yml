@@ -1,8 +1,8 @@
-name: "Build, tag and push docker image"
+name: 'Build, tag and push docker image'
 description: |
   Use standard docker actions to build docker image from Dockerfile.
   Standard DSB tags, labels and runtime environment variables are added before the image is finally pushed.
-author: "Peder Schmedling"
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
   dsb-build-envs:
     description: |
@@ -13,10 +13,10 @@ inputs:
         None.
     required: true
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -40,8 +40,44 @@ runs:
         username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
         password: ${{ fromJSON(inputs.dsb-build-envs).acr-password }}
 
+    - name: 'Re-tag Previous Image'
+      # Condition: No changes, push/dispatch event, AND (it's a push on default OR a previous tag exists)
+      if: |
+        fromJSON(inputs.dsb-build-envs)['has-changes'] == false
+        && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        && (
+             (github.event_name == 'push' && fromJSON(inputs.dsb-build-envs)['caller-repo-is-on-default-branch'] == true)
+             || fromJSON(inputs.dsb-build-envs)['application-previous-version-tag'] != null
+           )
+      env:
+        # Determine the source tag (primarily for logging now)
+        SOURCE_IMAGE_TAG_FOR_LOGGING: ${{ (github.event_name == 'push' && fromJSON(inputs.dsb-build-envs)['caller-repo-is-on-default-branch'] == true) && 'latest' || fromJSON(inputs.dsb-build-envs).application-previous-version-tag }}
+        # Construct Source image directly using the conditional logic for the tag
+        SOURCE_IMAGE: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}/${{ fromJSON(inputs.dsb-build-envs).docker-image-repo }}/${{ fromJSON(inputs.dsb-build-envs).application-name }}:${{ (github.event_name == 'push' && fromJSON(inputs.dsb-build-envs)['caller-repo-is-on-default-branch'] == true) && 'latest' || fromJSON(inputs.dsb-build-envs).application-previous-version-tag }}
+        # Target image using the NEW application version tag
+        TARGET_IMAGE: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}/${{ fromJSON(inputs.dsb-build-envs).docker-image-repo }}/${{ fromJSON(inputs.dsb-build-envs).application-name }}:${{ fromJSON(inputs.dsb-build-envs).application-version }}
+      shell: bash
+      run: |
+        echo "No changes detected. Re-tagging previous image."
+        echo "Source Tag Determined (for logging): ${{ env.SOURCE_IMAGE_TAG_FOR_LOGGING }}" # Log which tag we decided to use
+        echo "Source Image: $SOURCE_IMAGE"
+        echo "Target Image: $TARGET_IMAGE"
+
+        # Optional: Pull the source image to ensure it exists locally before tagging.
+        echo "Pulling source image $SOURCE_IMAGE..."
+        docker pull "$SOURCE_IMAGE" || (echo "::error::Failed to pull source image $SOURCE_IMAGE. It might not exist or the previous tag is incorrect." && exit 1)
+
+        echo "Tagging $SOURCE_IMAGE as $TARGET_IMAGE..."
+        docker tag "$SOURCE_IMAGE" "$TARGET_IMAGE" || (echo "::error::Failed to tag image" && exit 1)
+
+        echo "Pushing new tag $TARGET_IMAGE..."
+        docker push "$TARGET_IMAGE" || (echo "::error::Failed to push new tag $TARGET_IMAGE" && exit 1)
+
+        echo "Successfully re-tagged and pushed $TARGET_IMAGE."
+
     # generate tags and labels
     - uses: docker/metadata-action@v5
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       id: meta
       with:
         images: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}
@@ -55,36 +91,24 @@ runs:
           org.opencontainers.image.source=${{ fromJSON(inputs.dsb-build-envs).application-source }}
           org.opencontainers.image.revision=${{ fromJSON(inputs.dsb-build-envs).application-source-revision }}
 
+    - name: 🦕 Deno install
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
     # inject DSB ENVs into Dockerfile
     - id: add-envs
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       shell: bash
-      run: |
-        # Add standard DSB ENVs to Dockerfile
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # Locate Dockerfile
-        DOCKER_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
-        [ ! -f "${DOCKER_FILE}" ] && DOCKER_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/Dockerfile"
-        [ ! -f "${DOCKER_FILE}" ] && \
-          log-error "Cannot locate Dockerfile. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${DOCKER_FILE}' does not exist!" && \
-          exit 1
-
-        # In case Dockerfile is missing trailing newline
-        echo -n $'\n' >> "${DOCKER_FILE}"
-
-        # Add DSB envs to Dockerfile
-        cat << 'EOF' >> "${DOCKER_FILE}"
-        ENV DSB_BUILDTIME=${{ fromJSON(inputs.dsb-build-envs).application-build-timestamp }}
-        ENV DSB_VERSION=${{ fromJSON(inputs.dsb-build-envs).application-version }}
-        ENV DSB_SOURCE=${{ fromJSON(inputs.dsb-build-envs).application-source }}
-        ENV DSB_REVISION=${{ fromJSON(inputs.dsb-build-envs).application-source-revision }}
-        EOF
-
-        log-multiline 'Modified Dockerfile' "$(cat "${DOCKER_FILE}")"
+      env:
+        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+        GITHUB_WORKSPACE: '${{ github.workspace }}'
+      run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/add-envs.ts
 
     # build, tag and push docker image
     - uses: docker/build-push-action@v6
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       with:
         pull: true
         push: true

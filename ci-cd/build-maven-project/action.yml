@@ -1,4 +1,4 @@
-name: "Configure Java and build maven project"
+name: 'Configure Java and build maven project'
 description: |
   Given the required input this action configures the specified version of java and builds a given maven project.
   Before maven is invoked the version and distribution of JDK specified in 'dsb-build-envs' is installed.
@@ -75,20 +75,20 @@ description: |
               - Where <pom file> is defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or
                 to a directory containing it.
             - To the maven repo configured under <distributionManagement><snapshotRepository>
-author: "Peder Schmedling"
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
   mvn-version-cmd:
-    description: "Override command string used when invoking maven in the first part."
+    description: 'Override command string used when invoking maven in the first part.'
     required: false
-    default: ""
+    default: ''
   mvn-cmd:
-    description: "Override command string used when invoking maven in the second part."
+    description: 'Override command string used when invoking maven in the second part.'
     required: false
-    default: ""
+    default: ''
   set-extra-envs:
-    description: "JSON object with extra environment variables to set in same scope as maven is invoked."
+    description: 'JSON object with extra environment variables to set in same scope as maven is invoked.'
     required: false
-    default: ""
+    default: ''
   dsb-build-envs:
     description: |
       DSB build environment variables JSON.
@@ -110,10 +110,10 @@ inputs:
     required: true
 
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -140,85 +140,22 @@ runs:
         username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
         password: ${{ fromJSON(inputs.dsb-build-envs).acr-password }}
 
-    # locate pom.xml and define maven commands
+    - name: 🦕 Deno install
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
     - id: mvn-cmd
       shell: bash
       env:
-        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
-      run: |
-        # Locate pom.xml and define maven commands
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # Defaults
-        MVN_VERSION_ARGUMENTS_DEFAULT='-B'
-        MVN_VERSION_GOALS_DEFAULT='versions:set'
-        MVN_ARGUMENTS_DEFAULT='-B'
-        MVN_GOALS_DEFAULT='clean install org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'
-
-        # Locate pom.xml
-        POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
-        [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
-        [ ! -f "${POM_FILE}" ] && \
-          echo log-error "Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
-          exit 1
-
-        # Determine maven command for first invocation
-        if [ ! -z '${{ inputs.mvn-version-cmd }}' ]; then
-          log-info "using maven version command from 'inputs.mvn-version-cmd'."
-          MVN_VERSION_CMD='${{ inputs.mvn-version-cmd }} -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }}'
-        elif has-field 'maven-build-project-version-command'; then
-          log-info "using maven version command from 'inputs.dsb-build-envs.maven-build-project-version-command'."
-          MVN_VERSION_CMD="$(get-val 'maven-build-project-version-command') -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }}"
-        else
-          if has-field 'maven-build-project-version-goals'; then
-            log-info "using maven version goals from 'inputs.dsb-build-envs.maven-build-project-version-goals'."
-            MVN_VERSION_GOALS="$(get-val 'maven-build-project-version-goals')"
-          else
-            log-info "using default maven version goals."
-            MVN_VERSION_GOALS="${MVN_VERSION_GOALS_DEFAULT}"
-          fi
-          if has-field 'maven-build-project-version-arguments'; then
-            log-info "using maven version arguments from 'inputs.dsb-build-envs.maven-build-project-version-arguments'."
-            MVN_VERSION_ARGUMENTS="$(get-val 'maven-build-project-version-arguments')"
-          else
-            log-info "using default maven version arguments."
-            MVN_VERSION_ARGUMENTS="${MVN_VERSION_ARGUMENTS_DEFAULT}"
-          fi
-          MVN_VERSION_CMD="mvn ${MVN_VERSION_ARGUMENTS} --file ${POM_FILE} ${MVN_VERSION_GOALS} -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }}"
-        fi
-        log-info "maven version command: '${MVN_VERSION_CMD}'"
-        set-output 'mvn-version-cmd' "${MVN_VERSION_CMD}"
-
-        # Determine maven command for second invocation
-        if [ ! -z '${{ inputs.mvn-cmd }}' ]; then
-          log-info "using maven command from 'inputs.mvn-cmd'."
-          MVN_CMD='${{ inputs.mvn-cmd }}'
-        elif has-field 'maven-build-project-command'; then
-          log-info "using maven command from 'inputs.dsb-build-envs.maven-build-project-command'."
-          MVN_CMD="$(get-val 'maven-build-project-command')"
-        else
-          if has-field 'maven-build-project-goals'; then
-            log-info "using maven goals from 'inputs.dsb-build-envs.maven-build-project-goals'."
-            MVN_GOALS="$(get-val 'maven-build-project-goals')"
-          else
-            log-info "using default maven goals."
-            MVN_GOALS="${MVN_GOALS_DEFAULT}"
-          fi
-          if has-field 'maven-build-project-arguments'; then
-            log-info "using maven arguments from 'inputs.dsb-build-envs.maven-build-project-arguments'."
-            MVN_ARGUMENTS="$(get-val 'maven-build-project-arguments')"
-          else
-            log-info "using default maven arguments."
-            MVN_ARGUMENTS="${MVN_ARGUMENTS_DEFAULT}"
-          fi
-          MVN_CMD="mvn ${MVN_ARGUMENTS} --file ${POM_FILE} ${MVN_GOALS}"
-        fi
-        log-info "Maven build command: '${MVN_CMD}'"
-        set-output 'mvn-cmd' "${MVN_CMD}"
+        INPUT_DSB_BUILD_ENVS: ${{ inputs.dsb-build-envs }}
+        INPUT_MVN_VERSION_CMD: ${{ inputs.mvn-version-cmd }}
+        INPUT_MVN_CMD: ${{ inputs.mvn-cmd }}
+        GITHUB_WORKSPACE: ${{ github.workspace }}
+      run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_mvn-cmd.ts
 
     # configure maven settings
-    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v2
+    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v3
       with:
         user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
 
@@ -232,33 +169,15 @@ runs:
     - id: invoke-maven
       shell: bash
       env:
-        EXTRA_ENVS: "${{ inputs.set-extra-envs }}"
-        EXTRA_ENVS_FROM_GH: "${{ fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github }}"
+        EXTRA_ENVS: '${{ inputs.set-extra-envs }}'
+        EXTRA_ENVS_FROM_GH: '${{ toJSON(fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github) }}'
         JASYPT_LOCAL_ENCRYPTOR_PASSWORD: ${{ fromJSON(inputs.dsb-build-envs).jasypt-password }}
         GITHUB_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }} # Needed for Sonar to get PR information, if any
         SONAR_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).sonarqube-token }}
-      run: |
-        # Define extra envs, if any, and invoke maven
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # export extra envs
-        export-extra-envs "general" "${EXTRA_ENVS}"
-        export-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
-
-        start-group "Setting maven project version"
-        log-info "command string: '${{ steps.mvn-cmd.outputs.mvn-version-cmd }}'"
-        ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
-        end-group
-
-        start-group "Invoke maven with goals"
-        log-info "command string: '${{ steps.mvn-cmd.outputs.mvn-cmd }}'"
-        ${{ steps.mvn-cmd.outputs.mvn-cmd }}
-        end-group
-
-        # remove extra envs
-        unset-extra-envs "general" "${EXTRA_ENVS}"
-        unset-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
+        INPUT_MVN_VERSION_CMD: ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
+        INPUT_MVN_CMD: ${{ steps.mvn-cmd.outputs.mvn-cmd }}
+        GITHUB_WORKSPACE: '${{ github.workspace }}'
+      run: deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/2_invoke-maven.ts
 
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@567cc7f8dcea3eba5da355f6ebc95663310d8a07
@@ -281,126 +200,12 @@ runs:
     - id: deploy-artifacts
       shell: bash
       env:
-        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
-        EXTRA_ENVS: "${{ inputs.set-extra-envs }}"
-        EXTRA_ENVS_FROM_GH: "${{ fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github }}"
-        DEPLOY_TO_REPOS_YML: "${{ fromJSON(inputs.dsb-build-envs).maven-build-project-deploy-to-repositories-yml }}"
-      run: |
-        # Use maven to deploy build artifacts to configured maven deployment repos when allowed and requested
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # Locate pom.xml
-        POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
-        [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
-        [ ! -f "${POM_FILE}" ] && \
-          log-error "Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
-          exit 1
-
-        # Determine if we are deploying and with what commands
-        if [ '${{ github.event_name }}' == 'pull_request' ]; then
-
-          # it's snapshot, record this for later
-          DEPLOY_TYPE='snapshot'
-
-          if [ '${{ github.event.action }}' == 'closed' ]; then
-            log-info "Maven snapshot artifacts will not be deployed when closing PR."
-            exit 0
-          elif [ ! "$(get-val 'maven-build-project-deploy-snapshot-artifacts')" == 'true' ]; then
-            log-info "Deployment of maven snapshot artifacts not requested."
-            exit 0
-          else
-            log-info "Will deploy maven snapshot artifacts as requested."
-            if has-field 'maven-build-project-deploy-snapshot-version-command'; then
-              log-info "using maven version command from 'inputs.dsb-build-envs.maven-build-project-deploy-snapshot-version-command'."
-              MVN_VERSION_CMD="$(get-val 'maven-build-project-deploy-snapshot-version-command') -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT"
-            else
-              log-info "using default maven version command."
-              MVN_VERSION_CMD="mvn -B --file ${POM_FILE} versions:set -DnewVersion=pr-${{ github.event.number }}-SNAPSHOT"
-            fi
-            if has-field 'maven-build-project-deploy-snapshot-deploy-command'; then
-              log-info "using maven deploy command from 'inputs.dsb-build-envs.maven-build-project-deploy-snapshot-deploy-command'."
-              MVN_CMD="$(get-val 'maven-build-project-deploy-snapshot-deploy-command')"
-            else
-              log-info "using default maven deploy command."
-              MVN_CMD="mvn -B --file ${POM_FILE} deploy -DskipTests"
-            fi
-          fi
-        elif [ '${{ github.event_name }}' == 'push' ] || [ '${{ github.event_name }}' == 'workflow_dispatch' ]; then
-
-          # it's release, record this for later
-          DEPLOY_TYPE='release'
-
-          if [ ! '${{ fromJSON(inputs.dsb-build-envs).caller-repo-is-on-default-branch }}' == 'true' ]; then
-            log-info "Maven release artifacts will not be deployed as current branch '${{ fromJSON(inputs.dsb-build-envs).caller-repo-calling-branch }}' is not the default of this repo."
-            exit 0
-          elif [ ! "$(get-val 'maven-build-project-deploy-release-artifacts')" == 'true' ]; then
-            log-info "Deployment of maven release artifacts not requested."
-            exit 0
-          else
-            log-info "Will deploy maven release artifacts as requested."
-            if has-field 'maven-build-project-deploy-release-version-command'; then
-              log-info "using maven version command from 'inputs.dsb-build-envs.maven-build-project-deploy-release-version-command'."
-              MVN_VERSION_CMD="$(get-val 'maven-build-project-deploy-release-version-command') -DnewVersion=${{ fromJSON(inputs.dsb-build-envs).application-version }}"
-            else
-              log-info "not setting version with maven as version was already set correctly in the build step."
-              MVN_VERSION_CMD=
-            fi
-            if has-field 'maven-build-project-deploy-release-deploy-command'; then
-              log-info "using maven deploy command from 'inputs.dsb-build-envs.maven-build-project-deploy-release-deploy-command'."
-              MVN_CMD="$(get-val 'maven-build-project-deploy-release-deploy-command')"
-            else
-              log-info "using default maven deploy command."
-              MVN_CMD="mvn -B --file ${POM_FILE} deploy -DskipTests"
-            fi
-          fi
-        else
-          log-error "unsupported github.event_name '${{ github.event_name }}' with github.event.action '${{ github.event.action }}'!"
-          exit 1
-        fi
-
-        # export extra envs
-        export-extra-envs "general" "${EXTRA_ENVS}"
-        export-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
-
-        if [ -z "${MVN_VERSION_CMD}" ]; then
-          log-info "Project version already set by maven."
-        else
-          # Expand any bash variables in maven command string
-          MVN_VERSION_CMD=$(eval "echo $MVN_VERSION_CMD")
-          start-group "Setting maven project version for deployment of artifacts"
-          log-info "command string: '${MVN_VERSION_CMD}'"
-          ${MVN_VERSION_CMD}
-          end-group
-        fi
-
-        # Expand any bash variables in maven command string
-        MVN_CMD=$(eval "echo $MVN_CMD")
-
-        log-info "Parse maven deployment repos ..."
-        # this creates an array with strings compatible with maven deploy mojo 'altDeploymentRepository' parameter
-        # ref. https://maven.apache.org/plugins/maven-deploy-plugin/deploy-mojo.html
-        export REPO_YML_KEY="${DEPLOY_TYPE}-repositories" # 'export' to make available to yq
-        readarray -t DEPLOY_TO_REPOS_ARR < <(
-          echo "${DEPLOY_TO_REPOS_YML}" |
-            yq eval '
-              .[strenv(REPO_YML_KEY)] |
-              map (
-                (. | key) as $key |
-                [$key, .] | join("::default::")
-              ).[]'
-        )
-        unset REPO_YML_KEY
-
-        log-info "Deploying to ${#DEPLOY_TO_REPOS_ARR[@]} repo(s):"
-        for DEPLOY_TO_REPO in "${DEPLOY_TO_REPOS_ARR[@]}"; do
-          start-group "Deploy artifacts to '${DEPLOY_TO_REPO%::default*}'" # funky syntax removes everything from '::default'
-          MVN_REPO_ARG="-DaltDeploymentRepository=${DEPLOY_TO_REPO}"
-          log-info "command string: '${MVN_CMD} ${MVN_REPO_ARG}'"
-          ${MVN_CMD} ${MVN_REPO_ARG}
-          end-group
-        done
-
-        # remove extra envs
-        unset-extra-envs "general" "${EXTRA_ENVS}"
-        unset-extra-envs "from github" "${EXTRA_ENVS_FROM_GH}"
+        INPUT_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+        EXTRA_ENVS: '${{ inputs.set-extra-envs }}'
+        EXTRA_ENVS_FROM_GH: '${{ toJSON(fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github) }}'
+        DEPLOY_TO_REPOS_YML: '${{ fromJSON(inputs.dsb-build-envs).maven-build-project-deploy-to-repositories-yml }}'
+        GITHUB_WORKSPACE: '${{ github.workspace }}'
+        GITHUB_EVENT_ACTION: '${{ github.event.action }}'
+        GITHUB_EVENT_NAME: '${{ github.event_name }}'
+        GITHUB_EVENT_NUMBER: '${{ github.event.number }}'
+      run: deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/3_deploy-artifacts.ts

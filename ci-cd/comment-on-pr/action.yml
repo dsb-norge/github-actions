@@ -2,7 +2,7 @@ name: 'Add/update PR comment'
 description: |
   Add a comment to PR that called this action.
   Can only be called from a workflow triggered from a PR and not from a closing PR action.
-author: 'Peder Schmedling'
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
   pr-comment-text:
     description: Body of comment to add to PR.
@@ -14,85 +14,32 @@ inputs:
       If left empty no comments will be deleted.
     default: ''
     required: false
+  github-repo-token:
+    description: Github repo token is required by for Adding comments from actions to github PRs.
+    required: true
 runs:
   using: 'composite'
   steps:
+    - name: 🦕 Deno install
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
     - id: check-pull-request
       shell: bash
-      run: |
-        # Check if triggered by pull request event, and not a closing action
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        EXIT_CODE=0
-
-        [ ! '${{ github.event_name }}' == 'pull_request' ] \
-          && log-error "This action should only be called by pull request events!" \
-          && EXIT_CODE=1 || :
-
-        [ '${{ github.event.action }}' == 'closed' ] \
-          && log-error "This action should not be called by event action 'closed'!" \
-          && EXIT_CODE=1 || :
-
-        exit ${EXIT_CODE}
+      run: deno run --allow-read --allow-write --allow-env ${{ github.action_path }}/action/1_check-pull-request.ts
 
     - id: log-inputs
       shell: bash
-      run: |
-        # Log inputs
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        COMMENT_TEXT=$(cat <<'EOF'
-        ${{ inputs.pr-comment-text }}
-        EOF
-        )
-        DELETE_COMMENTS_WITH_PREFIX=$(cat <<'EOF'
-        ${{ inputs.delete-comments-starting-with }}
-        EOF
-        )
-
-        log-info "Adding comment to PR #${{ github.event.number }}"
-        log-multiline "Comment body" "${COMMENT_TEXT}"
-        if [ ! -z "${DELETE_COMMENTS_WITH_PREFIX}" ]; then
-          log-info "Comments starting with '${DELETE_COMMENTS_WITH_PREFIX}' will be removed from the PR."
-        else
-          log-info "No comments will be removed from the PR."
-        fi
-
-    # add comment to PR
-    - uses: actions/github-script@v7
       env:
-        NEW_COMMENT_BODY: ${{ inputs.pr-comment-text }}
-        DELETE_COMMENTS_WITH_PREFIX: ${{ inputs.delete-comments-starting-with }}
-      with:
-        script: |
-          const { DELETE_COMMENTS_WITH_PREFIX, NEW_COMMENT_BODY } = process.env
-          if (DELETE_COMMENTS_WITH_PREFIX.trim().length > 0) {
-              const opts = github.rest.issues.listComments.endpoint.merge({
-                  issue_number: context.issue.number,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo
-              })
-              const comments = await github.paginate(opts)
-              for (const comment of comments) {
-                  if (comment.body.startsWith(`${DELETE_COMMENTS_WITH_PREFIX}`)) {
-                      console.log('deploy-to-ephemeral: Deleting comment -> id: ' + comment.id + ', body: ' + comment.body.slice(0,100))
-                      github.rest.issues.deleteComment({
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          comment_id: comment.id
-                      });
-                  }
-              }
-          }
-          if (NEW_COMMENT_BODY.trim().length <= 0) {
-              return false;
-          } else {
-              return github.rest.issues.createComment({
-                  issue_number: context.issue.number,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  body: `${NEW_COMMENT_BODY}`
-              });
-          }
+        INPUT_PR_COMMENT_TEXT: '${{ inputs.pr-comment-text }}'
+        INPUT_DELETE_COMMENTS_STARTING_WITH: '${{ inputs.delete-comments-starting-with }}'
+      run: deno run --allow-read --allow-write --allow-env ${{ github.action_path }}/action/2_log-inputs.ts
+
+    - id: add-comment
+      shell: bash
+      env:
+        INPUT_NEW_COMMENT_BODY: ${{ inputs.pr-comment-text }}
+        INPUT_DELETE_COMMENTS_WITH_PREFIX: ${{ inputs.delete-comments-starting-with }}
+        INPUT_GITHUB_REPO_TOKEN: ${{ inputs.github-repo-token }}
+      run: deno run --allow-read --allow-write --allow-env --allow-net ${{ github.action_path }}/action/3_add-comment.ts

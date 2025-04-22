@@ -1,9 +1,9 @@
-name: "Configure Node.js and build node project"
+name: 'Configure Node.js and build node project'
 description: |
   Given the required input this action configures the specified version of node and builds a given project.
   Before npm is invoked the version Node.js specified in 'dsb-build-envs' is installed.
   As for working directory the field 'application-source-path' of 'dsb-build-envs' should point to the base directory of the project.
-author: "Peder Schmedling"
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
   dsb-build-envs:
     description: |
@@ -17,10 +17,10 @@ inputs:
         nodejs-build-project-custom-command-final
     required: true
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -28,119 +28,29 @@ runs:
           application-source-path
           npmjs-token
 
+    - name: 🦕 Deno install
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
     - id: work-dir
       shell: bash
-      run: |
-        # check that work dir exists and get full path
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        log-info "Looking for project to build ..."
-        REL_SOURCE_DIR="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
-        log-info "Configured 'application-source-path': '${REL_SOURCE_DIR}'"
-
-        WS_PATH="${{ github.workspace }}"
-        ABS_PATH_RAW="${WS_PATH}/${REL_SOURCE_DIR}"
-        if [ ! -d "${ABS_PATH_RAW}" ]; then
-          log-error "Unable to determine working directory!"
-          log-error "The given 'application-source-path' does not exist within the workspace at '${WS_PATH}'"
-          exit 1
-        fi
-
-        # sanitizes the path
-        # ex. removes extra '..' and '.' which does not go well with 'actions/setup-node'
-        ABS_PATH="$(realpath ${ABS_PATH_RAW})"
-        REL_PATH="$(ws-path ${ABS_PATH})"
-        log-info "Found project at '${REL_PATH}'"
-
-        set-output 'abs-path' "${ABS_PATH}"
-        set-output 'rel-path' "${REL_PATH}"
-
-    # read node version from package.json if it exists
-    - id: read-node-version
-      shell: bash
-      working-directory: "${{ steps.work-dir.outputs.abs-path }}"
-      run: |
-        
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-        
-        log-info "Checking for package.json engines.node field ..."
-        if [ -f "package.json" ]; then
-          NODE_VERSION=$(jq -r '.engines.node // empty' package.json)
-          if [ -n "$NODE_VERSION" ]; then
-            log-info "Found node version in package.json: '${NODE_VERSION}'"
-          else
-            log-info "No node version found in package.json"
-          fi
-          set-output 'node-version' "${NODE_VERSION}"
-        else
-          log-info "No package.json found, using fallback node version"
-          set-output 'node-version' ""
-        fi
+      env:
+        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+        GITHUB_WORKSPACE: '${{ github.workspace }}'
+      run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_work-dir.ts
 
     # set up Node.js
     - uses: actions/setup-node@v4
       with:
-        node-version: ${{ steps.read-node-version.outputs.node-version || fromJSON(inputs.dsb-build-envs).nodejs-version }}
-        registry-url: "https://registry.npmjs.org"
+        node-version: ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
+        registry-url: 'https://registry.npmjs.org'
       env:
         NODE_AUTH_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).npmjs-token }}
 
     - id: npm-build
       shell: bash
-      working-directory: "${{ steps.work-dir.outputs.abs-path }}"
+      working-directory: '${{ steps.work-dir.outputs.abs-path }}'
       env:
-        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
-        NODE_AUTH_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).npmjs-token }}
-      run: |
-        # npm install, build with support for additional custom commands
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        if has-field 'nodejs-build-project-custom-command-pre-npm-ci'; then
-          start-group "Custom command: pre npm ci"
-          log-info "Command string: '$(get-val 'nodejs-build-project-custom-command-pre-npm-ci')'"
-          eval "$(get-val 'nodejs-build-project-custom-command-pre-npm-ci')"
-          end-group
-        else
-          log-info "Skipping custom pre npm ci command, not defined"
-        fi
-
-        start-group "npm ci --ignore-scripts"
-        npm ci --ignore-scripts
-        end-group
-
-        if has-field 'nodejs-build-project-custom-command-pre-npm-run-lint'; then
-          start-group "Custom command: pre npm run lint"
-          log-info "Command string: '$(get-val 'nodejs-build-project-custom-command-pre-npm-run-lint')'"
-          eval "$(get-val 'nodejs-build-project-custom-command-pre-npm-run-lint')"
-          end-group
-        else
-          log-info "Skipping custom pre npm run lint command, not defined"
-        fi
-
-        start-group "npm run lint"
-        npm run lint
-        end-group
-
-        if has-field 'nodejs-build-project-custom-command-pre-npm-run-build'; then
-          start-group "Custom command: pre npm run build"
-          log-info "Command string: '$(get-val 'nodejs-build-project-custom-command-pre-npm-run-build')'"
-          eval "$(get-val 'nodejs-build-project-custom-command-pre-npm-run-build')"
-          end-group
-        else
-          log-info "Skipping custom pre npm run build command, not defined"
-        fi
-
-        start-group "npm run build"
-        npm run build
-        end-group
-
-        if has-field 'nodejs-build-project-custom-command-final'; then
-          start-group "Custom command: final"
-          log-info "Command string: '$(get-val 'nodejs-build-project-custom-command-final')'"
-          eval "$(get-val 'nodejs-build-project-custom-command-final')"
-          end-group
-        else
-          log-info "Skipping custom final command, not defined"
-        fi
+        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+      run: deno run --allow-env --allow-read --allow-write --allow-run=npm ${{ github.action_path }}/action/2_npm-build.ts

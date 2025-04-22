@@ -15,7 +15,7 @@ runs:
   using: "composite"
   steps:
     # we need to verify inputs since they are optional input to create-build-envs action
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |

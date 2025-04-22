@@ -1,13 +1,13 @@
-name: "Create common DSB CI/CD variables"
+name: 'Create common DSB CI/CD variables'
 description: |
   Given the required input this action returns common DSB build environment variables with values.
   Common DSB build environment variables are the values needed to successfully build and deploy an app in DSB's infrastructure.
   Some variables are slightly different if the build was triggered from a PR. This is to support PR builds and deployments.
   Where possible values from input 'app-vars' are preferred.
-author: "Peder Schmedling"
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
   app-vars:
-    description: "Specifications of application to build and/or deploy, created by the create-app-vars workflow."
+    description: 'Specifications of application to build and/or deploy, created by the create-app-vars workflow.'
     required: true
   github-json:
     description: "The 'github' context as JSON, passed from the calling workflow with '{{ toJSON(github) }}'"
@@ -19,15 +19,15 @@ inputs:
     description: "The 'vars' context as JSON, passed from the calling workflow with '{{ toJSON(vars) }}'"
     required: true
   application-source-path:
-    description: "The path to the application source code."
+    description: 'The path to the application source code.'
     required: false
-    default: "./"
+    default: './'
   application-vendor:
-    description: "Vendor of application being built. Added as label in docker image."
+    description: 'Vendor of application being built. Added as label in docker image.'
     required: false
     default: Norwegian Directorate for Civil Protection
   docker-image-registry:
-    description: "Docker image registry to push built image and tags to."
+    description: 'Docker image registry to push built image and tags to.'
     required: false
     default: dsbacr.azurecr.io
   docker-image-repo:
@@ -40,26 +40,26 @@ inputs:
       Note: For images built from PRs this has no effect. A hardcoded value will be used when pruning PR images.
       Also note: This setting will only affects images older than what is set for 'docker-image-prune-keep-num-days'.
     required: false
-    default: "30"
+    default: '30'
   docker-image-prune-keep-num-days:
     description: |
       Minimum number of days that images will be preserved for a given application when performing prune on the application image repo.
       Note: For images built from PRs this has no effect. A hardcoded value will be used when pruning PR images.
       Also note: All images newer than given value will be preserved regardless of what is set for 'docker-image-prune-keep-min-images'.
     required: false
-    default: "180"
+    default: '180'
   acr-username:
     description: 'Username for given "docker-image-registry", user must have push pull rights. Used for docker build and docker push.'
     required: false
-    default: ""
+    default: ''
   acr-password:
     description: 'Password for the user given in "acr-username".'
     required: false
-    default: ""
+    default: ''
   acr-service-principal:
     description: 'Service principal with rights to delete from "docker-image-registry" (ACR). Used for teardown operation of ephemeral PR environments.'
     required: false
-    default: ""
+    default: ''
   maven-user-settings-repositories-yml:
     description: |
       A YAML list (as string) with information about maven repositories that will be used to create a maven settings.xml prior to invoking maven.
@@ -134,40 +134,40 @@ inputs:
       snapshot-repositories:
         calling-repo: "https://maven.pkg.github.com/{{ github.repository }}"
   sonarqube-token:
-    description: "Token used for SonarQube app, see https://docs.sonarqube.org/latest/analysis/github-integration/"
+    description: 'Token used for SonarQube app, see https://docs.sonarqube.org/latest/analysis/github-integration/'
     required: true
   jasypt-password:
     description: 'Jasypt password. Will be passed to maven build as environment variable named "JASYPT_LOCAL_ENCRYPTOR_PASSWORD"'
     required: false
-    default: ""
+    default: ''
   java-version:
-    description: "Version of java specified when calling actions/setup-java"
+    description: 'Version of java specified when calling actions/setup-java'
     required: false
-    default: "11"
+    default: '11'
   java-distribution:
-    description: "Distribution of Java specified when calling actions/setup-java"
+    description: 'Distribution of Java specified when calling actions/setup-java'
     required: false
     default: temurin
   nodejs-version:
-    description: "Version of Node.js specified when calling actions/setup-node"
+    description: 'Version of Node.js specified when calling actions/setup-node'
     required: false
-    default: "16"
+    default: '16'
   github-repo-token:
-    description: "Github repo token is required by: 1) Maven Sonar plugin to get PR information; 2) Adding comments from actions to github PRs."
+    description: 'Github repo token is required by: 1) Maven Sonar plugin to get PR information; 2) Adding comments from actions to github PRs.'
     required: true
   npmjs-token:
-    description: "Token for fetching private npmjs packages in the @dsb-norge - scope"
+    description: 'Token for fetching private npmjs packages in the @dsb-norge - scope'
     required: true
   app-config-repo:
     description: |
       Repo containing application configuration for apps used during deploy to ephemeral environment and static environments.
       This input is required when deploying apps.'
     required: false
-    default: "dsb-norge/azure-kubernetes-config"
+    default: 'dsb-norge/azure-kubernetes-config'
   app-config-repo-token:
-    description: "Token for performing checkout and commits to the above repo during deploy. This input is required when deploying apps."
+    description: 'Token for performing checkout and commits to the above repo during deploy. This input is required when deploying apps.'
     required: false
-    default: ""
+    default: ''
   static-deploy-environments:
     description: |
       Comma separated list of static environments to deploy to.
@@ -179,44 +179,44 @@ inputs:
       Set this to 'false' to allow deploying to static environments from other branches than the default branch.
       The default is to allow only deploys from the default branch.
     required: false
-    default: "true"
+    default: 'true'
   pr-deploy-app-config-branch:
     description: |
       Name of branch in "app-config-repo" potentially containing modified app config used during deploy to ephemeral
       environment. If branch does not exist deploy will fallback to HEAD @ default branch.'
     required: false
-    default: "${{ github.head_ref }}"
+    default: '${{ github.head_ref }}'
   pr-deploy-aks-cluster-name:
-    description: "Name of AKS instance to use during deploy to ephemeral environment. This input is required when deploying to to ephemeral environments."
+    description: 'Name of AKS instance to use during deploy to ephemeral environment. This input is required when deploying to to ephemeral environments.'
     required: false
-    default: "aks-rg7-ss2-cm-k8s-cluster-dev-1"
+    default: 'aks-rg7-ss2-cm-k8s-cluster-dev-1'
   pr-deploy-aks-resource-group:
     description: |
       Name of resource group where the AKS instance to use during deploy to ephemeral environment lives. This input is
       required when deploying to to ephemeral environments.'
     required: false
-    default: "rg7-ss2-cm-k8s-dev"
+    default: 'rg7-ss2-cm-k8s-dev'
   pr-deploy-aks-creds:
     description: |
       Credentials to the AKS instance to use during deploy to ephemeral environment. This input is required when
       deploying to to ephemeral environments.
     required: false
-    default: ""
+    default: ''
   pr-deploy-additional-helm-values:
-    description: "Additional values.yml overrides passed to Helm. The multiline string is saved to file and and passed to Helm using --vaules option."
+    description: 'Additional values.yml overrides passed to Helm. The multiline string is saved to file and and passed to Helm using --vaules option.'
     required: false
-    default: ""
+    default: ''
   pr-deploy-argo-applications-url:
-    description: "URL to applications overview in ArgoCD. Used when creating comments on PRs during deploy to ephemeral environments."
+    description: 'URL to applications overview in ArgoCD. Used when creating comments on PRs during deploy to ephemeral environments.'
     required: false
-    default: "https://argo.dev.dsbnorge.no/applications"
+    default: 'https://argo.dev.dsbnorge.no/applications'
   pr-deploy-comment-prefix:
     description: |
       Used when creating comments on PRs during deploy to ephemeral environments. All comments will be prfixed with this string.
       It is also used when looking for comment(s) to delete prior to creating a new comment. I.e. make sure this is a bit uniqe
       or you will loose comments on our PR. This string will in turn be prefixed with application name.
     required: false
-    default: "auto-deployed to ephemeral PR environment:"
+    default: 'auto-deployed to ephemeral PR environment:'
   github-dependencies-cache-enabled:
     description: |
       Whether to enable GitHub actions cache for dependencies.
@@ -245,7 +245,7 @@ inputs:
           - Caches from feature branches are not available to other branches. Therefore caches of feature branches are deleted upon merge of
             the feature branch. This behavior can be changed by setting 'github-dependencies-cache-delete-on-pr-close' to 'false'
     required: false
-    default: "true"
+    default: 'true'
   github-dependencies-cache-delete-on-pr-close:
     description: |
       Whether to delete the associated GitHub actions cache for dependencies when a PR is closed.
@@ -257,7 +257,7 @@ inputs:
         `actions:write` permission is required to delete GitHub caches
         Ref: https://docs.github.com/en/rest/actions/cache?apiVersion=2022-11-28#delete-a-github-actions-cache-for-a-repository-using-a-cache-id
     required: false
-    default: "true"
+    default: 'true'
   github-dependencies-cache-path:
     description: |
       The path of where to restore to/save from when GitHub actions cache is enabled for dependencies.
@@ -265,92 +265,162 @@ inputs:
         - For maven application types (ex. 'spring-boot' and 'maven-library') this typically becomes "${HOME}/.m2/repository".
         - For node application types (ex. 'vue') this typically becomes "${HOME}/.npm".
     required: false
-    default: "" # results in "${HOME}/.m2/repository"
+    default: '' # results in "${HOME}/.m2/repository"
 outputs:
   json:
-    description: "All envs as json"
+    description: 'All envs as json'
     value: ${{ steps.build-env.outputs.json }}
 
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
+    - name: 🦕 Deno install
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
     # decide on git ref for app config repo branch
     - id: checkout-config-branch
       shell: bash
       env:
-        GH_TOKEN: "${{ inputs.app-config-repo-token }}"
-      run: |
-        # Test if branch ${{ inputs.pr-deploy-app-config-branch }} exists in config repo
+        INPUT_APP-CONFIG-REPO: ${{ inputs.app-config-repo }}
+        INPUT_PR-DEPLOY-APP-CONFIG-BRANCH: ${{ inputs.pr-deploy-app-config-branch }}
+        GH_TOKEN: '${{ inputs.app-config-repo-token }}'
+      run: deno run --allow-read --allow-write --allow-env --allow-run=git ${{ github.action_path }}/action/1_checkout-config-branch.ts
 
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        log-info 'Using GitHub token for application config repo from input 'app-config-repo-token' ...'
-        GH_TOKEN_SANITIZED=${GH_TOKEN/ }
-        mask-value "${GH_TOKEN_SANITIZED}"
-
-        log-info 'Cloning branch "${{ inputs.pr-deploy-app-config-branch }}" of application repo "${{ inputs.app-config-repo }}" ...'
-        TMP_FILE=./not-going-to-use-this
-        if (
-          git clone \
-            --branch '${{ inputs.pr-deploy-app-config-branch }}' \
-            "https://oauth2:${GH_TOKEN_SANITIZED}@github.com/${{ inputs.app-config-repo }}" \
-            ${TMP_FILE}
-        ); then
-          set-output 'ref' "${{ inputs.pr-deploy-app-config-branch }}"
-          log-info 'Ref "${{ inputs.pr-deploy-app-config-branch }}" exist in "${{ inputs.app-config-repo }}" and will be used for PR deploys.'
-        else
-          set-output 'ref' 'main'
-          log-info 'Ref "${{ inputs.pr-deploy-app-config-branch }}" does not exist in "${{ inputs.app-config-repo }}", using "main" for PR deploys.'
-        fi
-        rm -rf ${TMP_FILE} || :
-
-    # generate DSB build variables
-    - id: build-env
+    # These files are large and won't fit in action inputs directly
+    - id: prep-contexts
       shell: bash
       env:
-        APP_VARS_JSON: "${{ inputs.app-vars }}"
-        # 'inputs.github-json' is loaded further down as it's too large to load into env var here, bash startup fails with argument too long
-        SECRETS_JSON: "${{ inputs.secrets-json }}"
-        VARS_JSON: "${{ inputs.vars-json }}"
-        PR_HELM_VALUES_YML: "${{ inputs.pr-deploy-additional-helm-values }}"
-        MVN_SETTINGS_REPOS_YML: "${{ inputs.maven-user-settings-repositories-yml }}"
-        MVN_EXTRA_GH_ENVS_YML: "${{ inputs.maven-extra-envs-from-github-yml }}"
-        MVN_DEPLOY_REPOS_YML: "${{ inputs.maven-build-project-deploy-to-repositories-yml }}"
-        GH_EVENT_NUMBER: "${{ github.event.number }}"
-        GH_TOKEN: "${{ github.token }}"
-        CONFIG_BRANCH_REF: "${{ steps.checkout-config-branch.outputs.ref }}"
+        # Pass file paths for LARGE contexts
+        SECRETS_CONTEXT_FILE: '${{ runner.temp }}/secrets_context.json'
+        VARS_CONTEXT_FILE: '${{ runner.temp }}/vars_context.json'
       run: |
-        # Define variables needed for build and deploy of DSB apps
+        echo "::group::Writing context files..."
+        printf '%s' '${{ inputs.secrets-json }}' > "${SECRETS_CONTEXT_FILE}"
+        printf '%s' '${{ inputs.vars-json }}' > "${VARS_CONTEXT_FILE}"
+        echo "Context files written."
+        echo "::endgroup::"
+        # Output the file paths for subsequent steps
+        echo "secrets_context_file=${SECRETS_CONTEXT_FILE}" >> $GITHUB_OUTPUT
+        echo "vars_context_file=${VARS_CONTEXT_FILE}" >> $GITHUB_OUTPUT
 
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
+    # Initialize & Merge Inputs
+    - id: init-merge
+      shell: bash
+      env:
+        INPUT_APP_VARS: '${{ inputs.app-vars }}'
+        INPUT_APPLICATION_SOURCE_PATH: '${{ inputs.application-source-path }}'
+        INPUT_APPLICATION_VENDOR: '${{ inputs.application-vendor }}'
+        INPUT_DOCKER_IMAGE_REGISTRY: '${{ inputs.docker-image-registry }}'
+        INPUT_DOCKER_IMAGE_REPO: '${{ inputs.docker-image-repo }}'
+        INPUT_DOCKER_IMAGE_PRUNE_KEEP_MIN_IMAGES: '${{ inputs.docker-image-prune-keep-min-images }}'
+        INPUT_DOCKER_IMAGE_PRUNE_KEEP_NUM_DAYS: '${{ inputs.docker-image-prune-keep-num-days }}'
+        INPUT_ACR_USERNAME: '${{ inputs.acr-username }}'
+        INPUT_ACR_PASSWORD: '${{ inputs.acr-password }}'
+        INPUT_ACR_SERVICE_PRINCIPAL: '${{ inputs.acr-service-principal }}'
+        INPUT_MAVEN_USER_SETTINGS_REPOSITORIES_YML: '${{ inputs.maven-user-settings-repositories-yml }}'
+        INPUT_MAVEN_EXTRA_ENVS_FROM_GITHUB_YML: '${{ inputs.maven-extra-envs-from-github-yml }}'
+        INPUT_MAVEN_BUILD_PROJECT_DEPLOY_TO_REPOSITORIES_YML: '${{ inputs.maven-build-project-deploy-to-repositories-yml }}'
+        INPUT_SONARQUBE_TOKEN: '${{ inputs.sonarqube-token }}'
+        INPUT_JASYPT_PASSWORD: '${{ inputs.jasypt-password }}'
+        INPUT_JAVA_VERSION: '${{ inputs.java-version }}'
+        INPUT_JAVA_DISTRIBUTION: '${{ inputs.java-distribution }}'
+        INPUT_NODEJS_VERSION: '${{ inputs.nodejs-version }}'
+        INPUT_GITHUB_REPO_TOKEN: '${{ inputs.github-repo-token }}'
+        INPUT_NPMJS_TOKEN: '${{ inputs.npmjs-token }}'
+        INPUT_APP_CONFIG_REPO: '${{ inputs.app-config-repo }}'
+        INPUT_APP_CONFIG_REPO_TOKEN: '${{ inputs.app-config-repo-token }}'
+        INPUT_STATIC_DEPLOY_ENVIRONMENTS: '${{ inputs.static-deploy-environments }}'
+        INPUT_STATIC_DEPLOY_FROM_DEFAULT_BRANCH_ONLY: '${{ inputs.static-deploy-from-default-branch-only }}'
+        INPUT_PR_DEPLOY_APP_CONFIG_BRANCH: '${{ inputs.pr-deploy-app-config-branch }}'
+        INPUT_PR_DEPLOY_AKS_CLUSTER_NAME: '${{ inputs.pr-deploy-aks-cluster-name }}'
+        INPUT_PR_DEPLOY_AKS_RESOURCE_GROUP: '${{ inputs.pr-deploy-aks-resource-group }}'
+        INPUT_PR_DEPLOY_AKS_CREDS: '${{ inputs.pr-deploy-aks-creds }}'
+        INPUT_PR_DEPLOY_ADDITIONAL_HELM_VALUES: '${{ inputs.pr-deploy-additional-helm-values }}'
+        INPUT_PR_DEPLOY_ARGO_APPLICATIONS_URL: '${{ inputs.pr-deploy-argo-applications-url }}'
+        INPUT_PR_DEPLOY_COMMENT_PREFIX: '${{ inputs.pr-deploy-comment-prefix }}'
+        INPUT_GITHUB_DEPENDENCIES_CACHE_ENABLED: '${{ inputs.github-dependencies-cache-enabled }}'
+        INPUT_GITHUB_DEPENDENCIES_CACHE_DELETE_ON_PR_CLOSE: '${{ inputs.github-dependencies-cache-delete-on-pr-close }}'
+        INPUT_GITHUB_DEPENDENCIES_CACHE_PATH: '${{ inputs.github-dependencies-cache-path }}'
+        INPUT_CONFIG_BRANCH_REF: '${{ steps.checkout-config-branch.outputs.ref }}'
 
-        # log inputs without secrets
-        log-multiline "action input 'app-vars', the app vars JSON specification" "${APP_VARS_JSON}"
-        log-multiline "action input 'vars-json', the 'vars' context" "${VARS_JSON}"
-        log-multiline "action input 'pr-deploy-additional-helm-values'" "${PR_HELM_VALUES_YML}"
-        log-multiline "action input 'maven-extra-envs-from-github-yml'" "${MVN_EXTRA_GH_ENVS_YML}"
-        log-multiline "action input 'maven-build-project-deploy-to-repositories-yml'" "${MVN_DEPLOY_REPOS_YML}"
+        # --- Pass Context File Paths ---
+        SECRETS_CONTEXT_FILE: ${{ steps.prep-contexts.outputs.secrets_context_file }} # Needed for masking
+        VARS_CONTEXT_FILE: ${{ steps.prep-contexts.outputs.vars_context_file }} # Needed for debug
+      run: |
+        deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/2_init_merge_inputs.ts
 
-        # all inputs to the action as json in env var
-        ALL_ACTION_INPUTS=$(cat <<'EOF'
-        ${{ toJSON(inputs) }}
-        EOF
-        )
+    # Process Repo & PR Deploy Vars
+    - id: repo-prdeploy
+      shell: bash
+      env:
+        # --- Input from previous step ---
+        INPUT_APPVARS: ${{ steps.init-merge.outputs.APPVARS }}
+        # --- GitHub/Runner Vars Needed (for Deno.env.get) ---
+        GITHUB_REF_NAME: '${{ github.ref_name }}' # For current branch check
+        GITHUB_EVENT_NAME: '${{ github.event_name }}' # For PR logic
+        GH_EVENT_NUMBER: '${{ github.event.number }}' # For PR logic
+      run: |
+        deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/3_process_repo_prdeploy.ts
 
-        # github context as json in env var
-        GITHUB_JSON="$(echo "${ALL_ACTION_INPUTS}" | jq -r '."github-json"')"
+    # Process Docker & Maven Vars
+    - id: docker-maven
+      shell: bash
+      env:
+        # --- Input from previous step ---
+        INPUT_APPVARS: ${{ steps.repo-prdeploy.outputs.APPVARS }}
+        INPUT_GITHUB_REPO_TOKEN: '${{ inputs.github-repo-token }}'
+        # --- Context Files Needed ---
+        SECRETS_CONTEXT_FILE: ${{ steps.prep-contexts.outputs.secrets_context_file }} # For maven extra envs
+        VARS_CONTEXT_FILE: ${{ steps.prep-contexts.outputs.vars_context_file }} # For maven extra envs
+        # --- GitHub/Runner Vars Needed (for Deno.env.get) ---
+        GITHUB_REPOSITORY: '${{ github.repository }}' # For maven repo injection
+        GITHUB_EVENT_NAME: '${{ github.event_name }}' # For docker prune logic
+      run: |
+        deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/4_process_docker_maven.ts
 
-        # Calling repo branches information
-        REPO_DEFAULT_BRANCH=$(curl -s https://api.github.com/repos/${GITHUB_REPOSITORY} -H "Authorization: bearer ${GH_TOKEN}" | jq -r .default_branch)
-        REPO_CURRENT_BRANCH_IS_DEFAULT=false
-        if [ "${GITHUB_REF_NAME}" == "${REPO_DEFAULT_BRANCH}" ]; then
-          REPO_CURRENT_BRANCH_IS_DEFAULT=true
-        fi
+    # Process Cache Vars
+    - id: cache
+      shell: bash
+      env:
+        # --- Input from previous step ---
+        INPUT_APPVARS: ${{ steps.docker-maven.outputs.APPVARS }}
+        # --- Context Files Needed ---
+        # None directly needed by this script
+        # --- GitHub/Runner Vars Needed (for Deno.env.get) ---
+        GITHUB_EVENT_NAME: '${{ github.event_name }}' # For cache key logic
+        GH_EVENT_NUMBER: '${{ github.event.number }}' # For cache key logic
+        RUNNER_OS: '${{ runner.os }}' # For cache key logic
+        GITHUB_WORKSPACE: '${{ github.workspace }}' # For finding lock files
+      run: |
+        deno run --allow-env --allow-read --allow-write --allow-net=deno.land ${{ github.action_path }}/action/5_process_cache.ts
 
-        # to prevent this action file from becoming too large, resulting in errors of the types:
-        #   Error: The template is not valid. action.yml (Line: x, Col: y): Exceeded max expression length 21000
-        # this step has been externalized into a separate file
-        set -o allexport; source "${{ github.action_path }}/step-build-env.sh"; set +o allexport;
+    # Finalize Outputs
+    - id: build-env # This step sets the final action outputs
+      shell: bash
+      env:
+        # --- Input from previous step ---
+        INPUT_APPVARS: ${{ steps.cache.outputs.APPVARS }}
+        # --- Context Files Needed ---
+        # None directly needed by this script
+        # --- GitHub/Runner Vars Needed (for Deno.env.get) ---
+        GITHUB_REPOSITORY: '${{ github.repository }}' # For application-source
+        GITHUB_SHA: '${{ github.sha }}' # For application-source-revision
+        GITHUB_SERVER_URL: '${{ github.server_url }}' # For application-source
+        GITHUB_REF_NAME: '${{ github.ref_name }}' # For caller-repo-calling-branch
+        GITHUB_WORKSPACE: '${{ github.workspace }}' # For output file path
+      run: |
+        deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/6_finalize_outputs.ts
+
+    # Clean up context files
+    - name: Clean up context files
+      if: always() # Run even if previous steps fail
+      shell: bash
+      run: |
+        echo "Cleaning up context files..."
+        rm -f "${{ steps.prep-contexts.outputs.secrets_context_file }}" \
+              "${{ steps.prep-contexts.outputs.vars_context_file }}"
 
     - uses: actions/upload-artifact@v4
       with:

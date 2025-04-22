@@ -1,0 +1,17 @@
+{
+  "_COMMENT": "Used for testing this actions code, see test_action_source.sh",
+  "github-repo-token": "***",
+  "sonarqube-token": "***",
+  "maven-user-settings-repositories-yml": "{}",
+  "maven-extra-envs-from-github-yml": "{}",
+  "maven-build-project-deploy-to-repositories-yml": "{}",
+  "app-vars": {
+    "application-description": "An app of DSB",
+    "application-name": "app-name",
+    "application-type": "spring-boot",
+    "application-source-path": "/backend/pom.xml"
+  },
+  "secrets-json": {},
+  "github-json": {},
+  "vars-json": {}
+}

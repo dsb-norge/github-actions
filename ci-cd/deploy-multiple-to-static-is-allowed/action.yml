@@ -22,7 +22,7 @@ runs:
   using: "composite"
   steps:
     # verify required inputs exists for all apps
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
       with:
         dsb-build-envs-array: ${{ inputs.dsb-build-envs-array }}
         require: |
@@ -47,9 +47,14 @@ runs:
 
         for OBJ in $(echo "${JSON_ARRAY}" | jq -r '.[] | @base64'); do
           JSON_OBJ="$(_jq '.')"
-          if [ ! "$(get-val 'caller-repo-is-on-default-branch')" == 'true' ] \
-            && [ ! "$(get-val 'static-deploy-from-default-branch-only')" == 'false' ]; then
-            log-info "deploy from non-default branch is NOT allowed for the app '$(get-val 'application-name')' because 'dsb-build-envs.static-deploy-from-default-branch-only' is set to '$(get-val 'static-deploy-from-default-branch-only')'."
+          IS_DEFAULT_BRANCH_VAL="$(get-val 'caller-repo-is-on-default-branch')"
+          ONLY_DEFAULT_ALLOWED_VAL="$(get-val 'static-deploy-from-default-branch-only')"
+          log-info "Debug: App='$(get-val 'application-name')', IS_DEFAULT_BRANCH_VAL='${IS_DEFAULT_BRANCH_VAL}', ONLY_DEFAULT_ALLOWED_VAL='${ONLY_DEFAULT_ALLOWED_VAL}'"
+
+          # Use [[ ]] for more robust comparison and check against unquoted true/false
+          # Disallow if NOT on default branch AND only default branch deploy is enforced
+          if [[ "${IS_DEFAULT_BRANCH_VAL}" != "true" ]] && [[ "${ONLY_DEFAULT_ALLOWED_VAL}" != "false" ]]; then
+            log-info "deploy from non-default branch is NOT allowed for the app '$(get-val 'application-name')' because 'dsb-build-envs.static-deploy-from-default-branch-only' is set to '${ONLY_DEFAULT_ALLOWED_VAL}'."
             IS_ALLOWED='false'
           else
             log-info "deploy from non-default branch is allowed for the app '$(get-val 'application-name')'."

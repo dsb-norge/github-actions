@@ -1,0 +1,12 @@
+{
+  "name": "create-app-vars-matrix",
+  "version": "0.0.1",
+  "description": "Create build/deploy vars for one or more DSB apps",
+  "dependencies": {
+    "@actions/core": "1.11.1",
+    "@actions/github": "6.0.0",
+    "fast-xml-parser": "5.0.9"
+  },
+  "type": "module",
+  "main": "src/main.ts"
+}

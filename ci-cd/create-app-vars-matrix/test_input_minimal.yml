@@ -1,5 +1,0 @@
-#
-# Used for testing this actions code, see test_action_source.sh
-#
-- application-name: my-app
-  application-source-path: ../eksplosiv-org/backend

@@ -1,4 +1,4 @@
-name: "Build spring boot OCI image with labels and tags"
+name: 'Build spring boot OCI image with labels and tags'
 description: |
   Use spring boot maven plugin to build OCI image from maven project.
   This uses the action dsb-norge/github-actions/ci-cd/build-maven-project to invoke maven.
@@ -31,7 +31,7 @@ description: |
     If 'spring-boot-build-image-pull-images-pre-build-yml' is specified:
       Expected to be a YAML list of strings with docker images to pull before build process starts.
       This can be used for pulling images from various registries to make them available to maven.
-author: "Peder Schmedling"
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
   dsb-build-envs:
     description: |
@@ -48,10 +48,10 @@ inputs:
         spring-boot-build-image-pull-images-pre-build-yml
     required: true
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v2
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -75,54 +75,59 @@ runs:
         username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
         password: ${{ fromJSON(inputs.dsb-build-envs).acr-password }}
 
+    - name: 'Re-tag Previous Image'
+      # Condition: No changes, push/dispatch event, AND (it's a push on default OR a previous tag exists)
+      if: |
+        fromJSON(inputs.dsb-build-envs)['has-changes'] == false
+        && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        && (
+             (github.event_name == 'push' && fromJSON(inputs.dsb-build-envs)['caller-repo-is-on-default-branch'] == true)
+             || fromJSON(inputs.dsb-build-envs)['application-previous-version-tag'] != null
+           )
+      env:
+        # Determine the source tag (primarily for logging now)
+        SOURCE_IMAGE_TAG_FOR_LOGGING: ${{ (github.event_name == 'push' && fromJSON(inputs.dsb-build-envs)['caller-repo-is-on-default-branch'] == true) && 'latest' || fromJSON(inputs.dsb-build-envs).application-previous-version-tag }}
+        # Construct Source image directly using the conditional logic for the tag
+        SOURCE_IMAGE: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}/${{ fromJSON(inputs.dsb-build-envs).docker-image-repo }}/${{ fromJSON(inputs.dsb-build-envs).application-name }}:${{ (github.event_name == 'push' && fromJSON(inputs.dsb-build-envs)['caller-repo-is-on-default-branch'] == true) && 'latest' || fromJSON(inputs.dsb-build-envs).application-previous-version-tag }}
+        # Target image using the NEW application version tag
+        TARGET_IMAGE: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}/${{ fromJSON(inputs.dsb-build-envs).docker-image-repo }}/${{ fromJSON(inputs.dsb-build-envs).application-name }}:${{ fromJSON(inputs.dsb-build-envs).application-version }}
+      shell: bash
+      run: |
+        echo "No changes detected. Re-tagging previous image."
+        echo "Source Tag Determined (for logging): ${{ env.SOURCE_IMAGE_TAG_FOR_LOGGING }}" # Log which tag we decided to use
+        echo "Source Image: $SOURCE_IMAGE"
+        echo "Target Image: $TARGET_IMAGE"
+
+        # Optional: Pull the source image to ensure it exists locally before tagging.
+        echo "Pulling source image $SOURCE_IMAGE..."
+        docker pull "$SOURCE_IMAGE" || (echo "::error::Failed to pull source image $SOURCE_IMAGE. It might not exist or the previous tag is incorrect." && exit 1)
+
+        echo "Tagging $SOURCE_IMAGE as $TARGET_IMAGE..."
+        docker tag "$SOURCE_IMAGE" "$TARGET_IMAGE" || (echo "::error::Failed to tag image" && exit 1)
+
+        echo "Pushing new tag $TARGET_IMAGE..."
+        docker push "$TARGET_IMAGE" || (echo "::error::Failed to push new tag $TARGET_IMAGE" && exit 1)
+
+        echo "Successfully re-tagged and pushed $TARGET_IMAGE."
+
+    - name: 🦕 Deno install
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
     # pull images before building, handy if mvn build requires any additional images from our acr
     - id: pull-images-pre-build
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       shell: bash
       env:
-        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
-      run: |
-        # Pull images prior to build
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        if ! has-field 'spring-boot-build-image-pull-images-pre-build-yml'; then
-          log-info "argument 'inputs.dsb-build-envs.spring-boot-build-image-pull-images-pre-build-yml' not specified."
-          log-info "nothing to do since input was missing."
-          exit 0
-        fi
-
-        PULL_IMAGES_RAW="$(get-val 'spring-boot-build-image-pull-images-pre-build-yml')"
-        log-multiline "argument 'inputs.dsb-build-envs.spring-boot-build-image-pull-images-pre-build-yml' was specified" "${PULL_IMAGES_RAW}"
-
-        log-info "validating app var 'spring-boot-build-image-pull-images-pre-build-yml' as yaml and stripping comments ..."
-        PULL_IMAGES_YML=$(echo "${PULL_IMAGES_RAW}" | yq --input-format yml --output-format yml --prettyPrint eval '... comments=""' -)
-
-        # loop unique images
-        readarray -t PULL_IMAGES < <(echo "${PULL_IMAGES_YML}" | yq eval 'unique|.[]')
-        declare -A PULL_RESULTS
-        for PULL_IMAGE in "${PULL_IMAGES[@]}"; do
-          # attempt pull and record result
-          start-group "pull '${PULL_IMAGE}'"
-          set +e
-          docker pull "${PULL_IMAGE}"
-          PULL_RESULTS["${PULL_IMAGE}"]=${?}
-          set -e
-          end-group
-        done
-
-        log-info "result summary:"
-        for PULL_IMAGE in "${PULL_IMAGES[@]}"; do
-          log-info "  - $([[ ${PULL_RESULTS["${PULL_IMAGE}"]} -ne 0 ]] && echo 'failure ->' || echo 'success ->') ${PULL_IMAGE}"
-        done
-
-        # exit code
-        SUM_EXIT_CODES=$(IFS=+; echo "$((${PULL_RESULTS[*]}))")
-        [[ ${SUM_EXIT_CODES} -ne 0 ]] && log-error "pull operation failed for one or more Docker image!" || :
-        exit ${SUM_EXIT_CODES}
+        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+      run: deno run --allow-env --allow-read --allow-write --allow-run=docker ${{ github.action_path }}/action/1_pull-images-pre-build.ts
 
     # generate tags and labels
     - uses: docker/metadata-action@v5
       id: meta
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       with:
         images: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}
         flavor: latest=true
@@ -137,159 +142,41 @@ runs:
 
     # generate label definition compatible with https://github.com/paketo-buildpacks/image-labels
     - id: create-labels
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       shell: bash
-      run: |
-        # Create image labels buildpack compatible labels
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # Load labels as created by docker/metadata-action
-        LABELS_JSON=$(cat <<'EOF'
-        ${{ toJSON(fromJSON(steps.meta.outputs.json).labels) }}
-        EOF
-        )
-
-        # Create space-delimited key-value pairs
-        # Escape single and double quotes with '\'
-        REP_DLB_QUOTES=$'gsub("\\""; "\\\\\\"")'
-        REP_SGL_QUOTES=$'gsub("\'"; "\\\\\'")'
-        IMAGE_LABELS=$(echo $LABELS_JSON | jq -r '[keys[] as $k | "\"\($k)\"=\"\((.[$k] | '"${REP_DLB_QUOTES}"' | '"${REP_SGL_QUOTES}"'))\"" ] | join(" ")')
-
-        log-multiline "Image labels for Paketo image labels buildpack" "${IMAGE_LABELS}"
-        set-multiline-output 'labels' "${IMAGE_LABELS}"
+      env:
+        INPUT_LABELS_JSON: ${{ toJSON(steps.meta.outputs.json && fromJSON(steps.meta.outputs.json).labels || '{}') }}
+      run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/2_create-labels.ts
 
     # generate JSON with extra envs for maven
     - id: extra-envs
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       shell: bash
-      run: |
-        # Construct JSON object with extra envs for maven
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # Load paketo-buildpacks/image-labels compatible labels
-        LABELS_RAW=$(cat <<'EOF'
-        ${{ steps.create-labels.outputs.labels }}
-        EOF
-        )
-
-        # start with empty output object
-        OUT_JSON='{}'
-
-        # These labels are added to the docker image during build
-        # by https://github.com/paketo-buildpacks/image-labels
-        set-val "BP_IMAGE_LABELS" "${LABELS_RAW}" # modifies $OUT_JSON
-
-        # These runtime env vars are added to the docker image during build
-        # by https://github.com/paketo-buildpacks/environment-variables
-        set-val "BPE_DSB_BUILDTIME" '${{ fromJSON(inputs.dsb-build-envs).application-build-timestamp }}'  # modifies $OUT_JSON
-        set-val "BPE_DSB_VERSION"   '${{ fromJSON(inputs.dsb-build-envs).application-version }}'          # modifies $OUT_JSON
-        set-val "BPE_DSB_SOURCE"    '${{ fromJSON(inputs.dsb-build-envs).application-source }}'           # modifies $OUT_JSON
-        set-val "BPE_DSB_REVISION"  '${{ fromJSON(inputs.dsb-build-envs).application-source-revision }}'  # modifies $OUT_JSON
-
-        log-multiline "Extra maven env JSON" "${OUT_JSON}"
-        set-multiline-output 'json' "${OUT_JSON}"
+      env:
+        INPUT_LABELS_RAW: '${{ steps.create-labels.outputs.labels }}'
+        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+      run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/3_extra-envs.ts
 
     # define maven commands
     - id: mvn-cmd
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       shell: bash
       env:
-        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
-      run: |
-        # Define maven commands
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # Used to identify local image uniquely
-        LOCAL_IMAGE_TAG=$(head --bytes 1024 /dev/urandom | tr -dc 'a-z0-9' | fold -w 8 | head -n 1)
-        LOCAL_IMAGE_ID="local-spring-boot-image:${LOCAL_IMAGE_TAG}"
-
-        # Defaults
-        MVN_VERSION_ARGUMENTS_DEFAULT='-B'
-        MVN_VERSION_GOALS_DEFAULT='versions:set'
-        MVN_ARGUMENTS_DEFAULT='-B -DskipTests'
-        MVN_GOALS_DEFAULT='spring-boot:build-image'
-        MVN_IMAGE_REF_ARGUMENT="-Dspring-boot.build-image.imageName=${LOCAL_IMAGE_ID}"
-
-        # Locate pom.xml
-        POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
-        [ ! -f "${POM_FILE}" ] && POM_FILE="${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/pom.xml"
-        [ ! -f "${POM_FILE}" ] && \
-          log-error "Cannot find pom.xml. Both '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}' and '${POM_FILE}' does not exist!" && \
-          exit 1
-
-        # Determine maven command for first invocation
-        if has-field 'spring-boot-build-image-version-command'; then
-          log-info "using maven version command from 'inputs.dsb-build-envs.spring-boot-build-image-version-command'."
-          MVN_VERSION_CMD="$(get-val 'spring-boot-build-image-version-command')"
-        else
-          if has-field 'spring-boot-build-image-version-goals'; then
-            log-info "using maven version goals from 'inputs.dsb-build-envs.spring-boot-build-image-version-goals'."
-            MVN_VERSION_GOALS="$(get-val 'spring-boot-build-image-version-goals')"
-          else
-            log-info "using default maven version goals."
-            MVN_VERSION_GOALS="${MVN_VERSION_GOALS_DEFAULT}"
-          fi
-          if has-field 'spring-boot-build-image-version-arguments'; then
-            log-info "using maven version arguments from 'inputs.dsb-build-envs.spring-boot-build-image-version-arguments'."
-            MVN_VERSION_ARGUMENTS="$(get-val 'spring-boot-build-image-version-arguments')"
-          else
-            log-info "using default maven version arguments."
-            MVN_VERSION_ARGUMENTS="${MVN_VERSION_ARGUMENTS_DEFAULT}"
-          fi
-          MVN_VERSION_CMD="mvn ${MVN_VERSION_ARGUMENTS} --file ${POM_FILE} ${MVN_VERSION_GOALS}"
-        fi
-        log-info "maven version command: '${MVN_VERSION_CMD}'"
-        set-output 'mvn-version-cmd' "${MVN_VERSION_CMD}"
-
-        # Determine maven command for second invocation
-        if has-field 'spring-boot-build-image-command'; then
-          log-info "using maven command from 'inputs.dsb-build-envs.spring-boot-build-image-command'."
-          MVN_CMD="$(get-val 'spring-boot-build-image-command')"
-        else
-          if has-field 'spring-boot-build-image-goals'; then
-            log-info "using maven goals from 'inputs.dsb-build-envs.spring-boot-build-image-goals'."
-            MVN_GOALS="$(get-val 'spring-boot-build-image-goals')"
-          else
-            log-info "using default maven goals."
-            MVN_GOALS="${MVN_GOALS_DEFAULT}"
-          fi
-          if has-field 'spring-boot-build-image-arguments'; then
-            log-info "using maven arguments from 'inputs.dsb-build-envs.spring-boot-build-image-arguments'."
-            MVN_ARGUMENTS="$(get-val 'spring-boot-build-image-arguments')"
-          else
-            log-info "using default maven arguments."
-            MVN_ARGUMENTS="${MVN_ARGUMENTS_DEFAULT}"
-          fi
-          MVN_CMD="mvn ${MVN_ARGUMENTS} --file ${POM_FILE} ${MVN_GOALS}"
-        fi
-
-        # Always add local image id
-        MVN_CMD="${MVN_CMD} ${MVN_IMAGE_REF_ARGUMENT}"
-
-        log-info "Maven build command: '${MVN_CMD}'"
-        set-output 'mvn-cmd' "${MVN_CMD}"
-        set-output 'local-image-id' "${LOCAL_IMAGE_ID}"
+        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+        GITHUB_WORKSPACE: '${{ github.workspace }}'
+      run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/4_mvn-cmd.ts
 
     # filter dsb-build-envs
     - id: filter-build-envs
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       shell: bash
       env:
-        BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
-      run: |
-        # Make sure build-maven-project action does not attempt to deploy maven artifacts
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        log-multiline "Received 'dsb-build-envs'" "${BUILD_ENVS}"
-
-        set-field 'maven-build-project-deploy-release-artifacts'  'false'
-        set-field 'maven-build-project-deploy-snapshot-artifacts' 'false'
-
-        log-multiline "Modified 'dsb-build-envs'" "${BUILD_ENVS}"
-        set-multiline-output 'dsb-build-envs' "${BUILD_ENVS}"
+        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+      run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/5_filter-build-envs.ts
 
     # build docker image
-    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v2
+    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v3
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       with:
         mvn-version-cmd: ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
         mvn-cmd: ${{ steps.mvn-cmd.outputs.mvn-cmd }}
@@ -297,25 +184,9 @@ runs:
         dsb-build-envs: ${{ steps.filter-build-envs.outputs.dsb-build-envs }}
 
     - id: tag-and-push
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       shell: bash
-      run: |
-        # Tag and push with docker
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        IMAGE_TAGS_RAW=$(cat <<'EOF'
-        ${{ steps.meta.outputs.tags }}
-        EOF
-        )
-        IMAGE_TAGS=$(echo "${IMAGE_TAGS_RAW}" | tr "\n" " ")
-        for IMAGE_SPEC in ${IMAGE_TAGS}; do
-          start-group "Tagging and pushing image '${IMAGE_SPEC}'"
-          docker tag ${{ steps.mvn-cmd.outputs.local-image-id }} "${IMAGE_SPEC}"
-          docker push "${IMAGE_SPEC}"
-          end-group
-        done
-        
-        # Clean up local image after push
-        start-group "Cleaning up local image after push '${IMAGE_SPEC}'"
-        docker rmi ${{ steps.mvn-cmd.outputs.local-image-id }}
-        end-group
+      env:
+        INPUT_IMAGE_TAGS: '${{ steps.meta.outputs.tags }}'
+        INPUT_LOCAL_IMAGE_ID: '${{ steps.mvn-cmd.outputs.local-image-id }}'
+      run: deno run --allow-env --allow-read --allow-write --allow-run=docker ${{ github.action_path }}/action/6_tag-and-push.ts

@@ -1,0 +1,20 @@
+{
+  "application-name": [
+    "my-app"
+  ],
+  "include": [
+    {
+      "application-name": "my-app",
+      "app-vars": {
+        "application-name": "my-app",
+        "application-source-path": "./testdata/spring-boot-app",
+        "application-type": "spring-boot",
+        "application-description": "DSB's spring boot test application for Kubernetes.",
+        "java-version": "21",
+        "application-version": "2024.01.01.43200",
+        "application-build-timestamp": "2024-01-01T12:00:00Z",
+        "application-image-name": "my-app"
+      }
+    }
+  ]
+}

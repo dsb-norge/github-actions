@@ -1,0 +1,17 @@
+{
+    "deno.enable": true,
+    "deno.lint": true,
+    "deno.testing.args": [
+        "--unstable-temporal",
+        "--no-check",
+        "--allow-all"
+    ],
+    "deno.enablePaths": [
+        "./ci-cd",
+        "./get-github-app-installation-token"
+    ],
+    "editor.formatOnSave": true,
+    "[typescript]": { 
+        "editor.defaultFormatter": "denoland.vscode-deno" 
+    }
+}

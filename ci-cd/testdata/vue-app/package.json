@@ -1,0 +1,10 @@
+{
+  "name": "frontend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Frontend app for testapplication",
+  "type": "module",
+  "engines": {
+    "node": "20"
+  }
+}
