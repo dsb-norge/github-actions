@@ -19,8 +19,6 @@ export interface AppVars {
   'caller-repo-calling-branch'?: string
   'caller-repo-is-on-default-branch'?: boolean
 
-  'skip-build-tests'?: string | boolean // Indicates if tests are skipped
-
   // Docker / ACR
   'acr-username'?: string
   'acr-password'?: string // Secret
@@ -52,6 +50,7 @@ export interface AppVars {
   'maven-build-project-deploy-snapshot-artifacts'?: string | boolean
   'maven-build-project-deploy-snapshot-deploy-command'?: string
   'maven-build-project-deploy-snapshot-version-command'?: string
+  'maven-build-skip-tests'?: string | boolean // Indicates if tests are skipped
 
   // Node.js
   'nodejs-version'?: string

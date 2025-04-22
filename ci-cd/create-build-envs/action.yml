@@ -344,7 +344,6 @@ runs:
         INPUT_GITHUB_DEPENDENCIES_CACHE_DELETE_ON_PR_CLOSE: '${{ inputs.github-dependencies-cache-delete-on-pr-close }}'
         INPUT_GITHUB_DEPENDENCIES_CACHE_PATH: '${{ inputs.github-dependencies-cache-path }}'
         INPUT_CONFIG_BRANCH_REF: '${{ steps.checkout-config-branch.outputs.ref }}'
-        INPUT_SKIP_BUILD_TESTS: '${{ inputs.skip-build-tests }}'
 
         # --- Pass Context File Paths ---
         SECRETS_CONTEXT_FILE: ${{ steps.prep-contexts.outputs.secrets_context_file }} # Needed for masking

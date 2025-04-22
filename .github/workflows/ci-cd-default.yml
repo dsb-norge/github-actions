@@ -62,11 +62,6 @@ on:
         type: number
         required: false
         default: 0
-      skip-build-tests:
-        description: 'Input from caller: Skip running tests'
-        type: boolean
-        required: false
-        default: false
 
 jobs:
   create-matrix:

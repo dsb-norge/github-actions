@@ -58,7 +58,7 @@ export async function run(): Promise<void> {
     core.setOutput('mvn-version-cmd', mvnVersionCmd)
     core.endGroup()
 
-    const skipBuildTests: boolean = typeof appVars['skip-build-tests'] === 'boolean' ? appVars['skip-build-tests'] : appVars['skip-build-tests'] === 'true'
+    const skipBuildTests: boolean = typeof appVars['maven-build-skip-tests'] === 'boolean' ? appVars['maven-build-skip-tests'] : appVars['maven-build-skip-tests'] === 'true'
 
     // --- Determine Maven Build Command ---
     core.startGroup('Determining Maven Build Command')

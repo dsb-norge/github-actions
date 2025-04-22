@@ -76,6 +76,7 @@ export const ENVS_WITHOUT_SECRETS: Set<string> = new Set([
   'maven-build-project-version-arguments',
   'maven-build-project-version-command',
   'maven-build-project-version-goals',
+  'maven-build-skip-tests',
   'nodejs-build-project-custom-command-final',
   'nodejs-build-project-custom-command-pre-npm-ci',
   'nodejs-build-project-custom-command-pre-npm-run-build',
@@ -101,6 +102,5 @@ export const ENVS_WITHOUT_SECRETS: Set<string> = new Set([
   'static-deploy-environments',
   'static-deploy-from-default-branch-only',
   'has-changes',
-  'application-previous-version-tag',
-  'skip-build-tests',
+  'application-previous-version-tag'
 ])

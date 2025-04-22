@@ -66,8 +66,7 @@ export async function run() {
       'github-dependencies-cache-enabled': getActionInput('github-dependencies-cache-enabled'),
       'github-dependencies-cache-delete-on-pr-close': getActionInput('github-dependencies-cache-delete-on-pr-close'),
       'github-dependencies-cache-path': getActionInput('github-dependencies-cache-path'),
-      'config-branch-ref': getActionInput('config-branch-ref'),
-      'skip-build-tests': getActionInput('skip-build-tests'),
+      'config-branch-ref': getActionInput('config-branch-ref')
     }
 
     // --- Read Context Files (only needed for debug/masking here) ---
