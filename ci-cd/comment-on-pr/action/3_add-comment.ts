@@ -71,14 +71,19 @@ export async function run(): Promise<void> {
     // --- Create New Comment ---
     if (newCommentBody && newCommentBody.trim().length > 0) {
       core.info('Creating new comment...');
-      const { data: createdComment } = await octokit.rest.issues.createComment({
-        owner: owner,
-        repo: repo,
-        issue_number: issueNumber,
-        body: newCommentBody,
-      });
-      core.info(`Successfully created comment ID: ${createdComment.id}`);
-      core.setOutput('created-comment-url', createdComment.html_url); // Use html_url for browser link
+      try {
+        const { data: createdComment } = await octokit.rest.issues.createComment({
+          owner: owner,
+          repo: repo,
+          issue_number: issueNumber,
+          body: newCommentBody,
+        });
+        core.info(`Successfully created comment ID: ${createdComment.id}`);
+        core.setOutput('created-comment-url', createdComment.html_url); // Use html_url for browser link
+      } catch (e) {
+        // We don't want to fail the action if comment creation fails
+        core.warning(`Failed to create comment: ${e instanceof Error ? e.message : String(e)}`);
+      }
     } else {
       core.info('Input "new-comment-body" is empty or not provided. Skipping comment creation.');
     }
