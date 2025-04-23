@@ -102,5 +102,5 @@ export const ENVS_WITHOUT_SECRETS: Set<string> = new Set([
   'static-deploy-environments',
   'static-deploy-from-default-branch-only',
   'has-changes',
-  'application-previous-version-tag'
+  'application-previous-version-tag',
 ])

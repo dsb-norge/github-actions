@@ -40,7 +40,7 @@ export function run() {
     // --- Get Repo Info ---
     // Prefer event context, then fallback env var
     const repoDefaultBranch = context.payload?.repository?.default_branch || ''
-    const currentBranchName = githubRefName.startsWith('refs/heads/') ? githubRefName.replace('refs/heads/', '') : githubRefName;
+    const currentBranchName = githubRefName.startsWith('refs/heads/') ? githubRefName.replace('refs/heads/', '') : githubRefName
     const repoCurrentBranchIsDefault = repoDefaultBranch === currentBranchName
     core.info(`Default branch from context: ${repoDefaultBranch || 'Not Found'}`)
     core.info(`Current branch is default: ${repoCurrentBranchIsDefault}`)
