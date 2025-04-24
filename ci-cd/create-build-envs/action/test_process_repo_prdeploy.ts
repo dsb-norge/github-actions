@@ -50,7 +50,10 @@ Deno.test('process_repo_prdeploy - Non PR event', async () => {
   assertEquals(appVars['pr-deploy-k8s-namespace'], 'my-app')
   // Check helm values are transformed to a YAML string (rough check)
   if (typeof appVars['pr-deploy-additional-helm-values'] === 'string') {
-    assertEquals(appVars['pr-deploy-additional-helm-values'].includes('key: value'), true)
+    assertEquals(
+      appVars['pr-deploy-additional-helm-values'].includes('key: value'),
+      true,
+    )
   }
 })
 
@@ -154,7 +157,15 @@ anotherKey: anotherValue`
   const appVars = JSON.parse(mockOutputs['APPVARS'])
   // Verify that helm values are processed accordingly
   if (typeof appVars['pr-deploy-additional-helm-values'] === 'string') {
-    assertEquals(appVars['pr-deploy-additional-helm-values'].includes('key: value'), true)
-    assertEquals(appVars['pr-deploy-additional-helm-values'].includes('anotherKey: anotherValue'), true)
+    assertEquals(
+      appVars['pr-deploy-additional-helm-values'].includes('key: value'),
+      true,
+    )
+    assertEquals(
+      appVars['pr-deploy-additional-helm-values'].includes(
+        'anotherKey: anotherValue',
+      ),
+      true,
+    )
   }
 })

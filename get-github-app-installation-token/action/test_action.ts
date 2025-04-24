@@ -1,4 +1,4 @@
-import { assertEquals, crypto, fail } from 'common/test_deps.ts'
+import { assertEquals, fail } from 'common/test_deps.ts'
 import { setCore } from 'common/deps.ts'
 import { main } from './action.ts'
 

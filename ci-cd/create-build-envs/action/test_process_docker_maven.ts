@@ -106,7 +106,9 @@ Deno.test('process_docker_maven - Maven extra envs from github', async () => {
 
   // Override ContextFileReader functions for testing, including GITHUB_CONTEXT_FILE
   ContextFileReader.getContextFilePath = (envVarName: string) => envVarName
-  ContextFileReader.readFile = async <T>(filePath: string): Promise<T | null> => {
+  ContextFileReader.readFile = async <T>(
+    filePath: string,
+  ): Promise<T | null> => {
     if (filePath === 'GITHUB_CONTEXT_FILE') {
       return { event_name: 'push' } as unknown as T
     } else if (filePath === 'SECRETS_CONTEXT_FILE') {
@@ -143,6 +145,8 @@ from-variables:
   assertEquals(mavenEnvs['ENV_VAR_FROM_VARS'], 'var_value')
   // Confirm the extra YAML key is removed from output
   if ('maven-extra-envs-from-github-yml' in appVars) {
-    throw new Error('Source key maven-extra-envs-from-github-yml was not removed')
+    throw new Error(
+      'Source key maven-extra-envs-from-github-yml was not removed',
+    )
   }
 })

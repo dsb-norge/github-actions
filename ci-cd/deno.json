@@ -3,15 +3,15 @@
     "common/": "./common/",
     "testdata/": "./testdata/",
     "create-app-vars-matrix/": "./create-app-vars-matrix/action/",
-    "create-build-envs/": "./create-build-envs/action/"
+    "create-build-envs/": "./create-build-envs/action/",
+    "dependencies-cache-restore/": "./dependencies-cache-restore/action/"
   },
   "tasks": {
     "test": "deno test --unstable-temporal --no-check --allow-all"
   },
   "test": {
     "include": [
-      "./create-app-vars-matrix/action/test_*.ts",
-      "./create-build-envs/action/test_*.ts"
+      "./**/test_*.ts"
     ]
   },
   "unstable": ["temporal"],
@@ -23,17 +23,8 @@
     "singleQuote": true,
     "proseWrap": "preserve",
     "include": [
-      "./common/**",
-      "./create-app-vars-matrix/**",
-      "./create-build-envs/**",
-      "./require-build-envs/**",
-      "./build-maven-project/**",
-      "./build-nodejs-project/**",
-      "./build-docker-image/**",
-      "./build-spring-boot-image/**",
-      "./comment-or-pr/**",
-      "./deploy-to-ephemeral/**",
-      "./check-docker-disk-space/**"
+      "./**/*.ts",
+      "./**/action.yml"
     ]
   }
 }

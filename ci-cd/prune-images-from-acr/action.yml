@@ -1,7 +1,7 @@
-name: "Prune images from ACR"
+name: 'Prune images from ACR'
 description: |
   Use Azure CLI to delete no longer needed images from docker registry (ACR).
-author: "Peder Schmedling"
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
   dsb-build-envs:
     description: |
@@ -13,10 +13,11 @@ inputs:
           If set will be used for logging into Azure CLI. Can be skipped if already logged into ACR.
     required: true
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     # we need to verify inputs since they are optional input to create-build-envs action
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
+    # TODO revert to @v3
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3.1
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -33,64 +34,17 @@ runs:
         creds: ${{ inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).acr-service-principal }}
         allow-no-subscriptions: true
 
+    - name: 🦕 Deno install
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
     - id: delete-images
       shell: bash
+      env:
+        INPUT_DSB_BUILD_ENVS: ${{ inputs.dsb-build-envs }}
       run: |
-        # Delete images from ACR
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        # Log info
-        IMAGE_REPO="${{ fromJSON(inputs.dsb-build-envs).docker-image-repo }}/${{ fromJSON(inputs.dsb-build-envs).application-image-name }}"
-        KEEP_MIN="${{ fromJSON(inputs.dsb-build-envs).docker-image-prune-keep-min-images }}"
-        KEEP_DAYS="${{ fromJSON(inputs.dsb-build-envs).docker-image-prune-keep-num-days }}"
-        log-info "Pruning repo '${IMAGE_REPO}'"
-        log-info "Keeping a minimum of ${KEEP_MIN} images."
-        log-info "Deleting images older than ${KEEP_DAYS} days."
-
-        # JMESPath query explanation:
-        #   reverse(sort_by([*], &createdTime)) | [10:] | [?createdTime < '2021-09-05T12:00:09.152Z'].digest
-        #     Sort by created date in reverse
-        #       reverse(sort_by([*], &createdTime))
-        #     Return array slice from index 10 to end, filtering out index 0 to 9 (the 10 newest)
-        #       [10:]
-        #     Filter out entries with createdTime newer than given date
-        #       [?createdTime < '2021-09-05T12:00:09.152Z']
-        #     Return only the 'digest' field
-        #       .digest
-        QUERY_DATE=$(date -u +'%Y-%m-%dT%H:%M:%S.%3NZ' -d "${KEEP_DAYS} days ago")
-        BASE_QUERY="reverse(sort_by([*], &createdTime)) | [${KEEP_MIN}:] | [?createdTime < '${QUERY_DATE}']"
-        TAGS_QUERY="${BASE_QUERY}.tags[]"
-        DIGEST_QUERY="${BASE_QUERY}.digest[]"
-
-        log-info "Query for finding candidates: '${DIGEST_QUERY}'"
-
-        function Q()
-        {
-          az acr manifest list-metadata \
-            --registry ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }} \
-            --name "${IMAGE_REPO}" \
-            --query "${1}" \
-            --output tsv
-        }
-        DELETE_TAGS=$(Q "${TAGS_QUERY}")
-        DELETE_DIGESTS=$(Q "${DIGEST_QUERY}")
-
-        if [ -z "${DELETE_DIGESTS}" ]; then
-          log-info "No images to be deleted."
-        else
-          log-multiline "Tags that will be deleted:" "${DELETE_TAGS}"
-          start-group "Log from deletion:"
-          for DIGEST in ${DELETE_DIGESTS}; do
-            IMAGE_ID="${IMAGE_REPO}@${DIGEST}"
-            log-info "Deleting image '${IMAGE_ID}'"
-            az acr repository delete \
-              --name ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }} \
-              --image "${IMAGE_ID}" \
-              --yes
-          done
-          end-group
-        fi
-
-        # log out of azure CLI
-        az account clear
+        deno run \
+          --allow-read \
+          --allow-env \
+          --allow-run=az ${{ github.action_path }}/action/1_prune_images.ts

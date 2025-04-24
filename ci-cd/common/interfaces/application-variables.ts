@@ -1,4 +1,4 @@
-import { ApplicationType } from 'common/interfaces/application-type.ts'
+import { ApplicationType } from './application-type.ts'
 
 export interface AppVars {
   // Core App Info

@@ -3,7 +3,7 @@ description: |
   This will collect common DSB build environment variables from previously completed parallel build jobs.
   Build-envs for each job are uploaded as github workflow artifacts in JSON format by the create-build-envs action.
   This action pulls down the JSON files, merges them and returns them as output.
-author: 'Peder Schmedling'
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
   build-envs-artifact-name-prefix:
     description: Prefix used when naming build envs artifact during upload to github in create-build-envs action.
@@ -17,6 +17,11 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: 🦕 Deno install
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
     # download artifact
     - id: download-artifact
       uses: actions/download-artifact@v4
@@ -28,16 +33,6 @@ runs:
     # merge json files
     - id: collect-build-envs
       shell: bash
-      working-directory: ${{ steps.download-artifact.outputs.download-path }}
-      run: |
-        # Read and merge JSON files
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        log-multiline "Files received from artifact(s) '${{ inputs.build-envs-artifact-name-prefix }}-*'" "$(ls -lah)"
-
-        OUTPUT_ENV_JSON=$(jq -s '.' *.json)
-
-        log-info "Found $(echo "${OUTPUT_ENV_JSON}" | jq 'length') set(s) of build-envs."
-        log-multiline "Output JSON array" "${OUTPUT_ENV_JSON}"
-        set-multiline-output 'json' "${OUTPUT_ENV_JSON}"
+      env:
+        DOWNLOAD_PATH: ${{ steps.download-artifact.outputs.download-path }}
+      run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_collect_envs.ts

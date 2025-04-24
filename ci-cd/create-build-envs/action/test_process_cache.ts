@@ -22,7 +22,11 @@ function setEnvVars(envs: { [key: string]: string }) {
 
 // Save original Deno.stat and provide helpers to override & restore
 const originalStat = Deno.stat
-function overrideStat(simulated: (path: string) => Promise<{ isFile: boolean; isDirectory: boolean }>) {
+function overrideStat(
+  simulated: (
+    path: string,
+  ) => Promise<{ isFile: boolean; isDirectory: boolean }>,
+) {
   Deno.stat = simulated as typeof Deno.stat
 }
 function restoreStat() {
@@ -93,15 +97,26 @@ Deno.test('process_cache - Spring Boot app with pom.xml', async () => {
   await run()
   const appVars = JSON.parse(mockOutputs['APPVARS'])
   // Assert expected cache key contains "linux-maven-" and the fixed hash:
-  assertStringIncludes(appVars['github-dependencies-cache-key'], 'linux-maven-')
+  assertStringIncludes(
+    appVars['github-dependencies-cache-key'],
+    'linux-maven-',
+  )
   assertStringIncludes(appVars['github-dependencies-cache-key'], 'deadbeef')
   // Assert restore keys is a non-empty string and contains candidate keys split by \n
-  assertEquals(typeof appVars['github-dependencies-cache-restore-keys'], 'string')
-  const restoreKeys = appVars['github-dependencies-cache-restore-keys'].split('\n')
+  assertEquals(
+    typeof appVars['github-dependencies-cache-restore-keys'],
+    'string',
+  )
+  const restoreKeys = appVars['github-dependencies-cache-restore-keys'].split(
+    '\n',
+  )
   // Expect at least three candidate keys
   assertEquals(restoreKeys.length >= 3, true)
   // Assert that the pr-base key is defined (for non-PR events it may be a fallback)
-  assertEquals(typeof appVars['github-dependencies-cache-pr-base-key'], 'string')
+  assertEquals(
+    typeof appVars['github-dependencies-cache-pr-base-key'],
+    'string',
+  )
   restoreStat()
 })
 
@@ -127,8 +142,14 @@ Deno.test('process_cache - Non-existing source path', async () => {
   // Expect fallback hash "no-lockfile"
   assertStringIncludes(appVars['github-dependencies-cache-key'], 'no-lockfile')
   // Additionally assert that restore keys and pr-base key are defined as empty or non-empty strings
-  assertEquals(typeof appVars['github-dependencies-cache-restore-keys'], 'string')
-  assertEquals(typeof appVars['github-dependencies-cache-pr-base-key'], 'string')
+  assertEquals(
+    typeof appVars['github-dependencies-cache-restore-keys'],
+    'string',
+  )
+  assertEquals(
+    typeof appVars['github-dependencies-cache-pr-base-key'],
+    'string',
+  )
   restoreStat()
 })
 
@@ -150,13 +171,18 @@ Deno.test('process_cache - Custom cache path', async () => {
   })
   const inputJson = loadTestJson('test_cache_custom_cache_path.json')
   mockCore.getInput = (name: string) => {
-    if (name === 'APPVARS') return JSON.stringify(JSON.parse(inputJson)['app-vars'])
+    if (name === 'APPVARS') {
+      return JSON.stringify(JSON.parse(inputJson)['app-vars'])
+    }
     return ''
   }
   await run()
   const appVars = JSON.parse(mockOutputs['APPVARS'])
   // Assert that the custom cache path is exactly as provided in input.
-  assertEquals(appVars['github-dependencies-cache-path'], '${MY_ENV}/custom/${HOME}/loc')
+  assertEquals(
+    appVars['github-dependencies-cache-path'],
+    '${MY_ENV}/custom/${HOME}/loc',
+  )
   restoreStat()
 })
 
@@ -165,7 +191,9 @@ Deno.test('process_cache - Caching disabled', async () => {
   setEnvVars({ 'GITHUB_EVENT_NAME': 'push' })
   const inputJson = loadTestJson('test_cache_disabled.json')
   mockCore.getInput = (name: string) => {
-    if (name === 'APPVARS') return JSON.stringify(JSON.parse(inputJson)['app-vars'])
+    if (name === 'APPVARS') {
+      return JSON.stringify(JSON.parse(inputJson)['app-vars'])
+    }
     return ''
   }
   await run()
@@ -303,7 +331,10 @@ Deno.test('process_cache - Non PR app', async () => {
   await run()
   const appVars = JSON.parse(mockOutputs['APPVARS'])
   // Expect a base cache key (no PR prefix) for non-PR events
-  assertStringIncludes(appVars['github-dependencies-cache-key'], 'linux-maven-')
+  assertStringIncludes(
+    appVars['github-dependencies-cache-key'],
+    'linux-maven-',
+  )
   restoreStat()
 })
 
@@ -383,7 +414,10 @@ Deno.test('process_cache - Default cache path for Vue app', async () => {
   await run()
   const appVars = JSON.parse(mockOutputs['APPVARS'])
   // For a vue app, the default cache path should be join('${HOME}', '.npm')
-  assertEquals(appVars['github-dependencies-cache-path'], join('${HOME}', '.npm'))
+  assertEquals(
+    appVars['github-dependencies-cache-path'],
+    join('${HOME}', '.npm'),
+  )
 })
 
 // Test for default cache path for Spring Boot app
@@ -406,5 +440,8 @@ Deno.test('process_cache - Default cache path for Spring Boot app', async () => 
   await run()
   const appVars = JSON.parse(mockOutputs['APPVARS'])
   // For a maven app, the default cache path should be join('${HOME}', '.m2', 'repository')
-  assertEquals(appVars['github-dependencies-cache-path'], join('${HOME}', '.m2', 'repository'))
+  assertEquals(
+    appVars['github-dependencies-cache-path'],
+    join('${HOME}', '.m2', 'repository'),
+  )
 })

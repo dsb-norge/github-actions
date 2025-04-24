@@ -233,6 +233,8 @@ export const allowedCommands = [
   'docker',
   'git',
   'helm',
+  'gh',
+  'az',
 ]
 
 /**
@@ -246,7 +248,7 @@ export const allowedCommands = [
  * @throws If the command fails (non-zero exit code).
  */
 export async function executeCommand(
-  commandString: string,
+  commandString: string | string[],
   groupTitle: string,
   env?: Record<string, string>,
   cwd?: string,
@@ -260,12 +262,12 @@ export async function executeCommand(
     CLICOLOR_FORCE: '1', // Force color output for tools respecting this
   }
 
-  const firstArg = commandString.split(' ')[0]
+  const firstArg = Array.isArray(commandString) ? commandString[0] : commandString.split(' ')[0]
   if (!firstArg || !allowedCommands.includes(firstArg)) {
     throw new Error(`Command '${firstArg}' is not allowed. Allowed commands: ${allowedCommands.join(', ')}`)
   }
 
-  const args = commandString.split(' ').slice(1)
+  const args = Array.isArray(commandString) ? commandString.slice(1) : commandString.split(' ').slice(1)
 
   core.info(`Executing command: ${firstArg} with args: ${args.join(' ')}`)
 
@@ -299,7 +301,7 @@ export async function executeCommand(
  * @throws If the command fails (non-zero exit code).
  */
 export async function executeCommandWithOutput(
-  commandString: string,
+  commandString: string | string[],
   groupTitle: string,
   env?: Record<string, string>,
   cwd?: string,
@@ -313,13 +315,13 @@ export async function executeCommandWithOutput(
     CLICOLOR_FORCE: '0',
   }
 
-  const firstArg = commandString.split(' ')[0]
+  const firstArg = Array.isArray(commandString) ? commandString[0] : commandString.split(' ')[0]
   if (!firstArg || !allowedCommands.includes(firstArg)) {
     core.endGroup() // Ensure group is closed before throwing
     throw new Error(`Command '${firstArg}' is not allowed. Allowed commands: ${allowedCommands.join(', ')}`)
   }
 
-  const args = commandString.split(' ').slice(1)
+  const args = Array.isArray(commandString) ? commandString.slice(1) : commandString.split(' ').slice(1)
 
   core.info(`Executing command: ${firstArg} with args: ${args.join(' ')}`)
 
