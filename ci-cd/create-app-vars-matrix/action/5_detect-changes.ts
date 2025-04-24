@@ -82,6 +82,7 @@ export async function detectChanges() {
     const appVarsJson = getActionInput('APPVARS', true)
     const eventName = github.context.eventName
     const payload = github.context.payload
+    const action = payload.action
     const isWorkflowDispatch = eventName === 'workflow_dispatch'
 
     // --- Parse Inputs ---
@@ -90,7 +91,21 @@ export async function detectChanges() {
     if (!Array.isArray(appVars)) throw new Error('APPVARS input is not a JSON array.')
 
     core.info(`Event name: ${eventName}`)
+    core.info(`Event action: ${action ?? 'N/A'}`)
     core.info(`Workflow dispatch mode: ${isWorkflowDispatch}`)
+
+    // --- Handle Closed PR Explicitly ---
+    if (eventName === 'pull_request' && action === 'closed') {
+      core.info('Pull request is closed. Skipping change detection and defaulting "has-changes" to false.')
+      for (const app of appVars) {
+        app['has-changes'] = false
+        app['application-previous-version-tag'] = null
+        core.info(`App '${app['application-name']}': has-changes=false, previous-version-tag=N/A (PR Closed)`)
+      }
+      core.setOutput('APPVARS', JSON.stringify(appVars))
+      core.endGroup() // End main group early
+      return // Exit the function
+    }
 
     // --- Determine Base/Head SHAs and SHA for Tag Lookup ---
     let baseSha: string | null = null
