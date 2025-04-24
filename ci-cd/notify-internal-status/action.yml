@@ -1,0 +1,50 @@
+name: 'Notify Internal Status'
+description: 'Send status update to internal API for CI/CD observability.'
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
+inputs:
+  status:
+    description: 'Status to report (e.g. started, success, failure, running_step).'
+    required: true
+  step-name:
+    description: 'Optional name of the step being reported.'
+    required: false
+  extra-data:
+    description: 'Optional JSON string with additional data.'
+    required: false
+    default: '{}'
+  oidc-token:
+    description: 'GitHub OIDC ID token for authentication.'
+    required: false
+  application-name:
+    description: 'Name of the application (from matrix/app-vars). Optional, but recommended.'
+    required: false
+  appvars:
+    description: 'Optional APPVARS for fallback extraction.'
+    required: false
+runs:
+  using: 'composite'
+  steps:
+    - name: Get OIDC token
+      id: get-oidc
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const idToken = await core.getIDToken();
+          core.setOutput('id_token', idToken);
+    - name: 🦕 Deno install
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+    - id: notify-status
+      shell: bash
+      env:
+        INPUT_STATUS: ${{ inputs.status }}
+        INPUT_STEP_NAME: ${{ inputs.step-name }}
+        INPUT_EXTRA_DATA: ${{ inputs.extra-data }}
+        INPUT_OIDC_TOKEN: ${{ steps.get-oidc.outputs.id_token }}
+        INPUT_APPLICATION_NAME: ${{ inputs.application-name }}
+        INPUT_APPVARS: ${{ inputs.appvars }}
+      run: |
+        deno run \
+          --allow-env --allow-net \
+          ${{ github.action_path }}/action/1_notify_status.ts

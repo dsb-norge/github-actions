@@ -51,7 +51,8 @@ runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
+    # TODO revert to @v3
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3.1
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -175,7 +176,8 @@ runs:
       run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/5_filter-build-envs.ts
 
     # build docker image
-    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v3
+    # TODO revert to @v3
+    - uses: dsb-norge/github-actions/ci-cd/build-maven-project@v3.1
       if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
       with:
         mvn-version-cmd: ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}

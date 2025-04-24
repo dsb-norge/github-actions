@@ -1,10 +1,10 @@
-name: "Deploy DSB app(s) to static environment"
+name: 'Deploy DSB app(s) to static environment'
 description: |
   Deploys one or more DSB apps to a static environment.
   The deploy itself is handled by ArgoCD externally. This action merely bumps the application version(s) for the given environment(s).
   Application configuration for these must be defined in the repo pointed to by 'app-config-repo' in the 'dsb-build-envs-array' input.
   Additionally ArgoCD must be set up to watch the configuration repo for the deploy to actually happen.
-author: "Peder Schmedling"
+author: 'Peder Schmedling'
 inputs:
   dsb-build-envs-array:
     description: |
@@ -18,10 +18,11 @@ inputs:
     description: Token for performing checkout and commits to the above repo during deploy.
     required: true
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     # verify required inputs exists for all apps
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
+    # TODO revert to @v3
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3.1
       with:
         dsb-build-envs-array: ${{ inputs.dsb-build-envs-array }}
         require: |
@@ -35,7 +36,7 @@ runs:
     - id: clone-repos
       shell: bash
       env:
-        JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
+        JSON_ARRAY: '${{ inputs.dsb-build-envs-array }}'
       run: |
         # Checkout config repo(s)
 
@@ -60,7 +61,7 @@ runs:
     - id: look-for-app-config
       shell: bash
       env:
-        JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
+        JSON_ARRAY: '${{ inputs.dsb-build-envs-array }}'
       run: |
         # Look for files and directories
 
@@ -113,7 +114,7 @@ runs:
     - id: bump-app
       shell: bash
       env:
-        JSON_ARRAY: "${{ inputs.dsb-build-envs-array }}"
+        JSON_ARRAY: '${{ inputs.dsb-build-envs-array }}'
       run: |
         # Bump versions in git repo
 

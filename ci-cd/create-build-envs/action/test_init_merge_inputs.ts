@@ -14,7 +14,9 @@ function initContextFileReader<T>(
   ContextFileReader.getContextFilePath = (_envVarName: string) => {
     return pathToReturn ? pathToReturn : null
   }
-  ContextFileReader.readFile = async <T>(_filePath: string): Promise<T | null> => {
+  ContextFileReader.readFile = async <T>(
+    _filePath: string,
+  ): Promise<T | null> => {
     return fileReturn as T ?? null
   }
 }
@@ -33,7 +35,9 @@ Deno.test('init_merge_inputs - Happy Day with test_input_happy_day.json', async 
   }
 
   // Read the happy day JSON
-  const happyDayJsonString = Deno.readTextFileSync('./testdata/test_input_happy_day.json')
+  const happyDayJsonString = Deno.readTextFileSync(
+    './testdata/test_input_happy_day.json',
+  )
   const happyDayJson = JSON.parse(happyDayJsonString)
 
   // Mock inputs
@@ -53,9 +57,18 @@ Deno.test('init_merge_inputs - Happy Day with test_input_happy_day.json', async 
   const appVars = JSON.parse(mockOutputs['APPVARS'])
 
   // Assert values from happy day JSON
-  assertEquals(appVars['application-name'], happyDayJson['app-vars']['application-name'])
-  assertEquals(appVars['application-description'], happyDayJson['app-vars']['application-description'])
-  assertEquals(appVars['application-version'], happyDayJson['app-vars']['application-version'])
+  assertEquals(
+    appVars['application-name'],
+    happyDayJson['app-vars']['application-name'],
+  )
+  assertEquals(
+    appVars['application-description'],
+    happyDayJson['app-vars']['application-description'],
+  )
+  assertEquals(
+    appVars['application-version'],
+    happyDayJson['app-vars']['application-version'],
+  )
 })
 
 Deno.test('init_merge_inputs - Protected Variables Override', async () => {
@@ -158,7 +171,10 @@ Deno.test('init_merge_inputs - Context Files', async () => {
   maskedSecrets = []
 
   // Mock both context files
-  const mockSecrets = { 'secret-key': 'secret-value', 'another-secret': 'sensitive-data' }
+  const mockSecrets = {
+    'secret-key': 'secret-value',
+    'another-secret': 'sensitive-data',
+  }
   const mockGithubContext = { event_name: 'push', repository: 'test/repo' }
   const mockVarsContext = { 'env-var': 'env-value' }
 
@@ -168,7 +184,9 @@ Deno.test('init_merge_inputs - Context Files', async () => {
     return '/some/path/to/context.json'
   }
 
-  ContextFileReader.readFile = async <T>(_filePath: string): Promise<T | null> => {
+  ContextFileReader.readFile = async <T>(
+    _filePath: string,
+  ): Promise<T | null> => {
     switch (requestedFile) {
       case 'SECRETS_CONTEXT_FILE':
         return mockSecrets as unknown as T

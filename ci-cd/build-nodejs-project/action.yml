@@ -20,7 +20,8 @@ runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
+    # TODO revert to @v3
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3.1
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |

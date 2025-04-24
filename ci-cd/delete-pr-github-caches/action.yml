@@ -1,4 +1,4 @@
-name: "Delete GitHub caches created from a PR branch"
+name: 'Delete GitHub caches created from a PR branch'
 description: |
   This action deletes all GitHub caches created from a PR branch.
   This is to force deletion of caches overriding default cache eviction policy.
@@ -12,7 +12,7 @@ description: |
     https://github.com/actions/cache/blob/704facf57e6136b1bc63b828d79edcd491f0ee84/tips-and-workarounds.md#force-deletion-of-caches-overriding-default-cache-eviction-policy
   Branch scope restriction:
     https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#restrictions-for-accessing-a-cache
-author: "Peder Schmedling"
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
   dsb-build-envs:
     description: |
@@ -23,88 +23,25 @@ inputs:
         None.
     required: true
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     # we need to verify inputs since they are optional input to create-build-envs action
     - id: check-input
-      uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
+      # TODO revert to @v3
+      uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3.1
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
           github-dependencies-cache-pr-base-key
-    - id: check-prereqs
+
+    - name: 🦕 Deno install # Added Deno install step
       shell: bash
-      run: |
-        # Check if triggered by pull request event with close action, and if GitHub CLI is available
+      run: deno install
+      working-directory: ${{ github.action_path }}/../ # Assuming common root for deno.json
 
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        log-info "Check prerequisite: pull request event ..."
-        if [ '${{ github.event_name }}' == 'pull_request' ]; then
-          log-info "GitHub event name is '${{ github.event_name }}'."
-        else
-          log-error "GitHub event name is '${{ github.event_name }}', this action should only be called by pull request events!"
-          exit 1
-        fi
-
-        log-info "Check prerequisite: pull request close action ..."
-        if [ '${{ github.event.action }}' == 'closed' ]; then
-          log-info "GitHub event action is '${{ github.event.action }}'."
-        else
-          log-error "GitHub event action is '${{ github.event.action }}', this action should only be called by a PR closing action!"
-          exit 1
-        fi
-
-        start-group "Check prerequisite: GitHub CLI"
-        CMD_TO_CHECK='gh --version'
-        if ! command -v ${CMD_TO_CHECK} &>/dev/null; then
-          log-error "GitHub CLI is not available on path, please install it!"
-          exit 1
-        else
-          log-info "using $(${CMD_TO_CHECK})"
-        fi
-        end-group
-
-    - id: delete-caches
+    - id: delete-caches # Changed step ID and run command
       shell: bash
       env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        # Query caches and delete
-
-        set -o allexport; source "${{ github.action_path }}/helpers.sh"; set +o allexport;
-
-        CALLING_REPO='${{ github.repository }}'
-        log-info "Working with repo '${CALLING_REPO}'."
-
-        CALLING_BRANCH='refs/pull/${{ github.event.pull_request.number }}/merge'
-        LOOK_FOR_KEY='${{ fromJSON(inputs.dsb-build-envs).github-dependencies-cache-pr-base-key }}'
-        log-info "Fetching list cache keys starting with '${LOOK_FOR_KEY}' for the branch '${CALLING_BRANCH}' ..."
-
-        JQ_FILTER="map(select( (.ref == \"${CALLING_BRANCH}\") and (.key | contains(\"${LOOK_FOR_KEY}\")) ))|.[].key"
-        CACHE_IDS="$(gh cache list --repo "${CALLING_REPO}" --json key,ref --jq "${JQ_FILTER}")"
-
-        # delete and summarize
-        if [ '' == "${CACHE_IDS}" ]; then
-          log-info "No caches found."
-        else
-          declare -A DELETE_RESULTS
-          CACHE_COUNT="$(echo "${CACHE_IDS}" | wc -l)"
-          start-group "Deleting ${CACHE_COUNT} cache(s) ..."
-          for CACHE_ID in ${CACHE_IDS}; do
-            set +e
-            gh cache delete "${CACHE_ID}" --repo "${CALLING_REPO}"
-            DELETE_RESULTS["${CACHE_ID}"]=${?}
-            set -e
-          done
-          end-group
-
-          log-info "Summary:"
-          for CACHE_ID in ${CACHE_IDS}; do
-            log-info "  - $([[ ${DELETE_RESULTS["${CACHE_ID}"]} -ne 0 ]] && echo 'failure ->' || echo 'success ->') ${CACHE_ID}"
-          done
-
-          # exit code
-          SUM_EXIT_CODES=$(IFS=+; echo "$((${DELETE_RESULTS[*]}))")
-          exit ${SUM_EXIT_CODES}
-        fi
+        GH_TOKEN: ${{ github.token }} # Pass GH_TOKEN
+        INPUT_DSB_BUILD_ENVS: ${{ inputs.dsb-build-envs }} # Pass DSB build envs
+      run: deno run --allow-read --allow-env --allow-net --allow-run=gh ${{ github.action_path }}/action/1_delete_caches.ts # Run the Deno script

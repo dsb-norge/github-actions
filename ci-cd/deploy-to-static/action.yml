@@ -1,10 +1,10 @@
-name: "Deploy DSB app to static environment"
+name: 'Deploy DSB app to static environment'
 description: |
   Deploys a DSB app to a static environment.
   The deploy itself is handled by ArgoCD externally. This action merely bumps the application version for the given environment(s).
   Application configuration for these must be defined in the repo pointed to by 'app-config-repo' in the 'dsb-build-envs' input.
   Additionally ArgoCD must be set up to watch the configuration repo for the deploy to actually happen.
-author: "Peder Schmedling"
+author: 'Peder Schmedling'
 inputs:
   dsb-build-envs:
     description: |
@@ -15,10 +15,11 @@ inputs:
         None.
     required: true
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     # we need to verify inputs since they are optional input to create-build-envs action
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
+    # TODO revert to @v3
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3.1
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |

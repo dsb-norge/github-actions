@@ -16,6 +16,7 @@ ci-cd/
 ├───delete-pr-images-from-acr       --> Delete ephemeral PR image repository from ACR
 ├───deploy-to-ephemeral             --> Deploy DSB app to ephemeral environment
 ├───deploy-to-static                --> Deploy DSB app to static environment
+├───notify-internal-status          --> Send status update to internal API
 ├───prune-images-from-acr           --> Prune images from ACR
 ├───prune-maven-artifacts-in-repo   --> Prune maven artifacts from GitHub packages
 ├───require-build-envs              --> Test DSB build environment variables for non-zero values

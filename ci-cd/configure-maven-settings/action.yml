@@ -1,4 +1,4 @@
-name: "Create maven user settings (settings.xml)"
+name: 'Create maven user settings (settings.xml)'
 description: |
   This action overwrites the maven user settings (settings.xml) in the current users home directory with one generated
   from the input supplied to this action. And returns the path to the settings.xml file.
@@ -81,7 +81,7 @@ description: |
     </settings>
   ```
 
-author: "Peder Schmedling"
+author: 'Peder Schmedling'
 inputs:
   user-settings-repositories-yml:
     description: |
@@ -91,17 +91,17 @@ inputs:
     required: true
 outputs:
   settings-xml-path:
-    description: "The path to the maven settings.xml file"
+    description: 'The path to the maven settings.xml file'
     value: ${{ steps.write.outputs.settings-xml-path }}
 
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - id: write
       shell: bash
       env:
-        SETTINGS_XML_TEMPLATE_PATH: "${{ github.action_path }}/settings-template.xml"
-        USER_SETTINGS_REPOSITORIES_YML: "${{ inputs.user-settings-repositories-yml }}"
+        SETTINGS_XML_TEMPLATE_PATH: '${{ github.action_path }}/settings-template.xml'
+        USER_SETTINGS_REPOSITORIES_YML: '${{ inputs.user-settings-repositories-yml }}'
       run: |
         # write settings.xml
 
