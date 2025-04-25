@@ -64,8 +64,21 @@ on:
         default: 0
 
 jobs:
+  check-docker-disk-space:
+    name: Check Docker Disk Space & Prune if Needed
+    runs-on: [self-hosted, dsb-builder, linux, x64]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: "🩺 Check Docker disk usage and prune if necessary"
+        uses: dsb-norge/github-actions/ci-cd/check-docker-disk-space@v3
+        with:
+          threshold-gb: '7'
+
   create-matrix:
     name: Create build matrix
+    needs: check-docker-disk-space
     runs-on: [self-hosted, dsb-builder, linux, x64]
     defaults:
       run:
@@ -74,7 +87,6 @@ jobs:
       app-vars-matrix: ${{ steps.create-matrix.outputs.app-vars }}
       applications-version: ${{ steps.create-matrix.outputs.applications-version }}
     steps:
-      # The create-app-vars-matrix action requires source code to be available
       - name: "🧹 Clean: 🏢 workspace"
         id: clean
         uses: dsb-norge/directory-recreate@v1
@@ -82,7 +94,7 @@ jobs:
       - name: "⬇ Checkout working branch"
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Need to get history to detect changes
+          fetch-depth: 0
 
       - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
@@ -96,7 +108,7 @@ jobs:
     runs-on: [self-hosted, dsb-builder, linux, x64]
     strategy:
       matrix: ${{ fromJSON(needs.create-matrix.outputs.app-vars-matrix) }}
-      fail-fast: false # allow all paralell jobs to continue even if one fails
+      fail-fast: false
     defaults:
       run:
         shell: bash
@@ -109,7 +121,6 @@ jobs:
         id: checkout
         uses: actions/checkout@v4
 
-      # need this to have access to the configuration repo of the application
       - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
         id: auth
         uses: dsb-norge/github-actions/get-github-app-installation-token@v3
@@ -136,7 +147,6 @@ jobs:
           pr-deploy-aks-creds: ${{ secrets.ORG_AZURE_DEV_AKS_CONTRIBUTOR_SERVICE_PRINCIPAL }}
           acr-service-principal: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_SERVICE_PRINCIPAL }}
 
-      # Step 2: Prepare Deployment Variables
       - name: "🔧 Prepare Deployment Variables"
         id: prep-deploy-vars
         run: |
@@ -167,7 +177,6 @@ jobs:
 
       - name: "🔄 Restore 📚 build dependencies cache"
         id: cache-restore
-        # Run restore only if changes, cache enabled, and not closing PR
         if: |
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
@@ -178,10 +187,6 @@ jobs:
 
       - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build
-        # Run step when:
-        #   - app is spring-boot
-        #   - running from PR and not closing
-        #   - there are changes to the app
         if: |
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
@@ -192,10 +197,6 @@ jobs:
 
       - name: "🍃 Spring Boot app: 🐳 Build, tag and push docker image"
         id: maven-docker-build
-        # Run step when:
-        #   - app is spring-boot
-        #   - running from PRa nd not closing
-        #   - push or manual on default branch or when specifically allowing deploy from non-default branch
         if: |
           matrix.app-vars.application-type == 'spring-boot'
           && (
@@ -211,10 +212,6 @@ jobs:
 
       - name: "🌐 Vue.js app: ⚒ Build and test with npm"
         id: npm-build
-        # Run step when:
-        #   - app is vue
-        #   - running from PR and not closing
-        #   - there are changes to the app
         if: |
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
@@ -225,10 +222,6 @@ jobs:
 
       - name: "🌐 Vue.js app: 🐳 Build, tag and push docker image for vue"
         id: npm-docker-build
-        # Run step when:
-        #   - app is vue
-        #   - running from PR and not closing
-        #   - push or manual on default branch or when specifically allowing deploy from non-default branch
         if: |
           matrix.app-vars.application-type == 'vue'
           && (
@@ -244,7 +237,6 @@ jobs:
 
       - name: "💾 Save 📚 build dependencies cache"
         id: cache-save
-        # Skip step when closing a PR, only run when deps cache is enabled, and skip if cache already exists (aka. cache-hit)
         if: |
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
@@ -252,17 +244,11 @@ jobs:
           && steps.cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: ${{ steps.cache-restore.outputs.cache-normalized-path }} # use the expanded and normalized path
+          path: ${{ steps.cache-restore.outputs.cache-normalized-path }}
           key: ${{ fromJSON(steps.build-env.outputs.json).github-dependencies-cache-key }}
 
       - name: "🐙 Deploy: 🌍 to ephemeral PR environment"
         id: ephemeral-deploy
-        # Run step when:
-        #   - not skipped
-        #   - on PR
-        #     - but not when closing PR
-        #     - and not when event was triggered by renovate-bot
-        #   (allows deploy when a user pushes to PR branch created by renovate-bot, as github.event.action is then the user)
         if: |
           github.event_name == 'pull_request'
           && github.event.action != 'closed'
@@ -274,7 +260,6 @@ jobs:
 
       - name: "🗑 Teardown: 🌍 of ephemeral PR environment"
         id: ephemeral-teardown
-        # Step only runs when closing a PR
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
         uses: dsb-norge/github-actions/ci-cd/teardown-pr-environment@v3
         with:
@@ -282,8 +267,6 @@ jobs:
 
       - name: "🗑 Prune: 🐳 application docker images from ACR"
         id: prune-images
-        # Run step when:
-        #   - push or manual on default branch or when specifically allowing deploy from non-default branch
         if: |
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
           && (( fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch )
@@ -295,8 +278,6 @@ jobs:
 
       - name: "🗑 Delete: 🐳 PR docker images from ACR"
         id: delete-pr-images
-        # Step only runs when closing a PR
-        # Step runs even if previous steps have failed, with the exception of 'build-env' which is required
         if: github.event_name == 'pull_request' && github.event.action == 'closed' && always() && steps.build-env.outcome == 'success'
         uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@v3
         with:
@@ -304,10 +285,6 @@ jobs:
 
       - name: "🗑 Delete: 📚 PR build dependencies caches"
         id: cache-delete
-        # Step only runs when closing a PR
-        # Step runs even if previous steps have failed, with the exception of 'build-env' which is required
-        # Step only runs when dependencies cache is enabled
-        # Step only runs when deletion of PR dependencies caches is enabled
         if: |
           github.event_name == 'pull_request' && github.event.action == 'closed'
           && always() && steps.build-env.outcome == 'success'
@@ -316,12 +293,10 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@v3
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
-        continue-on-error: true # do not fail job when this fails, GitHub's eviction policy will clean up eventually
+        continue-on-error: true
 
   deploy-to-static:
     name: Deploy app(s) to static environments
-    # This job is currently just for deploy to static environments, run when:
-    #   - push or manually triggered
     if: |
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
     needs: [create-matrix, build-deploy]
@@ -346,15 +321,12 @@ jobs:
 
       - name: "✔ Check if deploy is allowed from calling branch"
         id: deploy-static-check
-        # This check is required to block deploys when workflow is manually triggered from a non-default branch
         uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@v3
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
 
-      # need this to have access to the configuration repo(s) of the application(s)
       - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
         id: auth
-        # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
         uses: dsb-norge/github-actions/get-github-app-installation-token@v3
         with:
@@ -364,7 +336,6 @@ jobs:
 
       - name: "🐙 Deploy: 🌍 apps to static environment(s)"
         id: static-deploy
-        # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
         uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@v3
         with:
@@ -373,7 +344,6 @@ jobs:
 
       - name: "🏷️ Tag current git commit with application version"
         id: version-tag
-        # Step only runs when deploy was allowed by deploy-multiple-to-static-is-allowed
         if: steps.deploy-static-check.outputs.result == 'true'
         uses: actions/github-script@v7
         with:
@@ -387,9 +357,6 @@ jobs:
 
   prune-maven-artifacts:
     name: Prune maven artifacts
-    # This job handles pruning of maven artifacts published in the calling repo
-    # Run even in case of failure in previous jobs/steps, in an attempt to avoid scenarios where PR snapshots would not get deleted
-    # Skip step for pull request except to clean up snapshots when closing a PR
     if: >-
       ( success() || failure() )
       &&
@@ -412,21 +379,17 @@ jobs:
           snapshot-prune-keep-min-count: ${{ inputs.maven-artifacts-snapshot-prune-keep-min-count }}
           snapshot-prune-keep-num-days: ${{ inputs.maven-artifacts-snapshot-prune-keep-num-days }}
 
-  # create a global result indicating if workflow steps succeeded or not,
-  # handy for branch protection rules
   ci-cd-conclusion:
     if: always()
     name: ci-cd-conclusion
     needs:
       [create-matrix, build-deploy, deploy-to-static, prune-maven-artifacts]
-    runs-on: ubuntu-latest # no need to schedule this on our own runners
+    runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
     steps:
       - run: exit 1
-        # for explanation of '>-' below see https://stackoverflow.com/a/67532120/4907315
-        # job 'result': possible values are 'success', 'failure', 'cancelled', or 'skipped'
         if: >-
           ${{
                contains(needs.*.result, 'failure')

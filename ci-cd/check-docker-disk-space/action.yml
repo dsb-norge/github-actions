@@ -1,0 +1,21 @@
+name: 'Check Docker Disk Space & Prune'
+description: "Checks Docker's total reclaimable disk space (from `docker system df`) and runs `docker system prune -a -f` if it exceeds a threshold."
+author: 'Direktoratet for samfunnssikkerhet og beredskap'
+inputs:
+  threshold-gb:
+    description: 'The threshold in Gigabytes (GB) for TOTAL Docker reclaimable space before pruning is triggered.'
+    required: false
+    default: '10'
+runs:
+  using: 'composite'
+  steps:
+    - name: 🦕 Deno install
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
+    - name: 'Run Deno Action: Check Docker Disk Space'
+      shell: bash
+      env:
+        INPUT_THRESHOLD_GB: ${{ inputs.threshold-gb }}
+      run: deno run --allow-env --allow-run=docker --allow-read ${{ github.action_path }}/action/1-check-docker-disk-space.ts
