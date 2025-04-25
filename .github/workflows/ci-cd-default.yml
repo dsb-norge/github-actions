@@ -72,7 +72,7 @@ jobs:
         shell: bash
     steps:
       - name: "🩺 Check Docker disk usage and prune if necessary"
-        uses: dsb-norge/github-actions/ci-cd/check-docker-disk-space@v3
+        uses: dsb-norge/github-actions/ci-cd/check-docker-disk-space@v3.0.1
         with:
           threshold-gb: '7'
 
