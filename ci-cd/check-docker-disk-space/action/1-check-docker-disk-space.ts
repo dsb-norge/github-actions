@@ -79,72 +79,71 @@ export async function run(): Promise<void> {
     const dfError = dfResult.stderr
 
     if (dfResult.code !== 0) {
-      core.error('`docker system df` output:\n' + dfOutput)
-      core.error('`docker system df` error output:\n' + dfError)
+      core.error('output:\n' + dfOutput)
+      core.error('error output:\n' + dfError)
       throw new Error(`'docker system df' failed with code ${dfResult.code}`)
     }
-    core.info('`docker system df` output:\n' + dfOutput)
+    core.info('output:\n' + dfOutput)
 
     // --- Parse Output ---
-    // Find the line containing "RECLAIMABLE" and usually the total percentage at the end.
     const lines = dfOutput.trim().split('\n')
-    let totalReclaimableLine = ''
-
-    // Try finding a line explicitly containing "Total RECLAIMABLE" (case insensitive)
-    totalReclaimableLine = lines.find((line) => line.toUpperCase().includes('TOTAL RECLAIMABLE')) || ''
-
-    // Fallback: Find the last line containing "RECLAIMABLE" if the explicit total isn't found
-    if (!totalReclaimableLine) {
-      const reclaimableLines = lines.filter((line) => line.toUpperCase().includes('RECLAIMABLE'))
-      if (reclaimableLines.length > 0) {
-        totalReclaimableLine = reclaimableLines[reclaimableLines.length - 1]
-        core.debug(`Using last line containing 'RECLAIMABLE' as total: "${totalReclaimableLine}"`)
-      }
+    if (lines.length < 2) {
+      core.warning('No data lines found in `docker system df` output. Skipping prune check.')
+      return
     }
 
-    if (!totalReclaimableLine) {
-      core.warning('Could not determine total reclaimable space line in `docker system df` output. Skipping prune check.')
-      return // Exit gracefully
+    const headerLine = lines[0]
+    const dataLines = lines.slice(1)
+
+    // Find the index of the RECLAIMABLE column
+    const headers = headerLine.trim().split(/\s{2,}/) // Split header by 2+ spaces
+    const reclaimableIndex = headers.findIndex((h) => h.toUpperCase().includes('RECLAIMABLE'))
+
+    if (reclaimableIndex === -1) {
+      core.warning("Could not find 'RECLAIMABLE' column in `docker system df` header. Skipping prune check.")
+      return
     }
 
-    // Extract the size string (e.g., "10.2GB") from the line.
-    // It's often the second to last field before the percentage.
-    const fields = totalReclaimableLine.trim().split(/\s+/)
-    let reclaimableStr = ''
-    if (fields.length >= 2) {
-      // Find the field that looks like a size (number followed by unit) near the end
-      // Iterate backwards from the end, skipping potential percentage like (xx%)
-      for (let i = fields.length - 1; i >= 0; i--) {
-        // Check if it's NOT a percentage like (xx%)
-        if (!fields[i].match(/^\(\d+(\.\d+)?%\)$/)) {
-          // Check if it IS a size string
-          if (fields[i].match(/^\d+(\.\d+)?\s*[a-zA-Z]+$/i)) {
-            reclaimableStr = fields[i]
-            break
-          }
+    let totalReclaimableBytes = 0
+    let foundReclaimableValue = false
+
+    for (const line of dataLines) {
+      const fields = line.trim().split(/\s{2,}/) // Split data line by 2+ spaces
+      if (fields.length > reclaimableIndex) {
+        // The reclaimable value might have the percentage attached, e.g., "7.002GB (100%)"
+        // We only want the size part.
+        const reclaimableField = fields[reclaimableIndex]
+        const sizeMatch = reclaimableField.match(/^(\d+(?:\.\d+)?\s*[a-zA-Z]+)/) // Match the size part at the beginning
+        if (sizeMatch && sizeMatch[1]) {
+          const reclaimableStr = sizeMatch[1].trim()
+          core.debug(`Found reclaimable value: ${reclaimableStr} from line: "${line}"`)
+          totalReclaimableBytes += parseSizeToBytes(reclaimableStr)
+          foundReclaimableValue = true
+        } else {
+          core.debug(`Could not extract size from reclaimable field: "${reclaimableField}" in line: "${line}"`)
         }
+      } else {
+        core.debug(`Line does not have enough fields to get reclaimable value: "${line}"`)
       }
     }
 
-    if (!reclaimableStr) {
-      core.warning(`Could not parse total reclaimable size from line: "${totalReclaimableLine}". Skipping prune check.`)
-      return // Exit gracefully
+    if (!foundReclaimableValue) {
+      core.warning('Could not extract any reclaimable size values from `docker system df` output. Skipping prune check.')
+      return
     }
 
-    core.info(`Total Reclaimable String: ${reclaimableStr}`)
-    const reclaimableBytes = parseSizeToBytes(reclaimableStr)
-    core.info(`Total Reclaimable Bytes: ${reclaimableBytes}`)
+    core.info(`Total Calculated Reclaimable Bytes: ${totalReclaimableBytes}`)
     core.info(`Threshold Bytes: ${thresholdBytes}`)
 
     // --- Check Threshold and Prune ---
-    if (reclaimableBytes > thresholdBytes) {
-      core.info(`Total reclaimable space (${reclaimableStr}) exceeds threshold (${thresholdGb}GB). Pruning Docker system...`)
+    if (totalReclaimableBytes > thresholdBytes) {
+      core.info(`Total calculated reclaimable space (${(totalReclaimableBytes / BYTES_PER_GB).toFixed(2)}GB) exceeds threshold (${thresholdGb}GB). Pruning Docker system...`)
       await executeCommand('docker system prune -a -f', 'Prune Docker System')
       core.info('Docker prune completed. Checking space again:')
       // Run df again to show the result after pruning
       await executeCommand('docker system df', 'Get Docker Disk Usage After Prune')
     } else {
-      core.info(`Total reclaimable space (${reclaimableStr}) is within threshold (${thresholdGb}GB). No pruning needed.`)
+      core.info(`Total calculated reclaimable space (${(totalReclaimableBytes / BYTES_PER_GB).toFixed(2)}GB) is within threshold (${thresholdGb}GB). No pruning needed.`)
     }
 
     core.info('Action step completed successfully.')
