@@ -32,7 +32,8 @@
       "./build-docker-image/**",
       "./build-spring-boot-image/**",
       "./comment-or-pr/**",
-      "./deploy-to-ephemeral/**"
+      "./deploy-to-ephemeral/**",
+      "./check-docker-disk-space/**"
     ]
   }
 }
