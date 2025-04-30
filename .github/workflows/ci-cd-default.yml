@@ -111,9 +111,20 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: "🔧 Install Required Tools (yq, fontconfig)"
+      - name: "🔧 Install yq (Go version)"
         run: |
-          sudo apt-get update && sudo apt-get install -y yq fontconfig
+          YQ_VERSION="latest" # Or pin to a specific version like "v4.44.1"
+          YQ_BINARY="yq_linux_amd64"
+          YQ_URL="https://github.com/mikefarah/yq/releases/${YQ_VERSION}/download/${YQ_BINARY}"
+          echo "Downloading yq from ${YQ_URL}"
+          sudo curl -L "${YQ_URL}" -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+          echo "yq installed: $(yq --version)"
+        shell: bash
+
+        # This is needed for PDF libraries to be able to work in integration tests
+      - name: "🔧 Install fontconfig"
+        run: sudo apt-get update && sudo apt-get install -y fontconfig
 
       - name: "🔧 Setup Helm"
         uses: azure/setup-helm@v4
@@ -340,9 +351,20 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: "🔧 Install Required Tools (Helm, Kubectl, yq, fontconfig)"
+      - name: "🔧 Install yq (Go version)"
         run: |
-          sudo apt-get update && sudo apt-get install -y yq fontconfig
+          YQ_VERSION="latest" # Or pin to a specific version like "v4.44.1"
+          YQ_BINARY="yq_linux_amd64"
+          YQ_URL="https://github.com/mikefarah/yq/releases/${YQ_VERSION}/download/${YQ_BINARY}"
+          echo "Downloading yq from ${YQ_URL}"
+          sudo curl -L "${YQ_URL}" -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+          echo "yq installed: $(yq --version)"
+        shell: bash
+
+      - name: "🔧 Install Required Tools (Helm, Kubectl, fontconfig)"
+        run: |
+          sudo apt-get update && sudo apt-get install -y fontconfig
           echo "Install Helm and Kubectl using dedicated actions below"
 
       - name: "🔧 Setup Helm"
