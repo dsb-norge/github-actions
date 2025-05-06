@@ -143,7 +143,7 @@ export async function run(): Promise<void> {
         core.info(`Deleting image '${imageId}'`)
         try {
           await executeCommand(
-            `az acr repository delete --name ${dockerImageRegistry} --image "${imageId}" --yes`,
+            ['az', 'acr', 'repository', 'delete', '--name', dockerImageRegistry, '--image', imageId, '--yes'],
             `Deleting ${imageId}`,
           )
         } catch (deleteError) {

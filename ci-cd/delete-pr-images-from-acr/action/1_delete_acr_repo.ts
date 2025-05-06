@@ -45,7 +45,7 @@ export async function run(): Promise<void> {
     try {
       // Corrected: Pass the full command as a single string
       await executeCommand(
-        `az acr repository delete --name ${registry} --repository ${fullRepoName} --yes`,
+        ['az', 'acr', 'repository', 'delete', '--name', registry, '--repository', fullRepoName, '--yes'],
         `Deleting ACR repository ${fullRepoName}`,
       )
       core.info(`Successfully initiated deletion of ACR repository: ${registry}/${fullRepoName}`)
