@@ -71,6 +71,13 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Notify Internal Status (ci-cd-started)
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v3
+        with:
+          status: started
+          step-name: ci-cd-started
+          basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
+
       - name: "🩺 Check Docker disk usage and prune if necessary"
         uses: dsb-norge/github-actions/ci-cd/check-docker-disk-space@v3
         with:
@@ -96,11 +103,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Notify Internal Status (build-matrix-started)
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v3
+        with:
+          status: started
+          step-name: build-matrix-started
+          basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
+
       - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
         uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v3
         with:
           apps: ${{ inputs.apps }}
+
+      - name: Notify Internal Status (build-matrix-finished)
+        if: always()
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v3
+        with:
+          status: ${{ job.status }}
+          step-name: build-matrix-finished
+          basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
+          appvars: ${{ steps.create-matrix.outputs.app-vars }}
 
   build-deploy:
     name: Build and deploy
@@ -152,6 +175,15 @@ jobs:
           app-config-repo-token: ${{ steps.auth.outputs.github-token }}
           pr-deploy-aks-creds: ${{ secrets.ORG_AZURE_DEV_AKS_CONTRIBUTOR_SERVICE_PRINCIPAL }}
           acr-service-principal: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_SERVICE_PRINCIPAL }}
+
+      - name: Notify Internal Status (app-build-started)
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v3
+        with:
+          status: started
+          step-name: app-build-started
+          application-name: ${{ matrix.app-vars.application-name }}
+          basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
+          appvars: ${{ toJSON(matrix.app-vars) }}
 
       - name: "🔧 Prepare Deployment Variables"
         id: prep-deploy-vars
@@ -301,6 +333,16 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
         continue-on-error: true
 
+      - name: Notify Internal Status (app-build-finished)
+        if: always()
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v3
+        with:
+          status: ${{ job.status }}
+          step-name: app-build-finished
+          application-name: ${{ matrix.app-vars.application-name }}
+          basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
+          appvars: ${{ toJSON(matrix.app-vars) }}
+
   deploy-to-static:
     name: Deploy app(s) to static environments
     if: |
@@ -332,6 +374,13 @@ jobs:
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
 
+      - name: Notify Internal Status (app-deploy-started)
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v3
+        with:
+          status: started
+          step-name: app-deploy-started
+          basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
+
       - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
         id: auth
         if: steps.deploy-static-check.outputs.result == 'true'
@@ -361,6 +410,14 @@ jobs:
               ref: 'refs/tags/${{ needs.create-matrix.outputs.applications-version }}',
               sha: context.sha
             })
+      
+      - name: Notify Internal Status (app-deploy-finished)
+        if: always()
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v3
+        with:
+          status: ${{ job.status }}
+          step-name: app-deploy-finished
+          basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
 
   prune-maven-artifacts:
     name: Prune maven artifacts
