@@ -177,6 +177,7 @@ runs:
         INPUT_MVN_VERSION_CMD: ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
         INPUT_MVN_CMD: ${{ steps.mvn-cmd.outputs.mvn-cmd }}
         GITHUB_WORKSPACE: '${{ github.workspace }}'
+        GITHUB_SHA: '${{ github.sha }}'
       run: deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/2_invoke-maven.ts
 
     - name: Publish Test Results
