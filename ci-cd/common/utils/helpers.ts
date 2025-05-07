@@ -225,6 +225,20 @@ export function parseExtraEnvs(
   return exportedEnv
 }
 
+/**
+ * Expands shell-style variables in a command string using the current environment.
+ * Supports ${VAR} and ${VAR:0:7} (substring) syntax.
+ */
+export function expandShellVars(command: string, env: Record<string, string> = Deno.env.toObject()): string {
+  return command.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::(\d+):(\d+))?\}/g, (_, varName, start, len) => {
+    const value = env[varName] ?? ''
+    if (start !== undefined && len !== undefined) {
+      return value.substring(Number(start), Number(start) + Number(len))
+    }
+    return value
+  })
+}
+
 /// List of allowed commands for security reasons
 /// This is a security measure to prevent arbitrary command execution
 export const allowedCommands = [

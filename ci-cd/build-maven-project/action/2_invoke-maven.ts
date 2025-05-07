@@ -1,5 +1,5 @@
 import { core } from 'common/deps.ts' // Assuming core and copy are exported here
-import { executeCommand, getActionInput, getWorkspacePath, parseExtraEnvs } from 'common/utils/helpers.ts'
+import { executeCommand, getActionInput, getWorkspacePath, parseExtraEnvs, expandShellVars } from 'common/utils/helpers.ts'
 import { handleError } from 'common/utils/error.ts'
 
 /**
@@ -25,8 +25,11 @@ export async function run(): Promise<void> {
     core.debug(`Exported environment variables: ${JSON.stringify(exportedKeys)}`)
 
     // --- Execute Maven Commands ---
-    await executeCommand(mvnVersionCmd, 'Setting maven project version', exportedKeys, getWorkspacePath())
-    await executeCommand(mvnCmd, 'Invoke maven with goals', exportedKeys, getWorkspacePath())
+    const envVars = { ...exportedKeys, ...Deno.env.toObject() }
+    const expandedMvnVersionCmd = expandShellVars(mvnVersionCmd, envVars)
+    const expandedMvnCmd = expandShellVars(mvnCmd, envVars)
+    await executeCommand(expandedMvnVersionCmd, 'Setting maven project version', exportedKeys, getWorkspacePath())
+    await executeCommand(expandedMvnCmd, 'Invoke maven with goals', exportedKeys, getWorkspacePath())
 
     core.info('Maven commands executed successfully.')
   } catch (error) {
