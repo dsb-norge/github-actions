@@ -16,7 +16,8 @@ runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
+    # TODO revert to @v3
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@playwright-e2e
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -32,6 +33,7 @@ runs:
           docker-image-registry
           acr-username
           acr-password
+          npmjs-token
 
     # log into azure container registry (ACR)
     - uses: azure/docker-login@v2
@@ -106,9 +108,97 @@ runs:
         GITHUB_WORKSPACE: '${{ github.workspace }}'
       run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/add-envs.ts
 
-    # build, tag and push docker image
+    # build docker image only (no push) if nodejs-e2e-enabled is true
+    - name: Build docker image (no push, E2E)
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
+      uses: docker/build-push-action@v6
+      with:
+        pull: true
+        push: false
+        no-cache: true
+        context: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+    - name: Write .npmrc for Docker BuildKit
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && fromJSON(inputs.dsb-build-envs)['npmjs-token']
+      shell: bash
+      run: |
+        echo "//registry.npmjs.org/:_authToken=${{ fromJSON(inputs.dsb-build-envs).npmjs-token }}" > "${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/.npmrc.dockerbuild"
+
+    # build playwright image (Dockerfile.playwright) if nodejs-e2e-enabled is true
+    - name: Build Playwright E2E image
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
+      uses: docker/build-push-action@v6
+      with:
+        pull: true
+        push: false
+        no-cache: true
+        context: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
+        file: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/Dockerfile.playwright
+        tags: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}-playwright:local
+        secret-files: |
+          npmrc=${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/.npmrc.dockerbuild
+
+    - name: Remove .npmrc for Docker BuildKit
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && fromJSON(inputs.dsb-build-envs)['npmjs-token']
+      shell: bash
+      run: rm -f "${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/.npmrc.dockerbuild"
+
+    # run E2E tests using Deno script orchestrator
+    - name: Run Playwright E2E tests
+      id: e2e-tests
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
+      shell: bash
+      env:
+        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+        GITHUB_WORKSPACE: '${{ github.workspace }}'
+      run: deno run --allow-env --allow-read --allow-write --allow-run=docker,cp --allow-net=0.0.0.0,127.0.0.1,localhost ${{ github.action_path }}/action/run-e2e.ts
+
+    - name: Upload Playwright report
+      if: always() && fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && steps.e2e-tests.outputs.e2e-has-ran == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report
+        path: playwright-report/
+        if-no-files-found: error
+        retention-days: 7
+
+    - name: Post PR Comment with Playwright Report Summary
+      if: always() && github.event_name == 'pull_request' && fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && steps.e2e-tests.outputs.e2e-has-ran == 'true'
+      uses: daun/playwright-report-summary@v3
+      with:
+        report-file: playwright-report/playwright-report.json
+
+    # Check E2E test results and fail if tests failed
+    - name: Check E2E test results
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && steps.e2e-tests.outputs.e2e == 'failure'
+      shell: bash
+      run: |
+        echo "::error::E2E tests failed. Stopping build."
+        exit 1
+
+    # push docker image after E2E if nodejs-e2e-enabled is true
+    - name: Push docker image (after E2E)
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
+      uses: docker/build-push-action@v6
+      with:
+        pull: false
+        push: true
+        no-cache: false
+        context: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+    # clean up playwright image after E2E
+    - name: Remove Playwright E2E image
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
+      shell: bash
+      run: docker rmi ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}-playwright:local || true
+
+    # build, tag and push docker image (default, no E2E)
     - uses: docker/build-push-action@v6
-      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && (!fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'])
       with:
         pull: true
         push: true

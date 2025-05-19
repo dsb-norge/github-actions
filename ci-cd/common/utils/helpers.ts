@@ -249,6 +249,7 @@ export const allowedCommands = [
   'helm',
   'gh',
   'az',
+  'cp',
 ]
 
 /**

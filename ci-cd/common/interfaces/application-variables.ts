@@ -58,6 +58,10 @@ export interface AppVars {
   'nodejs-build-project-custom-command-pre-npm-ci'?: string
   'nodejs-build-project-custom-command-pre-npm-run-build'?: string
   'nodejs-build-project-custom-command-pre-npm-run-lint'?: string
+  'nodejs-e2e-enabled'?: string | boolean // Indicates if E2E tests are enabled
+  'nodejs-e2e-backend-json'?: string // Path to JSON file containing json-server config
+  'nodejs-e2e-backend-routes'?: string // Path to JSON file containing json-server routes
+  'nodejs-e2e-backend-url'?: string // URL for the backend service used in E2E tests
 
   // Spring Boot Build Image
   'spring-boot-build-image-arguments'?: string
