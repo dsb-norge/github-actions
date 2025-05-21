@@ -13,6 +13,7 @@ function getFreePort(): number {
 export async function run(): Promise<void> {
   core.info('Starting: run-e2e')
   const mainContainer = 'e2e-app'
+  let npmrcPath: string | undefined
   try {
     // --- Get Inputs & Env Vars ---
     const dsbBuildEnvsInput = getActionInput('dsb-build-envs', true)
@@ -25,6 +26,16 @@ export async function run(): Promise<void> {
     const hostPort = getFreePort()
     const containerPort = 8080
     const backendUrl = `http://test-application-pr-434.test-application-pr-434.svc.cluster.local:8080`
+
+    // --- NPM Auth Secret Handling ---
+    if (appVars['npmjs-token'] && typeof appVars['npmjs-token'] === 'string') {
+      npmrcPath = `.npmrc.e2e.${Date.now()}`
+      await Deno.writeTextFile(
+        npmrcPath,
+        `//registry.npmjs.org/:_authToken=${appVars['npmjs-token']}`,
+      )
+      core.info(`Wrote temporary .npmrc for Docker secret: ${npmrcPath}`)
+    }
 
     // --- Main Logic ---
     await executeCommand(
@@ -39,6 +50,7 @@ export async function run(): Promise<void> {
         `${hostPort}:${containerPort}`,
         '-e',
         `LOC_API_PROXY_PASS_HOST=${backendUrl}`,
+        ...(npmrcPath ? ['--secret', `id=npmrc,src=${npmrcPath}`] : []),
         mainImage,
       ],
       'docker run main app',
@@ -77,6 +89,15 @@ export async function run(): Promise<void> {
       await executeCommand(['docker', 'stop', 'e2e-app'], 'Cleanup: stop main app')
     } catch (_) {
       // ignore cleanup errors
+    }
+  } finally {
+    if (npmrcPath) {
+      try {
+        await Deno.remove(npmrcPath)
+        core.info(`Removed temporary .npmrc: ${npmrcPath}`)
+      } catch (_) {
+        // ignore cleanup errors
+      }
     }
   }
 }
