@@ -33,6 +33,7 @@ runs:
           docker-image-registry
           acr-username
           acr-password
+          npmjs-token
 
     # log into azure container registry (ACR)
     - uses: azure/docker-login@v2
