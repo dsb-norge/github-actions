@@ -58,6 +58,7 @@ export interface AppVars {
   'nodejs-build-project-custom-command-pre-npm-ci'?: string
   'nodejs-build-project-custom-command-pre-npm-run-build'?: string
   'nodejs-build-project-custom-command-pre-npm-run-lint'?: string
+  'nodejs-e2e-enabled'?: string | boolean // Indicates if E2E tests are enabled
 
   // Spring Boot Build Image
   'spring-boot-build-image-arguments'?: string

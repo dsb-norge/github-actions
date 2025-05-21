@@ -82,6 +82,7 @@ export const ENVS_WITHOUT_SECRETS: Set<string> = new Set([
   'nodejs-build-project-custom-command-pre-npm-run-build',
   'nodejs-build-project-custom-command-pre-npm-run-lint',
   'nodejs-version',
+  'nodejs-e2e-enabled',
   'pr-deploy-skip',
   'pr-deploy-additional-helm-values',
   'pr-deploy-aks-cluster-name',

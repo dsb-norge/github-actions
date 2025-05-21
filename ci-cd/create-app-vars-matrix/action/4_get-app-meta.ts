@@ -23,8 +23,9 @@ async function getSourceFilePath(
 async function extractMetadata(
   sourceFilePath: string,
   appType: string,
+  sourcePath: string,
 ): Promise<
-  { appDesc?: string; appJavaVersion?: string; appNodeVersion?: string }
+  { appDesc?: string; appJavaVersion?: string; appNodeVersion?: string; appE2eMode: boolean }
 > {
   const srcData = await Deno.readTextFile(sourceFilePath)
 
@@ -35,6 +36,7 @@ async function extractMetadata(
   let appDesc: string | undefined
   let appJavaVersion: string | undefined
   let appNodeVersion: string | undefined
+  let appE2eMode: boolean = false
 
   if (appType === 'spring-boot' || appType === 'maven-library') {
     const parser = new parseXML()
@@ -50,11 +52,12 @@ async function extractMetadata(
     const jsonData = JSON.parse(srcData)
     appDesc = jsonData.description
     appNodeVersion = jsonData.engines?.node
+    appE2eMode = await exists(`${sourcePath}/Dockerfile.playwright`)
   } else {
     throw new Error(`Unknown 'application-type' '${appType}', not sure how to parse file '${sourceFilePath}'.`)
   }
 
-  return { appDesc, appJavaVersion, appNodeVersion }
+  return { appDesc, appJavaVersion, appNodeVersion, appE2eMode }
 }
 
 async function processApp(app: AppVars) {
@@ -86,7 +89,7 @@ async function processApp(app: AppVars) {
 
   core.info(`Reading file '${sourceFilePath}' for metadata extraction...`)
 
-  const { appDesc, appJavaVersion, appNodeVersion } = await extractMetadata(sourceFilePath, appType)
+  const { appDesc, appJavaVersion, appNodeVersion, appE2eMode } = await extractMetadata(sourceFilePath, appType, srcPath)
 
   // Set description
   if (!app['application-description'] && appDesc) {
@@ -105,6 +108,9 @@ async function processApp(app: AppVars) {
     core.info(`Setting 'nodejs-version' to: '${appNodeVersion}'.`)
     app['nodejs-version'] = appNodeVersion
   }
+
+  core.info(`Setting 'application-e2e-mode' to: '${appE2eMode}'.`)
+  app['nodejs-e2e-enabled'] = appE2eMode
 
   core.endGroup()
 }
