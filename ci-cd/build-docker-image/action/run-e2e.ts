@@ -39,7 +39,7 @@ export async function run(): Promise<void> {
     // --- Dynamic port mapping ---
     const hostPort = getFreePort()
     const containerPort = 8080
-    const backendUrl = `http://test-application-pr-434.test-application-pr-434.svc.cluster.local:8080`
+    const backendUrl = `https://testapp.dev.dsbnorge.no`
 
     // --- Main Logic ---
     await executeCommand(
