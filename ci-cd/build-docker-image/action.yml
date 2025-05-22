@@ -154,6 +154,15 @@ runs:
         GITHUB_WORKSPACE: '${{ github.workspace }}'
       run: deno run --allow-env --allow-read --allow-write --allow-run=docker --allow-net=0.0.0.0,127.0.0.1,localhost ${{ github.action_path }}/action/run-e2e.ts
 
+    - name: Upload Playwright HTML report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report
+        path: playwright-report/index.html
+        if-no-files-found: error
+        retention-days: 1
+
     # push docker image after E2E if nodejs-e2e-enabled is true
     - name: Push docker image (after E2E)
       if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true

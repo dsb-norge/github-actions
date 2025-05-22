@@ -68,6 +68,8 @@ export async function run(): Promise<void> {
       throw e
     }
 
+    const resultsDir = `${Deno.cwd()}/playwright-report`;
+
     await executeCommand(
       [
         'docker',
@@ -81,6 +83,8 @@ export async function run(): Promise<void> {
         'CI=true',
         '-e',
         `PLAYWRIGHT_BASE_URL=http://localhost:${hostPort}`,
+        '-v',
+        `${resultsDir}:/app/playwright-report`,
         playwrightImage,
       ],
       'docker run playwright',
