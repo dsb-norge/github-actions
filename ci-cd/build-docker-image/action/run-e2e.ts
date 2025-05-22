@@ -59,7 +59,12 @@ export async function run(): Promise<void> {
       'docker run main app',
     )
 
-    await waitForAppReady(`http://localhost:${hostPort}`)
+    try {
+      await waitForAppReady(`http://localhost:${hostPort}`)
+    } catch (e) {
+      await executeCommand(['docker', 'logs', mainContainer], 'Show main app logs')
+      throw e
+    }
 
     await executeCommand(
       [
