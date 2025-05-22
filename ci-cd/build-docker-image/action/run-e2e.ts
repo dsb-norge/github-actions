@@ -70,7 +70,7 @@ export async function run(): Promise<void> {
       [
         'docker',
         'run',
-        '--rm',
+        //'--rm',
         '--name',
         'e2e-playwright',
         '--network',
@@ -98,7 +98,7 @@ export async function run(): Promise<void> {
     core.setOutput('e2e', 'failure')
     // --- Cleanup ---
     try {
-      await executeCommand(['docker', 'stop', 'e2e-app'], 'Cleanup: stop main app')
+      await executeCommand(['docker', 'stop', mainContainer], 'Cleanup: stop main app')
     } catch (_) {
       // ignore cleanup errors
     }
