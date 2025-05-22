@@ -120,6 +120,12 @@ runs:
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
 
+    - name: Write .npmrc for Docker BuildKit
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && fromJSON(inputs.dsb-build-envs)['npmjs-token']
+      shell: bash
+      run: |
+        echo "//registry.npmjs.org/:_authToken=${{ fromJSON(inputs.dsb-build-envs).npmjs-token }}" > "${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/.npmrc.dockerbuild"
+
     # build playwright image (Dockerfile.playwright) if nodejs-e2e-enabled is true
     - name: Build Playwright E2E image
       if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
@@ -131,8 +137,13 @@ runs:
         context: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
         file: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/Dockerfile.playwright
         tags: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}-playwright:local
-      env:
-        NPM_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).npmjs-token }}
+        secret-files: |
+          npmrc=${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/.npmrc.dockerbuild
+
+    - name: Remove .npmrc for Docker BuildKit
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && fromJSON(inputs.dsb-build-envs)['npmjs-token']
+      shell: bash
+      run: rm -f "${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/.npmrc.dockerbuild"
 
     # run E2E tests using Deno script orchestrator
     - name: Run Playwright E2E tests
