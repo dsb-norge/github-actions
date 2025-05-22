@@ -11,6 +11,20 @@ function getFreePort(): number {
   return port
 }
 
+async function waitForAppReady(url: string, timeoutMs = 20000, intervalMs = 500): Promise<void> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(url)
+      if (res.ok) return
+    } catch {
+      // ignore errors, just retry
+    }
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+  throw new Error(`App not ready at ${url} after ${timeoutMs}ms`)
+}
+
 export async function run(): Promise<void> {
   core.info('Starting: run-e2e')
   const mainContainer = 'e2e-app'
@@ -44,6 +58,8 @@ export async function run(): Promise<void> {
       ],
       'docker run main app',
     )
+
+    await waitForAppReady(`http://localhost:${hostPort}`)
 
     await executeCommand(
       [
