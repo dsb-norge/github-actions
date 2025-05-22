@@ -152,7 +152,7 @@ runs:
       env:
         INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
         GITHUB_WORKSPACE: '${{ github.workspace }}'
-      run: deno run --allow-env --allow-read --allow-write --allow-run=docker ${{ github.action_path }}/action/run-e2e.ts
+      run: deno run --allow-env --allow-read --allow-write --allow-run=docker --allow-net=0.0.0.0,127.0.0.1,localhost ${{ github.action_path }}/action/run-e2e.ts
 
     # push docker image after E2E if nodejs-e2e-enabled is true
     - name: Push docker image (after E2E)
