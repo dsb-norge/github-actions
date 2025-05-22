@@ -47,7 +47,7 @@ export async function run(): Promise<void> {
         'docker',
         'run',
         '-d',
-        '--rm',
+        //'--rm',
         '--name',
         mainContainer,
         '-p',
@@ -70,7 +70,7 @@ export async function run(): Promise<void> {
       [
         'docker',
         'run',
-        //'--rm',
+        '--rm',
         '--name',
         'e2e-playwright',
         '--network',
