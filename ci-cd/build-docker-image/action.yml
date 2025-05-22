@@ -154,14 +154,20 @@ runs:
         GITHUB_WORKSPACE: '${{ github.workspace }}'
       run: deno run --allow-env --allow-read --allow-write --allow-run=docker --allow-net=0.0.0.0,127.0.0.1,localhost ${{ github.action_path }}/action/run-e2e.ts
 
-    - name: Upload Playwright HTML report
+    - name: Upload Playwright report
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: playwright-report
-        path: playwright-report/index.html
+        path: playwright-report/
         if-no-files-found: error
-        retention-days: 1
+        retention-days: 7
+
+    - name: Post PR Comment with Playwright Report Summary
+      if: always() && github.event_name == 'pull_request'
+      uses: daun/playwright-report-summary@v3
+      with:
+        report-file: playwright-report/playwright-report.json
 
     # push docker image after E2E if nodejs-e2e-enabled is true
     - name: Push docker image (after E2E)
