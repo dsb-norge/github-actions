@@ -170,15 +170,15 @@ runs:
     - name: Remove Playwright E2E image
       if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
       shell: bash
-      run: docker rmi ${{ fromJSON(inputs.dsb-build_envs).application-image-id }}-playwright:local || true
+      run: docker rmi ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}-playwright:local || true
 
     # build, tag and push docker image (default, no E2E)
     - uses: docker/build-push-action@v6
-      if: fromJSON(inputs.dsb-build_envs)['has-changes'] == true && (!fromJSON(inputs.dsb-build_envs)['nodejs-e2e-enabled'])
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && (!fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'])
       with:
         pull: true
         push: true
         no-cache: true
-        context: ${{ fromJSON(inputs.dsb-build_envs).application-source-path }}
+        context: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}

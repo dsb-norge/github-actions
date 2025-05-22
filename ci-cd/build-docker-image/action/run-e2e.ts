@@ -82,7 +82,9 @@ export async function run(): Promise<void> {
 
     core.setOutput('e2e', 'success')
     core.info('run-e2e completed.')
-  } catch {
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    core.error(`Failed to run e2e tests: ${errorMessage}`)
     core.setOutput('e2e', 'failure')
     // --- Cleanup ---
     try {
