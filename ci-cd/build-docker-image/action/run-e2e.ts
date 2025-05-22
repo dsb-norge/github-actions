@@ -54,6 +54,8 @@ export async function run(): Promise<void> {
         `${hostPort}:${containerPort}`,
         '-e',
         `LOC_API_PROXY_PASS_HOST=${backendUrl}`,
+        '-e',
+        `LOC_SOCKET_PROXY_PASS_HOST=${backendUrl}`,
         mainImage,
       ],
       'docker run main app',
