@@ -73,8 +73,7 @@ jobs:
 
       - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
-        # TODO revert to @v3
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@playwright-e2e
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v3
         with:
           apps: ${{ inputs.apps }}
 
@@ -98,8 +97,7 @@ jobs:
 
       - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
-        # TODO revert to @v3
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@playwright-e2e
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v3
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -119,8 +117,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
-        # TODO revert to @v3
-        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@playwright-e2e
+        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@v3
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -129,8 +126,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
-        # TODO revert to @v3
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@playwright-e2e
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v3
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -157,8 +153,7 @@ jobs:
           && always() && steps.build-env.outcome == 'success'
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-delete-on-pr-close
-        # TODO revert to @v3
-        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@playwright-e2e
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@v3
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
         continue-on-error: true # do not fail job when this fails, GitHub's eviction policy will clean up eventually
@@ -182,8 +177,7 @@ jobs:
       - name: "🗑 Prune: 📦 maven artifacts"
         id: prune
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
-        # TODO revert to @v3
-        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@playwright-e2e
+        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v3
         with:
           github-packages-token: ${{ secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT }}
           other-prune-keep-min-count: ${{ inputs.maven-artifacts-other-prune-keep-min-count }}
