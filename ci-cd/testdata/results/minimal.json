@@ -11,6 +11,7 @@
         "application-type": "spring-boot",
         "application-description": "DSB's spring boot test application for Kubernetes.",
         "java-version": "21",
+        "nodejs-e2e-enabled": false,
         "application-version": "2024.01.01.43200",
         "application-build-timestamp": "2024-01-01T12:00:00Z",
         "application-image-name": "my-app"
