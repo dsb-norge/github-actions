@@ -7,8 +7,8 @@ import { detectChanges } from './5_detect-changes.ts'
 // Replace the real core with the mock
 setCore(mockCore)
 
-// Mock Deno.Command to simulate git output
-const _originalCommand = Deno.Command
+// Store original Deno.Command to restore after tests
+const originalCommand = Deno.Command
 let mockGitOutput = ''
 
 interface MockCommand {
@@ -89,42 +89,53 @@ function mockCommand(_command: string, options: Deno.CommandOptions): MockComman
 
 ;(Deno as unknown as { Command: unknown }).Command = mockCommand
 
+// Helper function to set up common test mocks
+function setupTestMocks(appVars: AppVars[]) {
+  resetMockCore()
+
+  // Mock inputs and outputs
+  mockCore.getInput = (name: string) => {
+    if (name === 'APPVARS') return JSON.stringify(appVars)
+    return ''
+  }
+  mockCore.setOutput = (name: string, value: string) => {
+    if (name === 'APPVARS') mockCore.outputs['APPVARS'] = value
+  }
+
+  // Set up mock GitHub context
+  setGithub(
+    {
+      context: {
+        eventName: 'push',
+        payload: {
+          before: 'sha1',
+          after: 'sha2',
+        },
+      },
+    } as unknown as typeof github.context,
+  )
+}
+
+// Restore original Deno.Command after all tests
+globalThis.addEventListener('unload', () => {
+  ;(Deno as unknown as { Command: unknown }).Command = originalCommand
+})
+
 Deno.test({
   name: 'detectChanges - should detect changes in application source path',
   fn: async () => {
     // Setup
-    resetMockCore()
     mockGitOutput = 'src/app1/file.js'
 
     const appVars: AppVars[] = [
       {
         'application-source-path': 'src/app1',
-        'name': 'test-app',
+        name: 'test-app',
         'has-changes': false,
       } as unknown as AppVars,
     ]
 
-    // Mock inputs and outputs
-    mockCore.getInput = (name: string) => {
-      if (name === 'APPVARS') return JSON.stringify(appVars)
-      return ''
-    }
-    mockCore.setOutput = (name: string, value: string) => {
-      if (name === 'APPVARS') mockCore.outputs['APPVARS'] = value
-    }
-
-    // Set up mock GitHub context
-    setGithub(
-      {
-        context: {
-          eventName: 'push',
-          payload: {
-            before: 'sha1',
-            after: 'sha2',
-          },
-        },
-      } as unknown as typeof github.context,
-    )
+    setupTestMocks(appVars)
 
     // Act
     await detectChanges()
@@ -139,39 +150,18 @@ Deno.test({
   name: 'detectChanges - should detect changes via additional watch files (comma-separated string)',
   fn: async () => {
     // Setup
-    resetMockCore()
     mockGitOutput = 'config/app.yaml'
 
     const appVars: AppVars[] = [
       {
         'application-source-path': 'src/app1',
         'application-additional-watch-files': 'config/app.yaml,docs/README.md',
-        'name': 'test-app',
+        name: 'test-app',
         'has-changes': false,
       } as unknown as AppVars,
     ]
 
-    // Mock inputs and outputs
-    mockCore.getInput = (name: string) => {
-      if (name === 'APPVARS') return JSON.stringify(appVars)
-      return ''
-    }
-    mockCore.setOutput = (name: string, value: string) => {
-      if (name === 'APPVARS') mockCore.outputs['APPVARS'] = value
-    }
-
-    // Set up mock GitHub context
-    setGithub(
-      {
-        context: {
-          eventName: 'push',
-          payload: {
-            before: 'sha1',
-            after: 'sha2',
-          },
-        },
-      } as unknown as typeof github.context,
-    )
+    setupTestMocks(appVars)
 
     // Act
     await detectChanges()
@@ -186,39 +176,18 @@ Deno.test({
   name: 'detectChanges - should detect changes via additional watch files (string array)',
   fn: async () => {
     // Setup
-    resetMockCore()
     mockGitOutput = 'docs/README.md'
 
     const appVars: AppVars[] = [
       {
         'application-source-path': 'src/app1',
         'application-additional-watch-files': ['config/app.yaml', 'docs/README.md'],
-        'name': 'test-app',
+        name: 'test-app',
         'has-changes': false,
       } as unknown as AppVars,
     ]
 
-    // Mock inputs and outputs
-    mockCore.getInput = (name: string) => {
-      if (name === 'APPVARS') return JSON.stringify(appVars)
-      return ''
-    }
-    mockCore.setOutput = (name: string, value: string) => {
-      if (name === 'APPVARS') mockCore.outputs['APPVARS'] = value
-    }
-
-    // Set up mock GitHub context
-    setGithub(
-      {
-        context: {
-          eventName: 'push',
-          payload: {
-            before: 'sha1',
-            after: 'sha2',
-          },
-        },
-      } as unknown as typeof github.context,
-    )
+    setupTestMocks(appVars)
 
     // Act
     await detectChanges()
@@ -233,38 +202,17 @@ Deno.test({
   name: 'detectChanges - should not detect changes when no files changed',
   fn: async () => {
     // Setup
-    resetMockCore()
     mockGitOutput = 'other/unrelated.txt'
 
     const appVars: AppVars[] = [
       {
         'application-source-path': 'src/app1',
-        'name': 'test-app',
+        name: 'test-app',
         'has-changes': false,
       } as unknown as AppVars,
     ]
 
-    // Mock inputs and outputs
-    mockCore.getInput = (name: string) => {
-      if (name === 'APPVARS') return JSON.stringify(appVars)
-      return ''
-    }
-    mockCore.setOutput = (name: string, value: string) => {
-      if (name === 'APPVARS') mockCore.outputs['APPVARS'] = value
-    }
-
-    // Set up mock GitHub context
-    setGithub(
-      {
-        context: {
-          eventName: 'push',
-          payload: {
-            before: 'sha1',
-            after: 'sha2',
-          },
-        },
-      } as unknown as typeof github.context,
-    )
+    setupTestMocks(appVars)
 
     // Act
     await detectChanges()
@@ -279,39 +227,18 @@ Deno.test({
   name: "detectChanges - should not detect changes when watch files don't match",
   fn: async () => {
     // Setup
-    resetMockCore()
     mockGitOutput = 'other/unrelated.txt'
 
     const appVars: AppVars[] = [
       {
         'application-source-path': 'src/app1',
         'application-additional-watch-files': 'config/app.yaml,docs/README.md',
-        'name': 'test-app',
+        name: 'test-app',
         'has-changes': false,
       } as unknown as AppVars,
     ]
 
-    // Mock inputs and outputs
-    mockCore.getInput = (name: string) => {
-      if (name === 'APPVARS') return JSON.stringify(appVars)
-      return ''
-    }
-    mockCore.setOutput = (name: string, value: string) => {
-      if (name === 'APPVARS') mockCore.outputs['APPVARS'] = value
-    }
-
-    // Set up mock GitHub context
-    setGithub(
-      {
-        context: {
-          eventName: 'push',
-          payload: {
-            before: 'sha1',
-            after: 'sha2',
-          },
-        },
-      } as unknown as typeof github.context,
-    )
+    setupTestMocks(appVars)
 
     // Act
     await detectChanges()
@@ -326,39 +253,18 @@ Deno.test({
   name: 'detectChanges - should handle multiple watch files',
   fn: async () => {
     // Setup
-    resetMockCore()
     mockGitOutput = 'backend/config.yaml'
 
     const appVars: AppVars[] = [
       {
         'application-source-path': 'src/app1',
         'application-additional-watch-files': ['config/app.yaml', 'backend/config.yaml', 'docs/README.md'],
-        'name': 'test-app',
+        name: 'test-app',
         'has-changes': false,
       } as unknown as AppVars,
     ]
 
-    // Mock inputs and outputs
-    mockCore.getInput = (name: string) => {
-      if (name === 'APPVARS') return JSON.stringify(appVars)
-      return ''
-    }
-    mockCore.setOutput = (name: string, value: string) => {
-      if (name === 'APPVARS') mockCore.outputs['APPVARS'] = value
-    }
-
-    // Set up mock GitHub context
-    setGithub(
-      {
-        context: {
-          eventName: 'push',
-          payload: {
-            before: 'sha1',
-            after: 'sha2',
-          },
-        },
-      } as unknown as typeof github.context,
-    )
+    setupTestMocks(appVars)
 
     // Act
     await detectChanges()
