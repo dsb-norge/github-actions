@@ -44,6 +44,7 @@ export const ENVS_WITHOUT_SECRETS: Set<string> = new Set([
   'application-name',
   'application-source',
   'application-source-path',
+  'application-additional-watch-files',
   'application-source-revision',
   'application-type',
   'application-vendor',
