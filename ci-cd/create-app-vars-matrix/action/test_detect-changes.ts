@@ -274,3 +274,81 @@ Deno.test({
     assertEquals(outputAppVars[0]['has-changes'], true)
   },
 })
+
+Deno.test({
+  name: 'detectChanges - should trim whitespace in additional watch files array',
+  fn: async () => {
+    // Setup
+    mockGitOutput = 'config/app.yaml'
+
+    const appVars: AppVars[] = [
+      {
+        'application-source-path': 'src/app1',
+        'application-additional-watch-files': [' config/app.yaml ', '  docs/README.md', 'backend/config.yaml  '],
+        name: 'test-app',
+        'has-changes': false,
+      } as unknown as AppVars,
+    ]
+
+    setupTestMocks(appVars)
+
+    // Act
+    await detectChanges()
+
+    // Assert
+    const outputAppVars = JSON.parse(mockCore.outputs['APPVARS'] || '[]') as AppVars[]
+    assertEquals(outputAppVars[0]['has-changes'], true)
+  },
+})
+
+Deno.test({
+  name: 'detectChanges - should detect changes with multiple files changed',
+  fn: async () => {
+    // Setup - Multiple files changed in git output
+    mockGitOutput = 'src/app1/file.js\nconfig/app.yaml\ndocs/README.md\nother/unrelated.txt'
+
+    const appVars: AppVars[] = [
+      {
+        'application-source-path': 'src/app1',
+        'application-additional-watch-files': ['config/app.yaml', 'docs/README.md'],
+        name: 'test-app',
+        'has-changes': false,
+      } as unknown as AppVars,
+    ]
+
+    setupTestMocks(appVars)
+
+    // Act
+    await detectChanges()
+
+    // Assert
+    const outputAppVars = JSON.parse(mockCore.outputs['APPVARS'] || '[]') as AppVars[]
+    assertEquals(outputAppVars[0]['has-changes'], true)
+  },
+})
+
+Deno.test({
+  name: 'detectChanges - should handle multiple files with only watch files matching',
+  fn: async () => {
+    // Setup - Multiple files changed, but only watch files should trigger changes
+    mockGitOutput = 'other/unrelated1.txt\nconfig/app.yaml\nother/unrelated2.txt\nsome/other/file.js'
+
+    const appVars: AppVars[] = [
+      {
+        'application-source-path': 'src/app1', // None of the changed files are in this directory
+        'application-additional-watch-files': ['config/app.yaml', 'docs/README.md'],
+        name: 'test-app',
+        'has-changes': false,
+      } as unknown as AppVars,
+    ]
+
+    setupTestMocks(appVars)
+
+    // Act
+    await detectChanges()
+
+    // Assert
+    const outputAppVars = JSON.parse(mockCore.outputs['APPVARS'] || '[]') as AppVars[]
+    assertEquals(outputAppVars[0]['has-changes'], true)
+  },
+})
