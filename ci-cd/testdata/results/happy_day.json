@@ -27,6 +27,7 @@
         },
         "application-type": "spring-boot",
         "application-description": "DSB's spring boot test application for Kubernetes.",
+        "nodejs-e2e-enabled": false,
         "application-version": "2024.01.01.43200",
         "application-build-timestamp": "2024-01-01T12:00:00Z",
         "application-image-name": "eksplosiv-backend"
@@ -48,6 +49,7 @@
         },
         "application-type": "vue",
         "application-description": "Frontend app for testapplication",
+        "nodejs-e2e-enabled": false,
         "application-version": "2024.01.01.43200",
         "application-build-timestamp": "2024-01-01T12:00:00Z",
         "application-image-name": "eksplosiv-frontend"
@@ -68,6 +70,7 @@
         },
         "application-type": "vue",
         "application-description": "Frontend app for testapplication",
+        "nodejs-e2e-enabled": false,
         "application-version": "2024.01.01.43200",
         "application-build-timestamp": "2024-01-01T12:00:00Z",
         "application-image-name": "eksplosiv-permitchecker"
@@ -88,6 +91,7 @@
         },
         "application-type": "vue",
         "application-description": "Frontend app for testapplication",
+        "nodejs-e2e-enabled": false,
         "application-version": "2024.01.01.43200",
         "application-build-timestamp": "2024-01-01T12:00:00Z",
         "application-image-name": "eksplosiv-saksbehandler"
