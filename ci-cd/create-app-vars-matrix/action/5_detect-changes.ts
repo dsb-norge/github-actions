@@ -191,7 +191,8 @@ export async function detectChanges() {
             // Split comma-separated string and trim whitespace
             watchFilesList = additionalWatchFiles.split(',').map((f) => f.trim()).filter((f) => f.length > 0)
           } else if (Array.isArray(additionalWatchFiles)) {
-            watchFilesList = additionalWatchFiles
+            // Trim each element in the array to ensure consistent behavior
+            watchFilesList = additionalWatchFiles.map((f) => f.trim()).filter((f) => f.length > 0)
           }
 
           if (watchFilesList.length > 0) {
