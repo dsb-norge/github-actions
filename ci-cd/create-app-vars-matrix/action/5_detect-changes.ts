@@ -180,8 +180,56 @@ export async function detectChanges() {
             }
           }
         }
+
+        // Check additional watch files if not already changed and additional files are configured
+        if (!appHasChanges && app['application-additional-watch-files']) {
+          const additionalWatchFiles = app['application-additional-watch-files']
+
+          // Handle both string (comma-separated) and string array formats
+          let watchFilesList: string[] = []
+          if (typeof additionalWatchFiles === 'string') {
+            // Split comma-separated string and trim whitespace
+            watchFilesList = additionalWatchFiles.split(',').map((f) => f.trim()).filter((f) => f.length > 0)
+          } else if (Array.isArray(additionalWatchFiles)) {
+            watchFilesList = additionalWatchFiles
+          }
+
+          if (watchFilesList.length > 0) {
+            core.debug(`[${appName}] Checking ${watchFilesList.length} additional watch file(s): ${watchFilesList.join(', ')}`)
+
+            for (const watchFile of watchFilesList) {
+              // Normalize the watch file path (remove leading/trailing slashes)
+              const normalizedWatchFile = watchFile.replace(/^\.\/|^\/|\/$/g, '')
+
+              for (const file of changedFiles) {
+                // Normalize changed file path
+                const normalizedFile = file.replace(/\\/g, '/')
+                core.debug(`[${appName}] Comparing changed file '${normalizedFile}' with watch file '${normalizedWatchFile}'`)
+
+                // Check for exact match of the watch file
+                if (normalizedFile === normalizedWatchFile) {
+                  core.info(`[${appName}] Change detected: Watch file '${normalizedWatchFile}' has been modified.`)
+                  appHasChanges = true
+                  break // Found a change for this app, no need to check further files
+                }
+              }
+
+              if (appHasChanges) {
+                break // Found a change, no need to check further watch files
+              }
+            }
+          }
+        }
+
         if (!appHasChanges) {
-          core.info(`[${appName}] No relevant changes detected within directory '${normalizedSourceDir}'.`)
+          const additionalWatchFiles = app['application-additional-watch-files']
+          let additionalFileInfo = ''
+          if (typeof additionalWatchFiles === 'string' && additionalWatchFiles.length > 0) {
+            additionalFileInfo = ` or additional watch files: ${additionalWatchFiles}`
+          } else if (Array.isArray(additionalWatchFiles) && additionalWatchFiles.length > 0) {
+            additionalFileInfo = ` or additional watch files: ${additionalWatchFiles.join(', ')}`
+          }
+          core.info(`[${appName}] No relevant changes detected within directory '${normalizedSourceDir}'${additionalFileInfo}.`)
         }
       }
       appChangeStatus.set(appName, appHasChanges)

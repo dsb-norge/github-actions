@@ -11,6 +11,7 @@ export interface AppVars {
 
   // Source Info (some generated)
   'application-source-path'?: string
+  'application-additional-watch-files'?: string | string[] // Optional: additional files to watch for changes (relative to repo root)
   'application-source'?: string // Generated: repo URL
   'application-source-revision'?: string // Generated: commit SHA
 
