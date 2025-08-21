@@ -272,6 +272,31 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/build-docker-image@v3
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+      
+      - name: "🐍 Python app: ⚒ Build and test with pip"
+        id: pip-build
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'python'
+        uses: dsb-norge/github-actions/ci-cd/build-python-project@v3
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🐍 Python app: 🐳 Build, tag and push docker image"
+        id: pip-docker-build
+        if: |
+          matrix.app-vars.application-type == 'python'
+          && (
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' )
+            || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
+              && (
+                fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
+                || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
+          )))
+        uses: dsb-norge/github-actions/ci-cd/build-docker-image@v3
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "💾 Save 📚 build dependencies cache"
         id: cache-save
