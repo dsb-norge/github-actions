@@ -24,6 +24,11 @@ async function findDockerfile(
   core.info(`Checking for Dockerfile based on sourceDir: ${sourceDir}`)
   core.info(`Resolved base path: ${basePath}`)
 
+  // List all files and folders in the basePath
+  for await (const entry of Deno.readDir(basePath)) {
+    core.info(`Found entry: ${entry.name} (${entry.isFile ? 'File' : 'Directory'})`)
+  }
+
   // Check if basePath itself is the Dockerfile (case insensitive check on basename)
   if (
     (await exists(basePath, { isFile: true })) &&
