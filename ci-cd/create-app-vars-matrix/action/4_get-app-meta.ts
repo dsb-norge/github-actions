@@ -59,7 +59,8 @@ async function extractMetadata(
   } else if (appType === 'python') {
     const tomlData = parseToml(srcData)
     appDesc = tomlData.project.description
-    appPythonVersion = tomlData.project.version
+    appPythonVersion = tomlData.project['requires-python']
+    core.info(`Detected Python version: ${appPythonVersion}`)
   } else {
     throw new Error(`Unknown 'application-type' '${appType}', not sure how to parse file '${sourceFilePath}'.`)
   }
