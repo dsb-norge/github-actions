@@ -20,8 +20,9 @@ async function findDockerfile(
   let dockerfilePath: string | null = null
   const dockerfileName = 'Dockerfile' // Standard name
 
-  core.debug(`Checking for Dockerfile based on sourceDir: ${sourceDir}`)
-  core.debug(`Resolved base path: ${basePath}`)
+  // TODO: REVERT BACK TO .debug
+  core.info(`Checking for Dockerfile based on sourceDir: ${sourceDir}`)
+  core.info(`Resolved base path: ${basePath}`)
 
   // Check if basePath itself is the Dockerfile (case insensitive check on basename)
   if (
