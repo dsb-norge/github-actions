@@ -20,18 +20,18 @@ export async function run(): Promise<void> {
 
     // --- Execute Build Steps with Hooks ---
 
-    if (appVars['nodejs-build-project-custom-command-pre-npm-ci']) {
-      core.info('Executing pre npm ci custom command...')
-      await executeCommand(appVars['nodejs-build-project-custom-command-pre-npm-ci'], 'Custom command: pre npm ci')
+    if (appVars['python-build-project-custom-command-pre-pip-install']) {
+      core.info('Executing pre pip install custom command...')
+      await executeCommand(appVars['python-build-project-custom-command-pre-pip-install'], 'Custom command: pre pip install')
     }
 
-    // 2. npm ci
-    await executeCommand('npm ci --ignore-scripts --color=always', 'Installing dependencies with npm ci')
+    // 2. pip install
+    await executeCommand('pip install .', 'Installing dependencies with pip install')
 
-    // 3. Pre npm run lint hook
-    if (appVars['nodejs-build-project-custom-command-pre-npm-run-lint']) {
-      core.info('Executing pre npm run lint custom command...')
-      await executeCommand(appVars['nodejs-build-project-custom-command-pre-npm-run-lint'], 'Custom command: pre npm run lint')
+    // 3. Pre pip run lint hook
+    if (appVars['python-build-project-custom-command-pre-pip-run-lint']) {
+      core.info('Executing pre pip run lint custom command...')
+      await executeCommand(appVars['python-build-project-custom-command-pre-pip-run-lint'], 'Custom command: pre pip run lint')
     }
 
     // 4. npm run lint
@@ -39,9 +39,9 @@ export async function run(): Promise<void> {
     await executeCommand('npm run lint --color=always', 'Running npm lint')
 
     // 5. Pre npm run build hook
-    if (appVars['nodejs-build-project-custom-command-pre-npm-run-build']) {
+    if (appVars['python-build-project-custom-command-pre-npm-run-build']) {
       core.info('Executing pre npm run build custom command...')
-      await executeCommand(appVars['nodejs-build-project-custom-command-pre-npm-run-build'], 'Custom command: pre npm run build')
+      await executeCommand(appVars['python-build-project-custom-command-pre-npm-run-build'], 'Custom command: pre npm run build')
     }
 
     // 6. npm run build
@@ -49,15 +49,15 @@ export async function run(): Promise<void> {
     await executeCommand('npm run build --color=always', 'Running npm build')
 
     // 7. Final hook
-    if (appVars['nodejs-build-project-custom-command-final']) {
+    if (appVars['python-build-project-custom-command-final']) {
       core.info('Executing final custom command...')
-      await executeCommand(appVars['nodejs-build-project-custom-command-final'], 'Custom command: final')
+      await executeCommand(appVars['python-build-project-custom-command-final'], 'Custom command: final')
     }
 
     core.info('Node.js build process completed successfully.')
   } catch (error) {
     // Catch errors from executeCommand or other unexpected issues
-    handleError(error, 'running Node.js build process')
+    handleError(error, 'running Python build process')
   }
 }
 

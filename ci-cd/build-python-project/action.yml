@@ -11,10 +11,10 @@ inputs:
       Required fields:
         See first step.
       Optional fields:
-        nodejs-build-project-custom-command-pre-npm-ci
-        nodejs-build-project-custom-command-pre-npm-run-lint
-        nodejs-build-project-custom-command-pre-npm-run-build
-        nodejs-build-project-custom-command-final
+        python-build-project-custom-command-pre-npm-ci
+        python-build-project-custom-command-pre-npm-run-lint
+        python-build-project-custom-command-pre-npm-run-build
+        python-build-project-custom-command-final
     required: true
 runs:
   using: 'composite'
@@ -25,7 +25,7 @@ runs:
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
-          nodejs-version
+          python-version
           application-source-path
           npmjs-token
 
@@ -41,17 +41,15 @@ runs:
         GITHUB_WORKSPACE: '${{ github.workspace }}'
       run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_work-dir.ts
 
-    # set up Node.js
-    - uses: actions/setup-node@v4
+    # set up Python
+    - name: Set up Python 🐍
+      uses: actions/setup-python@v4
       with:
-        node-version: ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
-        registry-url: 'https://registry.npmjs.org'
-      env:
-        NODE_AUTH_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).npmjs-token }}
+        python-version: ${{ fromJSON(inputs.dsb-build-envs).python-version }}
 
-    - id: npm-build
-      shell: bash
-      working-directory: '${{ steps.work-dir.outputs.abs-path }}'
-      env:
-        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
-      run: deno run --allow-env --allow-read --allow-write --allow-run=npm ${{ github.action_path }}/action/2_python-build.ts
+    # - id: npm-build
+    #   shell: bash
+    #   working-directory: '${{ steps.work-dir.outputs.abs-path }}'
+    #   env:
+    #     INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+    #   run: deno run --allow-env --allow-read --allow-write --allow-run=npm ${{ github.action_path }}/action/2_python-build.ts
