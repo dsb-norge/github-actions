@@ -1,5 +1,5 @@
 import { AppVars } from 'common/interfaces/application-variables.ts'
-import { core, exists, parseXML } from 'common/deps.ts'
+import { core, exists, parseToml } from 'common/deps.ts'
 import { handleError } from 'common/utils/error.ts'
 import { getActionInput, tryParseJson } from 'common/utils/helpers.ts'
 
@@ -14,7 +14,7 @@ async function getSourceFilePath(
     } else if (appType === 'vue') {
       return `${srcPath}/package.json`
     } else if (appType === 'python') {
-      return `${srcPath}/requirements.txt`
+      return `${srcPath}/pyproject.toml`
     }
   } else {
     return srcPath
@@ -38,6 +38,7 @@ async function extractMetadata(
   let appDesc: string | undefined
   let appJavaVersion: string | undefined
   let appNodeVersion: string | undefined
+  let appPythonVersion: string | undefined
   let appE2eMode: boolean = false
 
   if (appType === 'spring-boot' || appType === 'maven-library') {
@@ -55,6 +56,10 @@ async function extractMetadata(
     appDesc = jsonData.description
     appNodeVersion = jsonData.engines?.node
     appE2eMode = await exists(`${sourcePath}/Dockerfile.playwright`)
+  } else if (appType === 'python') {
+    const tomlData = parseToml(srcData)
+    appDesc = tomlData.project.description
+    appPythonVersion = tomlData.project.version
   } else {
     throw new Error(`Unknown 'application-type' '${appType}', not sure how to parse file '${sourceFilePath}'.`)
   }
