@@ -13,6 +13,8 @@ async function getSourceFilePath(
       return `${srcPath}/pom.xml`
     } else if (appType === 'vue') {
       return `${srcPath}/package.json`
+    } else if (appType === 'python') {
+      return `${srcPath}/requirements.txt`
     }
   } else {
     return srcPath
