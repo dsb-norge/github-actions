@@ -27,7 +27,7 @@ async function extractMetadata(
   appType: string,
   sourcePath: string,
 ): Promise<
-  { appDesc?: string; appJavaVersion?: string; appNodeVersion?: string; appE2eMode: boolean }
+  { appDesc?: string; appJavaVersion?: string; appNodeVersion?: string; appE2eMode: boolean; appPythonVersion?: string }
 > {
   const srcData = await Deno.readTextFile(sourceFilePath)
 
@@ -64,7 +64,7 @@ async function extractMetadata(
     throw new Error(`Unknown 'application-type' '${appType}', not sure how to parse file '${sourceFilePath}'.`)
   }
 
-  return { appDesc, appJavaVersion, appNodeVersion, appE2eMode }
+  return { appDesc, appJavaVersion, appNodeVersion, appE2eMode, appPythonVersion }
 }
 
 async function processApp(app: AppVars) {
