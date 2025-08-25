@@ -97,7 +97,7 @@ async function processApp(app: AppVars) {
 
   core.info(`Reading file '${sourceFilePath}' for metadata extraction...`)
 
-  const { appDesc, appJavaVersion, appNodeVersion, appE2eMode } = await extractMetadata(sourceFilePath, appType, srcPath)
+  const { appDesc, appJavaVersion, appNodeVersion, appE2eMode, appPythonVersion } = await extractMetadata(sourceFilePath, appType, srcPath)
 
   // Set description
   if (!app['application-description'] && appDesc) {
@@ -115,6 +115,12 @@ async function processApp(app: AppVars) {
   if (!app['nodejs-version'] && appNodeVersion) {
     core.info(`Setting 'nodejs-version' to: '${appNodeVersion}'.`)
     app['nodejs-version'] = appNodeVersion
+  }
+
+  // Set python version
+  if (!app['python-version'] && appPythonVersion) {
+    core.info(`Setting 'python-version' to: '${appPythonVersion}'.`)
+    app['python-version'] = appPythonVersion
   }
 
   core.info(`Setting 'application-e2e-mode' to: '${appE2eMode}'.`)
