@@ -47,4 +47,5 @@ runs:
         deno run \
           --allow-read \
           --allow-env \
+          --allow-run \
           --allow-run=az ${{ github.action_path }}/action/1_prune_images.ts
