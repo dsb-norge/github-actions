@@ -44,7 +44,7 @@ runs:
       env:
         INPUT_DSB_BUILD_ENVS: ${{ inputs.dsb-build-envs }}
       run: |
-        deno run \
+        env -u LD_LIBRARY_PATH deno run \
           --allow-read \
           --allow-env \
           --allow-run=az \
