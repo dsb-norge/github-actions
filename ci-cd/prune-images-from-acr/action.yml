@@ -46,6 +46,6 @@ runs:
       run: |
         deno run \
           --allow-read \
-          --allow-env=NODE_V8_COVERAGE,LD_LIBRARY_PATH,INPUT_DSB_BUILD_ENVS \
+          --allow-env \
           --allow-run=az \
           ${{ github.action_path }}/action/1_prune_images.ts
