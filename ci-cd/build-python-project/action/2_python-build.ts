@@ -8,7 +8,7 @@ import { AppVars } from 'common/interfaces/application-variables.ts'
  * Runs install, lint, build, with optional custom command hooks.
  */
 export async function run(): Promise<void> {
-  core.info('Starting Node.js build process...')
+  core.info('Starting python build process...')
 
   try {
     const dsbBuildEnvsInput: string = getActionInput('dsb-build-envs', true)
@@ -26,7 +26,7 @@ export async function run(): Promise<void> {
     }
 
     // 2. pip install
-    await executeCommand('pip install .', 'Installing dependencies with pip install')
+    await executeCommand('pip3 install .', 'Installing dependencies with pip install')
 
     // 3. Pre pip run lint hook
     if (appVars['python-build-project-custom-command-pre-lint']) {

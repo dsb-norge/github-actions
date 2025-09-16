@@ -54,5 +54,5 @@ runs:
           --allow-env \
           --allow-read \
           --allow-write \
-          --allow-run=pip \
+          --allow-run=pip3,ruff \
           ${{ github.action_path }}/action/2_python-build.ts
