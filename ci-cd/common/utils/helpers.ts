@@ -250,6 +250,9 @@ export const allowedCommands = [
   'gh',
   'az',
   'cp',
+  'pip',
+  'python',
+  'ruff',
 ]
 
 /**
