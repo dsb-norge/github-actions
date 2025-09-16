@@ -49,4 +49,10 @@ runs:
       working-directory: '${{ steps.work-dir.outputs.abs-path }}'
       env:
         INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
-      run: deno run --allow-env --allow-read --allow-write --allow-run=pip ${{ github.action_path }}/action/2_python-build.ts
+      run: |
+          env -u LD_LIBRARY_PATH deno run \
+          --allow-env \
+          --allow-read \
+          --allow-write \
+          --allow-run=pip \
+          ${{ github.action_path }}/action/2_python-build.ts
