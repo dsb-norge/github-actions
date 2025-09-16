@@ -50,7 +50,7 @@ runs:
       env:
         INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
       run: |
-          env -u LD_LIBRARY_PATH deno run \
+          deno run \
           --allow-env \
           --allow-read \
           --allow-write \
