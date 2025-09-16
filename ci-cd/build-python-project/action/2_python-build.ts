@@ -5,7 +5,7 @@ import { AppVars } from 'common/interfaces/application-variables.ts'
 
 /**
  * Main function for the GitHub Action step.
- * Runs npm install, lint, build, with optional custom command hooks.
+ * Runs install, lint, build, with optional custom command hooks.
  */
 export async function run(): Promise<void> {
   core.info('Starting Node.js build process...')
@@ -20,18 +20,18 @@ export async function run(): Promise<void> {
 
     // --- Execute Build Steps with Hooks ---
 
-    if (appVars['python-build-project-custom-command-pre-pip-install']) {
+    if (appVars['python-build-project-custom-command-pre-install']) {
       core.info('Executing pre pip install custom command...')
-      await executeCommand(appVars['python-build-project-custom-command-pre-pip-install'], 'Custom command: pre pip install')
+      await executeCommand(appVars['python-build-project-custom-command-pre-install'], 'Custom command: pre install')
     }
 
     // 2. pip install
     await executeCommand('pip install .', 'Installing dependencies with pip install')
 
     // 3. Pre pip run lint hook
-    if (appVars['python-build-project-custom-command-pre-pip-run-lint']) {
-      core.info('Executing pre pip run lint custom command...')
-      await executeCommand(appVars['python-build-project-custom-command-pre-pip-run-lint'], 'Custom command: pre pip run lint')
+    if (appVars['python-build-project-custom-command-pre-lint']) {
+      core.info('Executing pre lint custom command...')
+      await executeCommand(appVars['python-build-project-custom-command-pre-lint'], 'Custom command: pre lint')
     }
 
     // 4. linting
@@ -45,7 +45,7 @@ export async function run(): Promise<void> {
       await executeCommand(appVars['python-build-project-custom-command-final'], 'Custom command: final')
     }
 
-    core.info('Node.js build process completed successfully.')
+    core.info('Python build process completed successfully.')
   } catch (error) {
     // Catch errors from executeCommand or other unexpected issues
     handleError(error, 'running Python build process')

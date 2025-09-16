@@ -1,7 +1,6 @@
 name: 'Build a Python project'
 description: |
-  Given the required input this action configures the specified version of node and builds a given project.
-  Before npm is invoked the version Node.js specified in 'dsb-build-envs' is installed.
+  Given the required input this action configures the specified version of python and builds a given project.
   As for working directory the field 'application-source-path' of 'dsb-build-envs' should point to the base directory of the project.
 author: 'Direktoratet for samfunnssikkerhet og beredskap'
 inputs:
@@ -11,9 +10,8 @@ inputs:
       Required fields:
         See first step.
       Optional fields:
-        python-build-project-custom-command-pre-npm-ci
-        python-build-project-custom-command-pre-npm-run-lint
-        python-build-project-custom-command-pre-npm-run-build
+        python-build-project-custom-command-pre-install
+        python-build-project-custom-command-pre-lint
         python-build-project-custom-command-final
     required: true
 runs:
@@ -27,7 +25,6 @@ runs:
         require: |
           python-version
           application-source-path
-          npmjs-token
 
     - name: 🦕 Deno install
       shell: bash
@@ -47,9 +44,9 @@ runs:
       with:
         python-version: ${{ fromJSON(inputs.dsb-build-envs).python-version }}
 
-    # - id: npm-build
-    #   shell: bash
-    #   working-directory: '${{ steps.work-dir.outputs.abs-path }}'
-    #   env:
-    #     INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
-    #   run: deno run --allow-env --allow-read --allow-write --allow-run=npm ${{ github.action_path }}/action/2_python-build.ts
+    - id: python-build
+      shell: bash
+      working-directory: '${{ steps.work-dir.outputs.abs-path }}'
+      env:
+        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+      run: deno run --allow-env --allow-read --allow-write --allow-run=pip ${{ github.action_path }}/action/2_python-build.ts
