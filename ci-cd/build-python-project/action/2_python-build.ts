@@ -36,9 +36,10 @@ export async function run(): Promise<void> {
 
     // 4. linting
     core.info('Running linting...')
-    core.info('Application dependencies:\n' + JSON.stringify(appVars['application-dependencies'], null, 2))
     if (appVars['application-dependencies']?.map((dep) => dep.name).includes('ruff')) {
       await executeCommand('python -m ruff check', 'Running ruff lint')
+    } else {
+      core.warning('Skipping lint step no linter was found in application-dependencies.')
     }
 
     // 5. Final hook
