@@ -64,7 +64,6 @@ async function extractMetadata(
     appPythonVersion = tomlData.project['requires-python']
 
     const rawDependencies = tomlData?.project?.dependencies || []
-    const parsedDependencies = []
     for (const dep of rawDependencies) {
       // Match name with optional extras in brackets
       const nameMatch = dep.match(/^([a-zA-Z0-9_\-\.]+(\[[a-zA-Z0-9_,\-]+\])?)/)
@@ -76,14 +75,14 @@ async function extractMetadata(
       if (specs.length > 0 && specs[0]) {
         for (const spec of specs) {
           const opMatch = spec.match(/^([<>=!~]+)\s*(.+)$/)
-          parsedDependencies.push({
+          appDependencies.push({
             name,
             operator: opMatch ? opMatch[1] : '',
             version: opMatch ? opMatch[2] : '',
           })
         }
       } else {
-        parsedDependencies.push({ name, operator: '', version: '' })
+        appDependencies.push({ name, operator: '', version: '' })
       }
     }
   } else {
@@ -131,7 +130,7 @@ async function processApp(app: AppVars) {
   }
 
   // Set dependencies
-  if (!app['application-dependencies'] && appDependencies.length > 0) {
+  if (appDependencies.length > 0) {
     core.info(`Setting 'application-dependencies' with ${appDependencies.length} entries.`)
     app['application-dependencies'] = appDependencies
   }
