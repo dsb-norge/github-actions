@@ -64,6 +64,8 @@ async function extractMetadata(
     appPythonVersion = tomlData.project['requires-python']
 
     const rawDependencies = tomlData?.project?.dependencies || []
+    core.info(`Found ${rawDependencies.length} raw dependencies in pyproject.toml.`)
+    core.info(JSON.stringify(rawDependencies, null, 2))
     for (const dep of rawDependencies) {
       // Match name with optional extras in brackets
       const nameMatch = dep.match(/^([a-zA-Z0-9_\-\.]+(\[[a-zA-Z0-9_,\-]+\])?)/)
