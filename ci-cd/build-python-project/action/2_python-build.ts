@@ -26,7 +26,7 @@ export async function run(): Promise<void> {
     }
 
     // 2. pip install
-    await executeCommand('python3 -m pip install .', 'Installing dependencies with pip install')
+    await executeCommand('python -m pip install .', 'Installing dependencies with pip install')
 
     // 3. Pre pip run lint hook
     if (appVars['python-build-project-custom-command-pre-lint']) {
