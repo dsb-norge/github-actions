@@ -1,4 +1,5 @@
 import { ApplicationType } from './application-type.ts'
+import { AppDependency } from './application-dependency.ts'
 
 export interface AppVars {
   // Core App Info
@@ -8,6 +9,7 @@ export interface AppVars {
   'application-description'?: string
   'application-vendor'?: string
   'application-build-timestamp'?: string // Often set later
+  'application-dependencies'?: AppDependency[] // List of dependencies with group, name, version, operator
 
   // Source Info (some generated)
   'application-source-path'?: string

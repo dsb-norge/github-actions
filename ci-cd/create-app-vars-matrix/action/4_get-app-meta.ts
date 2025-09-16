@@ -1,5 +1,6 @@
 import { AppVars } from 'common/interfaces/application-variables.ts'
-import { core, exists, parseToml } from 'common/deps.ts'
+import { AppDependency } from 'common/interfaces/application-dependency.ts'
+import { core, exists, parseToml, parseXML } from 'common/deps.ts'
 import { handleError } from 'common/utils/error.ts'
 import { getActionInput, tryParseJson } from 'common/utils/helpers.ts'
 
@@ -27,7 +28,7 @@ async function extractMetadata(
   appType: string,
   sourcePath: string,
 ): Promise<
-  { appDesc?: string; appJavaVersion?: string; appNodeVersion?: string; appE2eMode: boolean; appPythonVersion?: string }
+  { appDesc?: string; appDependencies: AppDependency[]; appJavaVersion?: string; appNodeVersion?: string; appE2eMode: boolean; appPythonVersion?: string }
 > {
   const srcData = await Deno.readTextFile(sourceFilePath)
 
@@ -40,6 +41,7 @@ async function extractMetadata(
   let appNodeVersion: string | undefined
   let appPythonVersion: string | undefined
   let appE2eMode: boolean = false
+  const appDependencies: AppDependency[] = []
 
   if (appType === 'spring-boot' || appType === 'maven-library') {
     const parser = new parseXML()
@@ -57,15 +59,39 @@ async function extractMetadata(
     appNodeVersion = jsonData.engines?.node
     appE2eMode = await exists(`${sourcePath}/Dockerfile.playwright`)
   } else if (appType === 'python') {
-    const tomlData = parseToml(srcData)
+    // deno-lint-ignore no-explicit-any
+    const tomlData = parseToml(srcData) as any
     appDesc = tomlData.project.description
     appPythonVersion = tomlData.project['requires-python']
-    core.info(`Detected Python version: ${appPythonVersion}`)
+
+    const rawDependencies = tomlData?.project?.dependencies || []
+    const parsedDependencies = []
+    for (const dep of rawDependencies) {
+      // Match name with optional extras in brackets
+      const nameMatch = dep.match(/^([a-zA-Z0-9_\-\.]+(\[[a-zA-Z0-9_,\-]+\])?)/)
+      const name = nameMatch ? nameMatch[1] : dep
+      // Extract version spec (after name/extras)
+      const versionSpec = dep.replace(/^([a-zA-Z0-9_\-\.]+(\[[a-zA-Z0-9_,\-]+\])?)\s*/, '')
+      // Split on commas for multiple specifiers
+      const specs = versionSpec.split(',').map((s: string) => s.trim()).filter(Boolean)
+      if (specs.length > 0 && specs[0]) {
+        for (const spec of specs) {
+          const opMatch = spec.match(/^([<>=!~]+)\s*(.+)$/)
+          parsedDependencies.push({
+            name,
+            operator: opMatch ? opMatch[1] : '',
+            version: opMatch ? opMatch[2] : '',
+          })
+        }
+      } else {
+        parsedDependencies.push({ name, operator: '', version: '' })
+      }
+    }
   } else {
     throw new Error(`Unknown 'application-type' '${appType}', not sure how to parse file '${sourceFilePath}'.`)
   }
 
-  return { appDesc, appJavaVersion, appNodeVersion, appE2eMode, appPythonVersion }
+  return { appDesc, appDependencies, appJavaVersion, appNodeVersion, appE2eMode, appPythonVersion }
 }
 
 async function processApp(app: AppVars) {
@@ -97,12 +123,18 @@ async function processApp(app: AppVars) {
 
   core.info(`Reading file '${sourceFilePath}' for metadata extraction...`)
 
-  const { appDesc, appJavaVersion, appNodeVersion, appE2eMode, appPythonVersion } = await extractMetadata(sourceFilePath, appType, srcPath)
+  const { appDesc, appDependencies, appJavaVersion, appNodeVersion, appE2eMode, appPythonVersion } = await extractMetadata(sourceFilePath, appType, srcPath)
 
   // Set description
   if (!app['application-description'] && appDesc) {
     core.info(`Setting 'application-description' to: '${appDesc}'.`)
     app['application-description'] = appDesc
+  }
+
+  // Set dependencies
+  if (!app['application-dependencies'] && appDependencies.length > 0) {
+    core.info(`Setting 'application-dependencies' with ${appDependencies.length} entries.`)
+    app['application-dependencies'] = appDependencies
   }
 
   // Set java version
