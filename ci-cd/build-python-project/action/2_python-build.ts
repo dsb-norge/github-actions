@@ -34,21 +34,12 @@ export async function run(): Promise<void> {
       await executeCommand(appVars['python-build-project-custom-command-pre-pip-run-lint'], 'Custom command: pre pip run lint')
     }
 
-    // 4. npm run lint
-    // Optional: Add error handling or check if lint script exists in package.json
-    await executeCommand('npm run lint --color=always', 'Running npm lint')
-
-    // 5. Pre npm run build hook
-    if (appVars['python-build-project-custom-command-pre-npm-run-build']) {
-      core.info('Executing pre npm run build custom command...')
-      await executeCommand(appVars['python-build-project-custom-command-pre-npm-run-build'], 'Custom command: pre npm run build')
+    // 4. linting
+    if (appVars['application-dependencies']?.map((dep) => dep.name).includes('ruff')) {
+      await executeCommand('ruff check', 'Running ruff lint')
     }
 
-    // 6. npm run build
-    // Optional: Add error handling or check if build script exists
-    await executeCommand('npm run build --color=always', 'Running npm build')
-
-    // 7. Final hook
+    // 5. Final hook
     if (appVars['python-build-project-custom-command-final']) {
       core.info('Executing final custom command...')
       await executeCommand(appVars['python-build-project-custom-command-final'], 'Custom command: final')
