@@ -1,5 +1,4 @@
-import { AppVars } from 'common/interfaces/application-variables.ts'
-import { AppDependency } from 'common/interfaces/application-dependency.ts'
+import { AppDependency, AppVars } from 'common/interfaces/application-variables.ts'
 import { core, exists, parseToml, parseXML } from 'common/deps.ts'
 import { handleError } from 'common/utils/error.ts'
 import { getActionInput, tryParseJson } from 'common/utils/helpers.ts'
