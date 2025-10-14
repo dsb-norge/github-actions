@@ -18,23 +18,22 @@ export async function run(): Promise<void> {
       throw new Error('Failed to parse dsb-build-envs JSON. Custom commands will be skipped.')
     }
 
-    // --- Execute Build Steps with Hooks ---
-
+    // pre-pip install hook
     if (appVars['python-build-project-custom-command-pre-install']) {
       core.info('Executing pre pip install custom command...')
       await executeCommand(appVars['python-build-project-custom-command-pre-install'], 'Custom command: pre install')
     }
 
-    // 2. pip install
+    // pip install
     await executeCommand('python -m pip install .', 'Installing dependencies with pip install')
 
-    // 3. Pre pip run lint hook
+    // pre-lint hook
     if (appVars['python-build-project-custom-command-pre-lint']) {
       core.info('Executing pre lint custom command...')
       await executeCommand(appVars['python-build-project-custom-command-pre-lint'], 'Custom command: pre lint')
     }
 
-    // 4. linting
+    // linting
     core.info('Running linting...')
     if (appVars['application-dependencies']?.map((dep) => dep.name).includes('ruff')) {
       await executeCommand('python -m ruff check', 'Running ruff lint')
@@ -42,7 +41,20 @@ export async function run(): Promise<void> {
       core.warning('Skipping lint step no linter was found in application-dependencies.')
     }
 
-    // 5. Final hook
+    // pre-test hook
+    if (appVars['python-build-project-custom-command-pre-test']) {
+      core.info('Executing pre test custom command...')
+      await executeCommand(appVars['python-build-project-custom-command-pre-test'], 'Custom command: pre test')
+    }
+
+    // testing
+    if (appVars['application-dependencies']?.map((dep) => dep.name).includes('pytest')) {
+      await executeCommand('python -m pytest -vv', 'Running tests with pytest')
+    } else {
+      core.warning('Skipping test step no test framework was found in application-dependencies.')
+    }
+
+    // final hook
     if (appVars['python-build-project-custom-command-final']) {
       core.info('Executing final custom command...')
       await executeCommand(appVars['python-build-project-custom-command-final'], 'Custom command: final')
