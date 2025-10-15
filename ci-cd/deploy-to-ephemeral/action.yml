@@ -83,7 +83,7 @@ runs:
       env:
         INPUT_DSB_BUILD_ENVS: ${{ steps.prep-vars.outputs.modified_json }}
         INPUT_HELM_COMMANDLINE_PARAMETER: ${{ steps.helm-values.outputs.commandline-parameter }}
-      run: deno run --allow-read --allow-env --allow-run=helm ${{ github.action_path }}/action/4_helm-install.ts
+      run: env -u LD_LIBRARY_PATH deno run --allow-read --allow-env --allow-run=helm ${{ github.action_path }}/action/4_helm-install.ts
 
     # create comment to be added to PR
     - id: create-comment

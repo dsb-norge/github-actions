@@ -110,7 +110,6 @@ jobs:
           acr-username: ${{ vars.ORG_AZURE_CONTAINER_REGISTRY_USER }}
           acr-password: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_PASSWORD }}
 
-
       - name: "🔄 Restore 📚 build dependencies cache"
         id: cache-restore
         # Skip step when closing a PR, and only run when deps cache is enabled
@@ -157,7 +156,6 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
         continue-on-error: true # do not fail job when this fails, GitHub's eviction policy will clean up eventually
-
 
   prune-maven-artifacts:
     name: Prune maven artifacts

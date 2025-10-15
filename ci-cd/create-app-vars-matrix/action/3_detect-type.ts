@@ -24,6 +24,9 @@ export async function detectApplicationType(appVars: AppVars[]): Promise<void> {
         } else if (await exists(`${srcPath}/package.json`)) {
           core.debug("Setting 'application-type' to 'vue' since package.json exists.")
           app['application-type'] = 'vue'
+        } else if (await exists(`${srcPath}/pyproject.toml`)) {
+          core.debug("Setting 'application-type' to 'python' since pyproject.toml exists.")
+          app['application-type'] = 'python'
         } else {
           throw new Error(`No known application type found in ${srcPath}.`)
         }
