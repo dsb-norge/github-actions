@@ -41,6 +41,34 @@ export async function run(): Promise<void> {
       core.warning('Skipping lint step no linter was found in application-dependencies.')
     }
 
+    // pre-type-check hook
+    if (appVars['python-build-project-custom-command-pre-type-check']) {
+      core.info('Executing pre type check custom command...')
+      await executeCommand(appVars['python-build-project-custom-command-pre-type-check'], 'Custom command: pre type check')
+    }
+
+    // type checking
+    core.info('Running type checking...')
+    if (appVars['application-dependencies']?.map((dep) => dep.name).includes('pyright')) {
+      await executeCommand('python -m pyright', 'Running pyright type check')
+    } else {
+      core.warning('Skipping type check step no type checker was found in application-dependencies.')
+    }
+
+    // pre-lint hook
+    if (appVars['python-build-project-custom-command-pre-lint']) {
+      core.info('Executing pre lint custom command...')
+      await executeCommand(appVars['python-build-project-custom-command-pre-lint'], 'Custom command: pre lint')
+    }
+
+    // linting
+    core.info('Running linting...')
+    if (appVars['application-dependencies']?.map((dep) => dep.name).includes('ruff')) {
+      await executeCommand('python -m ruff check', 'Running ruff lint')
+    } else {
+      core.warning('Skipping lint step no linter was found in application-dependencies.')
+    }
+
     // pre-test hook
     if (appVars['python-build-project-custom-command-pre-test']) {
       core.info('Executing pre test custom command...')
