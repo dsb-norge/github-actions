@@ -7,6 +7,7 @@ ci-cd/
 ├───build-docker-image              --> Build, tag and push docker image
 ├───build-maven-project             --> Configure Java and build maven project
 ├───build-nodejs-project            --> Configure Node.js and build node project
+├───build-python-project            --> Configure Python and build python project
 ├───build-spring-boot-image         --> Build spring boot OCI image with labels and tags
 ├───collect-build-envs              --> Collect build output from previous steps stored as workflow artifacts
 ├───comment-on-pr                   --> Add/update PR comment
