@@ -112,7 +112,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   ci-cd:
-    uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@v3
+    # TODO revert to @v3
+    uses: dsb-norge/github-actions/workflows/ci-cd-default.yml@python-support
     secrets: inherit # pass all secrets, ok since we trust our own workflow
     with:
       # Github requires inputs of type string, ultimately this will be parsed as yaml list
