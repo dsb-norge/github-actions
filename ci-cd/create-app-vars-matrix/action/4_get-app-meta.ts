@@ -27,7 +27,7 @@ async function extractMetadata(
   appType: string,
   sourcePath: string,
 ): Promise<
-  { appDesc?: string; appDependencies: AppDependency[]; appJavaVersion?: string; appNodeVersion?: string; appE2eMode: boolean; appPythonVersion?: string }
+  { appDesc?: string; appDependencies: AppDependency[]; appJavaVersion?: string; appNodeVersion?: string; appPythonVersion?: string; appE2eMode: boolean }
 > {
   const srcData = await Deno.readTextFile(sourceFilePath)
 

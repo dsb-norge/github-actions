@@ -11,7 +11,9 @@ inputs:
         See first step.
       Optional fields:
         python-build-project-custom-command-pre-install
+        python-build-project-custom-command-pre-type-check
         python-build-project-custom-command-pre-lint
+        python-build-project-custom-command-pre-test
         python-build-project-custom-command-final
     required: true
 runs:

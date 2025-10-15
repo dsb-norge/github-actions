@@ -46,5 +46,4 @@ runs:
         env -u LD_LIBRARY_PATH deno run \
           --allow-read \
           --allow-env \
-          --allow-run=az \
-          ${{ github.action_path }}/action/1_prune_images.ts
+          --allow-run=az ${{ github.action_path }}/action/1_prune_images.ts
