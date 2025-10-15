@@ -58,8 +58,16 @@ async function extractMetadata(
     appNodeVersion = jsonData.engines?.node
     appE2eMode = await exists(`${sourcePath}/Dockerfile.playwright`)
   } else if (appType === 'python') {
-    // deno-lint-ignore no-explicit-any
-    const tomlData = parseToml(srcData) as any
+    interface PythonTomlProject {
+      project: {
+        name?: string
+        description?: string
+        version?: string
+        'requires-python'?: string
+        dependencies?: string[]
+      }
+    }
+    const tomlData = parseToml(srcData) as unknown as PythonTomlProject
     appDesc = tomlData.project.description
     appPythonVersion = tomlData.project['requires-python']
 
