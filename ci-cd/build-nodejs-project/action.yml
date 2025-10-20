@@ -53,4 +53,5 @@ runs:
       working-directory: '${{ steps.work-dir.outputs.abs-path }}'
       env:
         INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+        NODE_AUTH_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).npmjs-token }}
       run: deno run --allow-env --allow-read --allow-write --allow-run=npm ${{ github.action_path }}/action/2_npm-build.ts
