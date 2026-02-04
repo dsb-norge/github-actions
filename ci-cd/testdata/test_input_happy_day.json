@@ -1,8 +1,9 @@
 {
   "_COMMENT": "Used for testing this actions code, see test_action_source.sh",
-  "acr-password": "***",
+  "acr-tenant-id": "***",
+  "acr-subscription-id": "***",
+  "acr-push-service-principal-id": "***",
   "acr-service-principal": "***",
-  "acr-username": "name of acr user",
   "app-config-repo-token": "***",
   "github-repo-token": "***",
   "jasypt-password": "***",

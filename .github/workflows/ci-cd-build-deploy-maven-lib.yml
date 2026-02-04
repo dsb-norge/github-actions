@@ -1,10 +1,11 @@
 name: "DSB Build and deploy Maven artefact"
 #
 # The following variables must available in the github 'vars' context:
-#   - vars.ORG_AZURE_CONTAINER_REGISTRY_USER  <-- username of user with push+pull access to ACR, passed to the azure/docker-login action
+#   - vars.ORG_DSBNO_AZURE_TENANT_ID          <-- Azure tenant ID for passwordless login to ACR
+#   - vars.ORG_ACR_SUBSCRIPTION_ID            <-- Azure subscription ID where ACR resides
+#   - vars.ORG_ACR_PUSH_SERVICE_PRINCIPAL_ID  <-- Azure service principal (client) ID with push rights to ACR
 #
 # The following secrets must be available in the github 'secrets' context:
-#   - secrets.ORG_AZURE_CONTAINER_REGISTRY_PASSWORD <-- password of user with push+pull access to ACR, passed to the azure/docker-login action
 #   - secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT         <-- GitHub PAT with with scopes [delete:packages, read:packages] in the calling repos organization
 #   - secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD   <-- jasypt password for local decryption of secrets during maven operations
 #   - secrets.ORG_SONAR_TOKEN                       <-- token for sonar integration
@@ -107,8 +108,9 @@ jobs:
           jasypt-password: ${{ secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD }}
           github-repo-token: ${{ secrets.GITHUB_TOKEN }}
           npmjs-token: ${{ secrets.ORG_NPM_TOKEN }}
-          acr-username: ${{ vars.ORG_AZURE_CONTAINER_REGISTRY_USER }}
-          acr-password: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_PASSWORD }}
+          acr-tenant-id: ${{ vars.ORG_DSBNO_AZURE_TENANT_ID }}
+          acr-subscription-id: ${{ vars.ORG_ACR_SUBSCRIPTION_ID }}
+          acr-push-service-principal-id: ${{ vars.ORG_ACR_PUSH_SERVICE_PRINCIPAL_ID }}
 
       - name: "🔄 Restore 📚 build dependencies cache"
         id: cache-restore

@@ -1,5 +1,7 @@
 export const PROTECTED_ENVS: Set<string> = new Set([
-  'acr-password',
+  'acr-tenant-id',
+  'acr-subscription-id',
+  'acr-push-service-principal-id',
   'acr-service-principal',
   'app-config-repo-token',
   'github-repo-token',
@@ -37,7 +39,6 @@ export const SPECIAL_ENVS: Set<string> = new Set([
 ])
 
 export const ENVS_WITHOUT_SECRETS: Set<string> = new Set([
-  'acr-username',
   'app-config-repo',
   'application-build-timestamp',
   'application-description',

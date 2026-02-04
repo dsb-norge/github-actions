@@ -30,16 +30,25 @@ runs:
           application-source-revision
           application-source-path
           docker-image-registry
-          acr-username
-          acr-password
+          acr-tenant-id
+          acr-subscription-id
+          acr-push-service-principal-id
           npmjs-token
 
-    # log into azure container registry (ACR)
-    - uses: azure/docker-login@v2
+    # log into Azure for ACR access
+    - name: "🔑 Login to Azure"
+      uses: azure/login@v2
       with:
-        login-server: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
-        username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
-        password: ${{ fromJSON(inputs.dsb-build-envs).acr-password }}
+        tenant-id: ${{ fromJSON(inputs.dsb-build-envs).acr-tenant-id }}
+        subscription-id: ${{ fromJSON(inputs.dsb-build-envs).acr-subscription-id }}
+        client-id: ${{ fromJSON(inputs.dsb-build-envs).acr-push-service-principal-id }}
+
+    # log into azure container registry (ACR)
+    - name: "🔑 Login to ACR"
+      shell: bash
+      env:
+        DOCKER_REGISTRY: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
+      run: az acr login --name "${DOCKER_REGISTRY}"
 
     - name: 'Re-tag Previous Image'
       # Condition: No changes, push/dispatch event, AND (it's a push on default OR a previous tag exists)

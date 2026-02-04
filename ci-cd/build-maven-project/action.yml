@@ -117,8 +117,9 @@ runs:
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
-          acr-password
-          acr-username
+          acr-tenant-id
+          acr-subscription-id
+          acr-push-service-principal-id
           application-source-path
           application-version
           caller-repo-calling-branch
@@ -133,12 +134,20 @@ runs:
           maven-user-settings-repositories-yml
           sonarqube-token
 
-    # log into azure container registry (ACR) to enable maven to access internal images
-    - uses: azure/docker-login@v2
+    # log into Azure for ACR access
+    - name: "🔑 Login to Azure"
+      uses: azure/login@v2
       with:
-        login-server: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
-        username: ${{ fromJSON(inputs.dsb-build-envs).acr-username }}
-        password: ${{ fromJSON(inputs.dsb-build-envs).acr-password }}
+        tenant-id: ${{ fromJSON(inputs.dsb-build-envs).acr-tenant-id }}
+        subscription-id: ${{ fromJSON(inputs.dsb-build-envs).acr-subscription-id }}
+        client-id: ${{ fromJSON(inputs.dsb-build-envs).acr-push-service-principal-id }}
+
+    # log into azure container registry (ACR) to enable maven to access internal images
+    - name: "🔑 Login to ACR"
+      shell: bash
+      env:
+        DOCKER_REGISTRY: ${{ fromJSON(inputs.dsb-build-envs).docker-image-registry }}
+      run: az acr login --name "${DOCKER_REGISTRY}"
 
     - name: 🦕 Deno install
       shell: bash
