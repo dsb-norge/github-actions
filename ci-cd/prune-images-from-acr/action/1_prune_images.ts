@@ -9,7 +9,7 @@ interface PruneInputVars {
   'application-image-name': string
   'docker-image-prune-keep-min-images': string
   'docker-image-prune-keep-num-days': string
-  'acr-service-principal'?: string
+  'acr-delete-service-principal-id'?: string
 }
 
 // Helper to run az acr manifest list-metadata and capture TSV output
@@ -156,7 +156,7 @@ export async function run(): Promise<void> {
 
     // --- Logout (Optional but good practice if logged in via SP) ---
     // Only clear account if service principal was potentially used
-    if (appVars['acr-service-principal']) {
+    if (appVars['acr-delete-service-principal-id']) {
       core.info('Logging out of Azure CLI.')
       try {
         await executeCommand('az account clear', 'Logging out')

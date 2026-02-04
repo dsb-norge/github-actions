@@ -9,7 +9,7 @@ inputs:
       Required fields:
         See first step.
       Optional fields:
-        acr-service-principal
+        acr-delete-service-principal-id
           If set will be used for logging into Azure CLI. Can be skipped if already logged into ACR.
     required: true
 runs:
@@ -26,12 +26,14 @@ runs:
           docker-image-prune-keep-min-images
           docker-image-prune-keep-num-days
 
-    # log into Azure CLI with service principal
-    - uses: azure/login@v2
-      if: inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).acr-service-principal != ''
+    # log into Azure for ACR access (delete)
+    - name: "🔑 Login to Azure"
+      uses: azure/login@v2
+      if: inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).acr-delete-service-principal-id != ''
       with:
-        creds: ${{ inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).acr-service-principal }}
-        allow-no-subscriptions: true
+        tenant-id: ${{ fromJSON(inputs.dsb-build-envs).acr-tenant-id }}
+        subscription-id: ${{ fromJSON(inputs.dsb-build-envs).acr-subscription-id }}
+        client-id: ${{ fromJSON(inputs.dsb-build-envs).acr-delete-service-principal-id }}
 
     - name: 🦕 Deno install
       shell: bash

@@ -2,7 +2,7 @@ export const PROTECTED_ENVS: Set<string> = new Set([
   'acr-tenant-id',
   'acr-subscription-id',
   'acr-push-service-principal-id',
-  'acr-service-principal',
+  'acr-delete-service-principal-id',
   'app-config-repo-token',
   'github-repo-token',
   'jasypt-password',
