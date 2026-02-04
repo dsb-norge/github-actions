@@ -6,7 +6,9 @@
   "app-config-repo-token": "***",
   "github-repo-token": "***",
   "jasypt-password": "***",
-  "pr-deploy-aks-creds": "***",
+  "pr-deploy-aks-creds-tenant-id": "***",
+  "pr-deploy-aks-creds-subscription-id": "***",
+  "pr-deploy-aks-creds-service-principal-id": "***",
   "sonarqube-token": "***",
   "app-vars": {
     "application-build-timestamp": "2023-05-31T07:00:14.566Z",

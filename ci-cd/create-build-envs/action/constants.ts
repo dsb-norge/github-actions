@@ -5,7 +5,9 @@ export const PROTECTED_ENVS: Set<string> = new Set([
   'github-repo-token',
   'jasypt-password',
   'maven-extra-envs-from-github', // This is generated, not taken from input directly
-  'pr-deploy-aks-creds',
+  'pr-deploy-aks-creds-tenant-id',
+  'pr-deploy-aks-creds-subscription-id',
+  'pr-deploy-aks-creds-service-principal-id',
   'sonarqube-token',
 ])
 

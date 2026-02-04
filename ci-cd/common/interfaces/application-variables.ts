@@ -80,7 +80,9 @@ export interface AppVars {
   'pr-deploy-skip'?: string | boolean // Indicates if PR deployment is skipped
   'pr-deploy-aks-cluster-name'?: string
   'pr-deploy-aks-resource-group'?: string
-  'pr-deploy-aks-creds'?: string // Secret
+  'pr-deploy-aks-creds-tenant-id'?: string // Secret - Azure tenant ID
+  'pr-deploy-aks-creds-subscription-id'?: string // Secret - Azure subscription ID
+  'pr-deploy-aks-creds-service-principal-id'?: string // Secret - Azure service principal (client) ID
   'pr-deploy-additional-helm-values'?: string // YAML string
   'pr-deploy-k8s-application-name'?: string // Often generated
   'pr-deploy-k8s-namespace'?: string // Often generated
