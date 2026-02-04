@@ -13,11 +13,13 @@ name: "DSB Build, push and deploy"
 #   - vars.ORG_AZURE_CONTAINER_REGISTRY_USER  <-- username of user with push+pull access to ACR, passed to the azure/docker-login action
 #   - vars.ORG_CICD_APP_ID                    <-- app id from here: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-cicd-access
 #   - vars.ORG_CICD_APP_INSTALLATION_ID       <-- app installation id found in url if you "configure" the app 'dsb-norge-cicd-access' from here: https://github.com/organizations/dsb-norge/settings/installations
+#   - vars.ORG_DSBNO_AZURE_TENANT_ID          <-- Azure tenant ID for passwordless login to AKS
+#   - vars.ORG_AKS_DEV_SUBSCRIPTION_ID        <-- Azure subscription ID for the dev AKS instance
+#   - vars.ORG_AKS_DEV_ADMIN_SERVICE_PRINCIPAL_ID <-- Azure service principal (client) ID with contributor access to the dev AKS instance
 #
 # The following secrets must be available in the github 'secrets' context:
 #   - secrets.ORG_AZURE_CONTAINER_REGISTRY_PASSWORD           <-- password of user with push+pull access to ACR, passed to the azure/docker-login action
 #   - secrets.ORG_AZURE_CONTAINER_REGISTRY_SERVICE_PRINCIPAL  <-- service principal of Azure identity with delete access to ACR, passed to the azure/login actions and used for pruning in ACR
-#   - secrets.ORG_AZURE_DEV_AKS_CONTRIBUTOR_SERVICE_PRINCIPAL <-- service principal of Azure identity with contributor access to the AKS instance for ephemeral environments
 #   - secrets.ORG_CICD_APP_PRIVATE_KEY                        <-- generated from the app in github: https://github.com/organizations/dsb-norge/settings/apps/dsb-norge-cicd-access
 #   - secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT                   <-- GitHub PAT with with scopes [delete:packages, read:packages] in the calling repos organization
 #   - secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD             <-- jasypt password for local decryption of secrets during maven operations
@@ -172,7 +174,9 @@ jobs:
           github-repo-token: ${{ secrets.GITHUB_TOKEN }}
           npmjs-token: ${{ secrets.ORG_NPM_TOKEN }}
           app-config-repo-token: ${{ steps.auth.outputs.github-token }}
-          pr-deploy-aks-creds: ${{ secrets.ORG_AZURE_DEV_AKS_CONTRIBUTOR_SERVICE_PRINCIPAL }}
+          pr-deploy-aks-creds-tenant-id: ${{ vars.ORG_DSBNO_AZURE_TENANT_ID }}
+          pr-deploy-aks-creds-subscription-id: ${{ vars.ORG_AKS_DEV_SUBSCRIPTION_ID }}
+          pr-deploy-aks-creds-service-principal-id: ${{ vars.ORG_AKS_DEV_ADMIN_SERVICE_PRINCIPAL_ID }}
           acr-service-principal: ${{ secrets.ORG_AZURE_CONTAINER_REGISTRY_SERVICE_PRINCIPAL }}
 
       - name: Notify Internal Status (app-build-started)

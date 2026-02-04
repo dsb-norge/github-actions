@@ -196,10 +196,22 @@ inputs:
       required when deploying to to ephemeral environments.'
     required: false
     default: 'rg7-ss2-cm-k8s-dev'
-  pr-deploy-aks-creds:
+  pr-deploy-aks-creds-tenant-id:
     description: |
-      Credentials to the AKS instance to use during deploy to ephemeral environment. This input is required when
-      deploying to to ephemeral environments.
+      Azure tenant ID for the AKS instance used during deploy to ephemeral environment.
+      This input is required when deploying to ephemeral environments.
+    required: false
+    default: ''
+  pr-deploy-aks-creds-subscription-id:
+    description: |
+      Azure subscription ID for the AKS instance used during deploy to ephemeral environment.
+      This input is required when deploying to ephemeral environments.
+    required: false
+    default: ''
+  pr-deploy-aks-creds-service-principal-id:
+    description: |
+      Azure service principal (client) ID for the AKS instance used during deploy to ephemeral environment.
+      This input is required when deploying to ephemeral environments.
     required: false
     default: ''
   pr-deploy-additional-helm-values:
@@ -336,7 +348,9 @@ runs:
         INPUT_PR_DEPLOY_APP_CONFIG_BRANCH: '${{ inputs.pr-deploy-app-config-branch }}'
         INPUT_PR_DEPLOY_AKS_CLUSTER_NAME: '${{ inputs.pr-deploy-aks-cluster-name }}'
         INPUT_PR_DEPLOY_AKS_RESOURCE_GROUP: '${{ inputs.pr-deploy-aks-resource-group }}'
-        INPUT_PR_DEPLOY_AKS_CREDS: '${{ inputs.pr-deploy-aks-creds }}'
+        INPUT_PR_DEPLOY_AKS_CREDS_TENANT_ID: '${{ inputs.pr-deploy-aks-creds-tenant-id }}'
+        INPUT_PR_DEPLOY_AKS_CREDS_SUBSCRIPTION_ID: '${{ inputs.pr-deploy-aks-creds-subscription-id }}'
+        INPUT_PR_DEPLOY_AKS_CREDS_SERVICE_PRINCIPAL_ID: '${{ inputs.pr-deploy-aks-creds-service-principal-id }}'
         INPUT_PR_DEPLOY_ADDITIONAL_HELM_VALUES: '${{ inputs.pr-deploy-additional-helm-values }}'
         INPUT_PR_DEPLOY_ARGO_APPLICATIONS_URL: '${{ inputs.pr-deploy-argo-applications-url }}'
         INPUT_PR_DEPLOY_COMMENT_PREFIX: '${{ inputs.pr-deploy-comment-prefix }}'
