@@ -90,7 +90,7 @@ Deno.test('init_merge_inputs - Protected Variables Override', async () => {
       case 'app-vars':
         return JSON.stringify({
           'github-repo-token': 'initial-token',
-          'acr-password': 'initial-password',
+          'acr-tenant-id': 'initial-tenant-id',
           'non-protected': 'keep-me',
         })
       case 'github-repo-token':
@@ -111,7 +111,7 @@ Deno.test('init_merge_inputs - Protected Variables Override', async () => {
   assertEquals(appVars['github-repo-token'], testToken)
 
   // Protected env with empty value should not override
-  assertEquals(appVars['acr-password'], 'initial-password')
+  assertEquals(appVars['acr-tenant-id'], 'initial-tenant-id')
 
   // Non-protected existing value should not be overridden
   assertEquals(appVars['non-protected'], 'keep-me')

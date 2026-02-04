@@ -48,12 +48,16 @@ inputs:
       Also note: All images newer than given value will be preserved regardless of what is set for 'docker-image-prune-keep-min-images'.
     required: false
     default: '180'
-  acr-username:
-    description: 'Username for given "docker-image-registry", user must have push pull rights. Used for docker build and docker push.'
+  acr-tenant-id:
+    description: 'Azure tenant ID for authenticating to ACR. Used for docker build and docker push.'
     required: false
     default: ''
-  acr-password:
-    description: 'Password for the user given in "acr-username".'
+  acr-subscription-id:
+    description: 'Azure subscription ID where ACR resides. Used for docker build and docker push.'
+    required: false
+    default: ''
+  acr-push-service-principal-id:
+    description: 'Azure service principal (client) ID with push rights to ACR. Used for docker build and docker push.'
     required: false
     default: ''
   acr-service-principal:
@@ -328,8 +332,9 @@ runs:
         INPUT_DOCKER_IMAGE_REPO: '${{ inputs.docker-image-repo }}'
         INPUT_DOCKER_IMAGE_PRUNE_KEEP_MIN_IMAGES: '${{ inputs.docker-image-prune-keep-min-images }}'
         INPUT_DOCKER_IMAGE_PRUNE_KEEP_NUM_DAYS: '${{ inputs.docker-image-prune-keep-num-days }}'
-        INPUT_ACR_USERNAME: '${{ inputs.acr-username }}'
-        INPUT_ACR_PASSWORD: '${{ inputs.acr-password }}'
+        INPUT_ACR_TENANT_ID: '${{ inputs.acr-tenant-id }}'
+        INPUT_ACR_SUBSCRIPTION_ID: '${{ inputs.acr-subscription-id }}'
+        INPUT_ACR_PUSH_SERVICE_PRINCIPAL_ID: '${{ inputs.acr-push-service-principal-id }}'
         INPUT_ACR_SERVICE_PRINCIPAL: '${{ inputs.acr-service-principal }}'
         INPUT_MAVEN_USER_SETTINGS_REPOSITORIES_YML: '${{ inputs.maven-user-settings-repositories-yml }}'
         INPUT_MAVEN_EXTRA_ENVS_FROM_GITHUB_YML: '${{ inputs.maven-extra-envs-from-github-yml }}'

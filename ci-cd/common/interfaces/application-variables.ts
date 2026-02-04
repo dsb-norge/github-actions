@@ -24,8 +24,9 @@ export interface AppVars {
   'caller-repo-is-on-default-branch'?: boolean
 
   // Docker / ACR
-  'acr-username'?: string
-  'acr-password'?: string // Secret
+  'acr-tenant-id'?: string // Secret - Azure tenant ID for ACR auth
+  'acr-subscription-id'?: string // Secret - Azure subscription ID for ACR
+  'acr-push-service-principal-id'?: string // Secret - Azure service principal ID with push rights
   'acr-service-principal'?: string // Secret
   'docker-image-registry'?: string
   'docker-image-repo'?: string
