@@ -46,7 +46,7 @@ export async function run() {
       'acr-tenant-id': getActionInput('acr-tenant-id'),
       'acr-subscription-id': getActionInput('acr-subscription-id'),
       'acr-push-service-principal-id': getActionInput('acr-push-service-principal-id'),
-      'acr-service-principal': getActionInput('acr-service-principal'),
+      'acr-delete-service-principal-id': getActionInput('acr-delete-service-principal-id'),
       'sonarqube-token': getActionInput('sonarqube-token'),
       'jasypt-password': getActionInput('jasypt-password'),
       'java-version': getActionInput('java-version'),

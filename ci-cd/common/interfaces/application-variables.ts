@@ -27,7 +27,7 @@ export interface AppVars {
   'acr-tenant-id'?: string // Secret - Azure tenant ID for ACR auth
   'acr-subscription-id'?: string // Secret - Azure subscription ID for ACR
   'acr-push-service-principal-id'?: string // Secret - Azure service principal ID with push rights
-  'acr-service-principal'?: string // Secret
+  'acr-delete-service-principal-id'?: string // Service principal ID for delete access
   'docker-image-registry'?: string
   'docker-image-repo'?: string
   'application-image-name'?: string

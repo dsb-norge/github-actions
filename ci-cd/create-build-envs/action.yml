@@ -60,8 +60,8 @@ inputs:
     description: 'Azure service principal (client) ID with push rights to ACR. Used for docker build and docker push.'
     required: false
     default: ''
-  acr-service-principal:
-    description: 'Service principal with rights to delete from "docker-image-registry" (ACR). Used for teardown operation of ephemeral PR environments.'
+  acr-delete-service-principal-id:
+    description: 'Azure service principal (client) ID with delete rights to ACR. Used for image pruning and teardown of ephemeral PR environments.'
     required: false
     default: ''
   maven-user-settings-repositories-yml:
@@ -335,7 +335,7 @@ runs:
         INPUT_ACR_TENANT_ID: '${{ inputs.acr-tenant-id }}'
         INPUT_ACR_SUBSCRIPTION_ID: '${{ inputs.acr-subscription-id }}'
         INPUT_ACR_PUSH_SERVICE_PRINCIPAL_ID: '${{ inputs.acr-push-service-principal-id }}'
-        INPUT_ACR_SERVICE_PRINCIPAL: '${{ inputs.acr-service-principal }}'
+        INPUT_ACR_DELETE_SERVICE_PRINCIPAL_ID: '${{ inputs.acr-delete-service-principal-id }}'
         INPUT_MAVEN_USER_SETTINGS_REPOSITORIES_YML: '${{ inputs.maven-user-settings-repositories-yml }}'
         INPUT_MAVEN_EXTRA_ENVS_FROM_GITHUB_YML: '${{ inputs.maven-extra-envs-from-github-yml }}'
         INPUT_MAVEN_BUILD_PROJECT_DEPLOY_TO_REPOSITORIES_YML: '${{ inputs.maven-build-project-deploy-to-repositories-yml }}'
