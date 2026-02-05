@@ -47,12 +47,23 @@ runs:
         REPOS=$(echo "${JSON_ARRAY}" | jq -r 'unique_by( ."app-config-repo" ) | .[]."app-config-repo"')
         log-multiline 'Config repo(s) to clone' "${REPOS[*]}"
 
+        # Store original SHAs for force-with-lease
+        declare -A REPO_ORIGINAL_SHAS
+
         for REPO in ${REPOS[*]}; do
             REPO_DIR="${{ github.workspace }}/${REPO////_}"
             start-group "Cloning github.com/${REPO} into '${REPO_DIR}' ..."
             git clone \
                 "https://oauth2:${GH_TOKEN_SANITIZED}@github.com/${REPO}" \
                 "${REPO_DIR}"
+
+            # Store the original commit SHA for this repo
+            ORIGINAL_SHA=$(git -C "${REPO_DIR}" rev-parse origin/main)
+            REPO_ORIGINAL_SHAS["${REPO}"]="${ORIGINAL_SHA}"
+            log-info "Stored original SHA for ${REPO}: ${ORIGINAL_SHA}"
+
+            # Export to file for use in later steps
+            echo "${REPO}=${ORIGINAL_SHA}" >> "${{ github.workspace }}/.repo_shas"
             end-group
         done
 
@@ -172,7 +183,58 @@ runs:
           git -C "${REPO_DIR}" config user.email "noreply@dsb.no"
           git -C "${REPO_DIR}" config user.name "Auto Bumper"
           git -C "${REPO_DIR}" commit -m "$BUMP_COMMIT_MESSAGE"
-          git -C "${REPO_DIR}" push
+
+          # Get original SHA for this repo (for force-with-lease)
+          ORIGINAL_SHA=$(grep "^${REPO}=" "${{ github.workspace }}/.repo_shas" | cut -d'=' -f2)
+          log-info "Using original SHA for force-with-lease: ${ORIGINAL_SHA}"
+
+          # Push with retry logic and exponential backoff
+          MAX_ATTEMPTS=5
+          ATTEMPT=1
+          PUSH_SUCCESS=false
+
+          while [ ${ATTEMPT} -le ${MAX_ATTEMPTS} ]; do
+            log-info "Push attempt ${ATTEMPT}/${MAX_ATTEMPTS} for repo '${REPO}' ..."
+
+            if git -C "${REPO_DIR}" push --force-with-lease=main:${ORIGINAL_SHA} origin main; then
+              log-info "✓ Push successful on attempt ${ATTEMPT}"
+              PUSH_SUCCESS=true
+              break
+            else
+              log-info "✗ Push failed on attempt ${ATTEMPT}"
+
+              if [ ${ATTEMPT} -lt ${MAX_ATTEMPTS} ]; then
+                # Calculate backoff time (exponential: 2^attempt seconds, with small random jitter)
+                BACKOFF=$((2 ** ATTEMPT))
+                JITTER=$((RANDOM % 3))
+                WAIT_TIME=$((BACKOFF + JITTER))
+
+                log-info "Fetching latest changes and rebasing..."
+                git -C "${REPO_DIR}" fetch origin main
+
+                if git -C "${REPO_DIR}" rebase origin/main; then
+                  log-info "Rebase successful. Waiting ${WAIT_TIME}s before retry..."
+                  sleep ${WAIT_TIME}
+
+                  # Update the original SHA to the new base after rebase
+                  ORIGINAL_SHA=$(git -C "${REPO_DIR}" rev-parse origin/main)
+                  log-info "Updated lease SHA after rebase: ${ORIGINAL_SHA}"
+                else
+                  log-error "Rebase failed! This likely means conflicting changes."
+                  git -C "${REPO_DIR}" rebase --abort
+                  EXIT_CODE=1
+                  break
+                fi
+              fi
+
+              ATTEMPT=$((ATTEMPT + 1))
+            fi
+          done
+
+          if [ "${PUSH_SUCCESS}" != "true" ]; then
+            log-error "Failed to push to '${REPO}' after ${MAX_ATTEMPTS} attempts!"
+            EXIT_CODE=1
+          fi
 
           # Cleanup
           log-info "Cleanup: removing '${REPO_DIR}' ..."
@@ -181,3 +243,8 @@ runs:
             || log-error "Cleanup: Failed to remove repo directory!"
 
         done # Loop repos
+
+        # Cleanup SHA tracking file
+        rm -f "${{ github.workspace }}/.repo_shas"
+
+        exit ${EXIT_CODE}
