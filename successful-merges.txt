@@ -55,3 +55,8 @@ dsb-norge/ws-proxy
 dsb-norge/dsb-job-execution
 dsb-norge/keycloak-app-info
 dsb-norge/keycloak-email-provider
+dsb-norge/dsb-saga-pattern
+dsb-norge/keycloak-eksternbruker-plugin
+dsb-norge/keycloak-hostname-provider
+dsb-norge/keycloak-citizen-plugin
+dsb-norge/keycloak-friendly-captcha
