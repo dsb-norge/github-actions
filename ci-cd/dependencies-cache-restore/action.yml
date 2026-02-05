@@ -33,7 +33,7 @@ runs:
       working-directory: ${{ github.action_path }}/../
 
     - id: check-input
-      uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
+      uses: dsb-norge/github-actions/ci-cd/require-build-envs@v4
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |

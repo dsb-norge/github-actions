@@ -74,7 +74,7 @@ jobs:
 
       - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v3
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v4
         with:
           apps: ${{ inputs.apps }}
 
@@ -98,7 +98,7 @@ jobs:
 
       - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v3
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v4
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -118,7 +118,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
-        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@v3
+        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -127,7 +127,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v3
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -154,7 +154,7 @@ jobs:
           && always() && steps.build-env.outcome == 'success'
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-delete-on-pr-close
-        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@v3
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
         continue-on-error: true # do not fail job when this fails, GitHub's eviction policy will clean up eventually
@@ -177,7 +177,7 @@ jobs:
       - name: "🗑 Prune: 📦 maven artifacts"
         id: prune
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
-        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v3
+        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v4
         with:
           github-packages-token: ${{ secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT }}
           other-prune-keep-min-count: ${{ inputs.maven-artifacts-other-prune-keep-min-count }}
