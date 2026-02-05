@@ -28,7 +28,7 @@ log_error() {
 }
 
 show_usage() {
-    cat << EOF
+    cat <<EOF
 Usage: $0 <target-repository> [options]
 
 Delegate CI/CD pipeline migration task to GitHub Copilot in a target repository.
@@ -56,26 +56,26 @@ EOF
 
 check_prerequisites() {
     log_info "Checking prerequisites..."
-    
+
     # Check if gh is installed
-    if ! command -v gh &> /dev/null; then
+    if ! command -v gh &>/dev/null; then
         log_error "GitHub CLI (gh) is not installed. Please install it first."
         log_info "Visit: https://cli.github.com/"
         exit 1
     fi
-    
+
     # Check if authenticated
-    if ! gh auth status &> /dev/null; then
+    if ! gh auth status &>/dev/null; then
         log_error "GitHub CLI is not authenticated. Please run: gh auth login"
         exit 1
     fi
-    
+
     # Check if template file exists
     if [ ! -f "$TEMPLATE_FILE" ]; then
         log_error "Migration template file not found: $TEMPLATE_FILE"
         exit 1
     fi
-    
+
     log_info "Prerequisites check passed ✓"
 }
 
@@ -91,33 +91,33 @@ BASE_BRANCH="main"
 
 while [ $# -gt 0 ]; do
     case $1 in
-        -h|--help)
-            show_usage
-            exit 0
-            ;;
-        -b|--branch)
-            BRANCH_NAME="$2"
-            shift 2
-            ;;
-        --base)
-            BASE_BRANCH="$2"
-            shift 2
-            ;;
-        -*)
-            log_error "Unknown option: $1"
+    -h | --help)
+        show_usage
+        exit 0
+        ;;
+    -b | --branch)
+        BRANCH_NAME="$2"
+        shift 2
+        ;;
+    --base)
+        BASE_BRANCH="$2"
+        shift 2
+        ;;
+    -*)
+        log_error "Unknown option: $1"
+        show_usage
+        exit 1
+        ;;
+    *)
+        if [ -z "$TARGET_REPO" ]; then
+            TARGET_REPO="$1"
+        else
+            log_error "Multiple repository arguments provided"
             show_usage
             exit 1
-            ;;
-        *)
-            if [ -z "$TARGET_REPO" ]; then
-                TARGET_REPO="$1"
-            else
-                log_error "Multiple repository arguments provided"
-                show_usage
-                exit 1
-            fi
-            shift
-            ;;
+        fi
+        shift
+        ;;
     esac
 done
 
@@ -138,7 +138,7 @@ echo
 
 # Check if repository exists and user has access
 log_info "Checking access to repository..."
-if ! gh repo view "$TARGET_REPO" &> /dev/null; then
+if ! gh repo view "$TARGET_REPO" &>/dev/null; then
     log_error "Cannot access repository: $TARGET_REPO"
     log_info "Please ensure:"
     log_info "  - The repository exists"
@@ -157,7 +157,7 @@ TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
 cd "$TEMP_DIR"
-gh repo clone "$TARGET_REPO" repo
+gh repo clone "$TARGET_REPO" repo -- --depth 1
 cd repo
 
 # Check if branch already exists
@@ -217,12 +217,11 @@ fi
 log_info "Attempting to assign to GitHub Copilot..."
 PR_NUMBER=$(gh pr list --repo "$TARGET_REPO" --head "$BRANCH_NAME" --json number -q '.[0].number')
 
-# Note: Assigning to bots may not work via API, so we'll add a comment instead
-log_info "Adding assignment comment..."
-gh pr comment "$PR_NUMBER" \
+log_info "Assigning PR to @copilot..."
+gh pr edit "$PR_NUMBER" \
     --repo "$TARGET_REPO" \
-    --body "@github-copilot - This task is assigned to you. Please proceed with the migration as outlined above." \
-    || log_warn "Could not add comment (this may be normal)"
+    --add-assignee '@copilot' ||
+    log_warn "Could not assign to @copilot (this may be normal)"
 
 echo
 log_info "======================================"
