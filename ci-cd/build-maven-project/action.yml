@@ -113,7 +113,7 @@ runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v3
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v4
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -164,7 +164,7 @@ runs:
       run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_mvn-cmd.ts
 
     # configure maven settings
-    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v3
+    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v4
       with:
         user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
 
