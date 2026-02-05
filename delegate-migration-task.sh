@@ -223,6 +223,13 @@ gh pr edit "$PR_NUMBER" \
     --add-assignee '@copilot' ||
     log_warn "Could not assign to @copilot (this may be normal)"
 
+# Note: Assigning to bots may not work via API, so we'll add a comment also
+log_info "Adding assignment comment..."
+gh pr comment "$PR_NUMBER" \
+    --repo "$TARGET_REPO" \
+    --body "@copilot - This task is assigned to you. Please proceed with the migration as outlined above." ||
+    log_warn "Could not add comment (this may be normal)"
+
 echo
 log_info "======================================"
 log_info "Migration task delegation complete!"

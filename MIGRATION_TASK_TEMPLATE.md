@@ -1,121 +1,151 @@
-# CI/CD Pipeline Migration Task Template
+# Migration Task: Upgrade to v4 Reusable Workflows
+
+**Repository:** `<repository>`
+**Current version:** `<current-version>`
+**Target version:** `v4`
+
+---
 
 ## Overview
-This template describes the migration task for updating CI/CD pipeline workflows to use the latest DSB GitHub Actions and follow current best practices.
 
-## Migration Objectives
+This repository uses reusable workflows from `dsb-norge/github-actions` and needs to be upgraded to version `v4`.
 
-1. **Update GitHub Actions References**
-   - Migrate from old action references to the latest versions from `dsb-norge/github-actions`
-   - Update action paths and input parameters as needed
+**Current workflow reference:**
+- `dsb-norge/github-actions/.github/workflows/<workflow-name>@<current-version>`
 
-2. **Modernize Workflow Structure**
-   - Ensure workflows follow current GitHub Actions best practices
-   - Update deprecated syntax and features
-   - Optimize workflow execution
+**Target workflow reference:**
+- `dsb-norge/github-actions/.github/workflows/<workflow-name>@v4`
 
-3. **Align with DSB Standards**
-   - Follow the coding standards outlined in `.github/copilot-instructions.md`
-   - Use TypeScript/Deno for custom action steps
-   - Implement proper error handling and logging
+Where `<workflow-name>` is one of:
+- `ci-cd-default.yml`
+- `ci-cd-build-deploy-maven-lib.yml`
 
-## Migration Steps
+---
 
-### 1. Analysis Phase
-- [ ] Identify all workflow files in `.github/workflows/`
-- [ ] Document current action versions and configurations
-- [ ] Identify deprecated features and outdated patterns
-- [ ] Review dependencies and required permissions
+## Breaking Change in v4
 
-### 2. Update Phase
-- [ ] Update action references to latest versions
-- [ ] Migrate custom bash scripts to TypeScript/Deno where appropriate
-- [ ] Update input/output parameters to match new action signatures
-- [ ] Update environment variable handling
-- [ ] Add proper error handling and logging
+Version v4 introduces **one required change** to all workflow job definitions:
 
-### 3. Testing Phase
-- [ ] Validate workflow syntax using `gh workflow view`
-- [ ] Test workflows in a feature branch
-- [ ] Verify all jobs execute successfully
-- [ ] Confirm expected outputs are produced
+All jobs calling the reusable workflows must add the `permissions: write-all` directive.
 
-### 4. Documentation Phase
-- [ ] Document changes made
-- [ ] Update workflow README files if they exist
-- [ ] Note any breaking changes or required follow-up actions
+---
 
-## Key Action Migrations
+## Required Changes
 
-### CI/CD Actions (from `ci-cd/`)
-- **Build/Test Actions**: Update to use latest TypeScript/Deno implementations
-- **Deployment Actions**: Ensure proper permission handling
-- **Utility Actions**: Update to use helpers from `common/utils/`
+### 1. Locate Workflow File
 
-### Common Patterns to Update
+Find the workflow file in your repository:
+```
+<repository>/.github/workflows/ci-cd.yml
+```
 
-1. **Input Handling**
-   ```yaml
-   # Old pattern (if applicable)
-   - uses: dsb-norge/github-actions/old-action@vX
-     with:
-       old-param: value
-   
-   # New pattern
-   - uses: dsb-norge/github-actions/new-action@latest
-     with:
-       new-param: value
-   ```
+### 2. Update Job Definition
 
-2. **Environment Variables**
-   ```yaml
-   # Ensure proper env var passing
-   env:
-     INPUT_DSB_BUILD_ENVS: ${{ inputs.dsb-build-envs }}
-     GITHUB_WORKSPACE: ${{ github.workspace }}
-   ```
+**Before (v2 or v3):**
+```yaml
+jobs:
+  ci-cd:
+    uses: dsb-norge/github-actions/.github/workflows/<workflow-name>@<current-version>
+    secrets: inherit # pass all secrets, ok since we trust our own workflow
+    with:
+      # ... your existing configuration ...
+```
 
-3. **Error Handling**
-   - Ensure all steps have proper failure handling
-   - Use appropriate `continue-on-error` settings
-   - Add timeout limits where appropriate
+**After (v4):**
+```yaml
+jobs:
+  ci-cd:
+    # TODO revert to @v4
+    uses: dsb-norge/github-actions/.github/workflows/<workflow-name>@v4
+    secrets: inherit # pass all secrets, ok since we trust our own workflow
+    permissions: write-all # allow all, ok since we trust our own workflow
+    with:
+      # ... your existing configuration ...
+```
 
-## Testing Checklist
+### Changes Summary:
+1. Update version tag: `@<current-version>` → `@v4`
+2. Add line if missing: `permissions: write-all # allow all, ok since we trust our own workflow`
 
-Before completing the migration, verify:
-- [ ] All workflow files are syntactically valid
-- [ ] No deprecated GitHub Actions features are used
-- [ ] All required permissions are specified
-- [ ] Workflows can run successfully (test in draft PR)
-- [ ] No secrets or sensitive data are exposed in logs
-- [ ] Build and test jobs complete successfully
+---
 
-## Delegation Instructions
+## Step-by-Step Instructions
 
-To delegate this task to GitHub Copilot in a target repository:
+### Step 1: Create a branch
 
-1. **Create a draft PR** in the target repository
-2. **Assign to @github-copilot** 
-3. **Include this template** in the PR description
-4. **Add repository-specific context**:
-   - Current workflow structure
-   - Specific actions being used
-   - Any custom requirements or constraints
+Make sure you are on a feature branch created from the latest main/default branch.
 
-## Repository-Specific Notes
+### Step 2: Edit the workflow file
 
-_(Add any repository-specific information here when delegating)_
+Open `.github/workflows/ci-cd.yml` and make the required changes:
+1. Change the `uses:` line to reference `@v4` instead of `@<current-version>`
+2. Add `permissions: write-all` line immediately after `secrets: inherit` if missing.
+   1. if `secrets: inherit` is not present you should make it clear in the PR that you are adding it for the first time.
 
-## Success Criteria
+### Step 3: Commit changes
 
-- All workflow files are updated to use latest action versions
-- Workflows execute successfully in test runs
-- No breaking changes to existing functionality
-- Documentation is updated
-- Changes follow DSB coding standards
+Commit changes with a descriptive message:
+```txt
+chore: upgrade ci/cd workflow(s) to v4
 
-## References
+- Update dsb-norge/github-actions workflow reference from @<current-version> to @v4
+- Add required permissions: write-all directive for v4 compatibility
+```
 
-- [DSB GitHub Actions Repository](https://github.com/dsb-norge/github-actions)
-- [Copilot Instructions](.github/copilot-instructions.md)
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+### Step 4: Push and create PR
+
+Push your changes and update Pull Request with title 'upgrade ci/cd workflow(s) to v4' and a descriptive message.
+
+**Testing:** Workflow will be validated on PR creation, merge and PR close.
+
+---
+
+## Verification Checklist
+
+Verify:
+
+- [ ] Workflow file updated with `@v4` version tag
+- [ ] `permissions: write-all` added to job definition
+- [ ] Commit message follows semantic commit message convention
+- [ ] PR created with descriptive title and body
+
+---
+
+## Reference Implementation
+
+See `dsb-norge/test-application` for a complete example of v4 implementation:
+
+- Repository: https://github.com/dsb-norge/test-application
+- Workflow file: `.github/workflows/ci-cd.yml`
+
+---
+
+## Troubleshooting
+
+### Issue: Can't find `.github/workflows/ci-cd.yml`
+
+**Solution:** The workflow file might have a different name. Search for files containing:
+
+```bash
+grep -r "dsb-norge/github-actions/.github/workflows" .github/workflows/
+```
+
+**But make sure:** you are only changing refernces to reusable workflows from `dsb-norge/github-actions`. Do not make changes to files referencing workflows in other repositories.
+
+---
+
+## Acceptance Criteria
+
+This task is complete when:
+
+1. ✅ PR created with workflow upgrade
+2. ✅ All verification checklist items confirmed
+
+---
+
+## Notes
+
+- **No functional changes:** This upgrade only changes the workflow version and adds required permissions
+- **v3 compatibility:** v3 has no breaking changes, so v2→v4 and v3→v4 migrations follow the same pattern
+- **Safe migration:** The `permissions: write-all` directive maintains the same security model (we trust our own workflows)
+- **Testing:** PR workflows automatically test the changes before merge
