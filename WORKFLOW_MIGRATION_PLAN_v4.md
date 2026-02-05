@@ -40,8 +40,7 @@ The goal is to track where these workflows are called from and plan the rollout 
 
 ## dsb-norge Organization (73 Repositories)
 
-### Application Repositories - ci-cd-default.yml (v2) - 21 repos
-- dsb-norge/ad-client
+### Application Repositories - ci-cd-default.yml (v2) - 20 repos
 - dsb-norge/ad-sync
 - dsb-norge/albin
 - dsb-norge/altinn-forms
@@ -120,8 +119,9 @@ The goal is to track where these workflows are called from and plan the rollout 
 - dsb-norge/keycloak-app-info
 - dsb-norge/keycloak-email-provider
 
-### Already on v4 - 1 repo
+### Already on v4 - 2 repo
 - dsb-norge/test-application (reference implementation)
+- dsb-norge/ad-client
 
 ---
 

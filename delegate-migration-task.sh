@@ -150,27 +150,27 @@ log_info "Access confirmed ✓"
 echo
 
 # Create the branch in the target repository
-log_info "Creating branch in target repository..."
-log_warn "Note: This requires cloning the repository temporarily"
+# log_info "Creating branch in target repository..."
+# log_warn "Note: This requires cloning the repository temporarily"
 
-TEMP_DIR=$(mktemp -d)
-trap "rm -rf $TEMP_DIR" EXIT
+# TEMP_DIR=$(mktemp -d)
+# trap "rm -rf $TEMP_DIR" EXIT
 
-cd "$TEMP_DIR"
-gh repo clone "$TARGET_REPO" repo -- --depth 1
-cd repo
+# cd "$TEMP_DIR"
+# gh repo clone "$TARGET_REPO" repo -- --depth 1
+# cd repo
 
-# Check if branch already exists
-if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
-    log_warn "Branch '$BRANCH_NAME' already exists. Using existing branch."
-else
-    # Create and push new branch
-    git checkout -b "$BRANCH_NAME"
-    git commit --allow-empty -m "Initialize CI/CD migration task"
-    git push -u origin "$BRANCH_NAME"
-    log_info "Branch created and pushed ✓"
-fi
-echo
+# # Check if branch already exists
+# if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+#     log_warn "Branch '$BRANCH_NAME' already exists. Using existing branch."
+# else
+#     # Create and push new branch
+#     git checkout -b "$BRANCH_NAME"
+#     git commit --allow-empty -m "Initialize CI/CD migration task"
+#     git push -u origin "$BRANCH_NAME"
+#     log_info "Branch created and pushed ✓"
+# fi
+# echo
 
 # Prepare PR body
 log_info "Preparing pull request..."
@@ -181,7 +181,7 @@ PR_BODY="$PR_BODY
 
 ## Delegation to GitHub Copilot
 
-@github-copilot Please perform the CI/CD pipeline migration as outlined in the task template above.
+@copilot Please perform the CI/CD pipeline migration as outlined in the task template above.
 
 ### Repository-Specific Context
 - Repository: \`$TARGET_REPO\`
@@ -192,43 +192,49 @@ PR_BODY="$PR_BODY
 
 Please follow the migration steps and testing checklist provided in the template above."
 
-# Create draft PR
-log_info "Creating draft pull request..."
-PR_URL=$(gh pr create \
-    --repo "$TARGET_REPO" \
-    --draft \
-    --title "CI/CD Pipeline Migration" \
-    --body "$PR_BODY" \
-    --base "$BASE_BRANCH" \
-    --head "$BRANCH_NAME" 2>&1)
+# Attempt delegate using copilot cli
+# copilot /delegate complete the API integration tests and fix any failing edge cases
+log_info "Delegating task to GitHub Copilot..."
+# copilot --prompt /delegate "$PR_BODY"
+echo "$PR_BODY" | gh agent-task create --repo "$TARGET_REPO" --from-file -
 
-if [ $? -eq 0 ]; then
-    log_info "Draft PR created successfully ✓"
-    echo
-    log_info "PR URL: $PR_URL"
-    echo
-else
-    log_error "Failed to create pull request"
-    log_error "$PR_URL"
-    exit 1
-fi
+# # Create draft PR
+# log_info "Creating draft pull request..."
+# PR_URL=$(gh pr create \
+#     --repo "$TARGET_REPO" \
+#     --draft \
+#     --title "CI/CD Pipeline Migration" \
+#     --body "$PR_BODY" \
+#     --base "$BASE_BRANCH" \
+#     --head "$BRANCH_NAME" 2>&1)
 
-# Try to assign to GitHub Copilot
-log_info "Attempting to assign to GitHub Copilot..."
-PR_NUMBER=$(gh pr list --repo "$TARGET_REPO" --head "$BRANCH_NAME" --json number -q '.[0].number')
+# if [ $? -eq 0 ]; then
+#     log_info "Draft PR created successfully ✓"
+#     echo
+#     log_info "PR URL: $PR_URL"
+#     echo
+# else
+#     log_error "Failed to create pull request"
+#     log_error "$PR_URL"
+#     exit 1
+# fi
 
-log_info "Assigning PR to @copilot..."
-gh pr edit "$PR_NUMBER" \
-    --repo "$TARGET_REPO" \
-    --add-assignee '@copilot' ||
-    log_warn "Could not assign to @copilot (this may be normal)"
+# # Try to assign to GitHub Copilot
+# log_info "Attempting to assign to GitHub Copilot..."
+# PR_NUMBER=$(gh pr list --repo "$TARGET_REPO" --head "$BRANCH_NAME" --json number -q '.[0].number')
 
-# Note: Assigning to bots may not work via API, so we'll add a comment also
-log_info "Adding assignment comment..."
-gh pr comment "$PR_NUMBER" \
-    --repo "$TARGET_REPO" \
-    --body "@copilot - This task is assigned to you. Please proceed with the migration as outlined above." ||
-    log_warn "Could not add comment (this may be normal)"
+# log_info "Assigning PR to @copilot..."
+# gh pr edit "$PR_NUMBER" \
+#     --repo "$TARGET_REPO" \
+#     --add-assignee '@copilot' ||
+#     log_warn "Could not assign to @copilot (this may be normal)"
+
+# # Note: Assigning to bots may not work via API, so we'll add a comment also
+# log_info "Adding assignment comment..."
+# gh pr comment "$PR_NUMBER" \
+#     --repo "$TARGET_REPO" \
+#     --body "@copilot - This task is assigned to you. Please proceed with the migration as outlined above." ||
+#     log_warn "Could not add comment (this may be normal)"
 
 echo
 log_info "======================================"
@@ -236,15 +242,15 @@ log_info "Migration task delegation complete!"
 log_info "======================================"
 echo
 log_info "Next steps:"
-log_info "  1. Open the PR: $PR_URL"
-log_info "  2. Manually assign to @github-copilot if not already assigned"
+# log_info "  1. Open the PR: $PR_URL"
+log_info "  2. Manually assign to @copilot if not already assigned"
 log_info "  3. Monitor progress through PR comments and commits"
 log_info "  4. Review and test changes when complete"
 echo
 log_info "To manually assign in the GitHub UI:"
 log_info "  - Go to the PR"
 log_info "  - Click 'Assignees' in the right sidebar"
-log_info "  - Search for and select 'github-copilot'"
+log_info "  - Search for and select 'copilot'"
 echo
 
 exit 0
