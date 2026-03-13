@@ -5,6 +5,10 @@ name: "DSB Build, push and deploy"
 #     contents: read        # required for actions/checkout
 #     pull-requests: write  # required for commenting on PRs
 #     actions: write        # required to be able to delete GitHub caches in the calling repo
+#     checks: write         # required for publish-unit-test-result-action
+#     packages: write       # required for maven deploy to GitHub Packages
+#     id-token: write       # required for GitHub artifact attestation (OIDC token)
+#     attestations: write   # required for writing build provenance attestations
 #
 # In order to use this workflow a github app must be installed in the calling workflow's organization.
 # The app must at minimum have 'contents: write' permissions in the application config repo(s) of the calling workflow.
