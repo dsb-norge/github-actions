@@ -219,3 +219,33 @@ runs:
         GITHUB_EVENT_NAME: '${{ github.event_name }}'
         GITHUB_EVENT_NUMBER: '${{ github.event.number }}'
       run: deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/3_deploy-artifacts.ts
+
+    # find deployed maven artifacts for attestation
+    - name: "🔍 Find: 📦 deployed maven artifacts"
+      id: find-maven-artifacts
+      if: steps.deploy-artifacts.outcome == 'success'
+      shell: bash
+      env:
+        APP_SOURCE_PATH: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
+      run: |
+        # Find JAR, WAR and POM files in target directories (the artifacts that were deployed)
+        ARTIFACTS=$(find "${APP_SOURCE_PATH}" -path '*/target/*.jar' -not -name '*-sources.jar' -not -name '*-javadoc.jar' -not -name 'original-*.jar' -o -path '*/target/*.war' -o -path '*/target/*.pom' 2>/dev/null | head -50)
+        if [ -n "$ARTIFACTS" ]; then
+          echo "Found maven artifacts for attestation:"
+          echo "$ARTIFACTS"
+          # Output as newline-separated list for subject-path
+          echo "artifacts<<EOF" >> $GITHUB_OUTPUT
+          echo "$ARTIFACTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        else
+          echo "No maven artifacts found for attestation."
+          echo "artifacts=" >> $GITHUB_OUTPUT
+        fi
+
+    # attest deployed maven artifacts
+    - name: "🔏 Attest: 📦 maven artifacts"
+      id: attest-maven-artifacts
+      if: steps.deploy-artifacts.outcome == 'success' && steps.find-maven-artifacts.outputs.artifacts != ''
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: ${{ steps.find-maven-artifacts.outputs.artifacts }}

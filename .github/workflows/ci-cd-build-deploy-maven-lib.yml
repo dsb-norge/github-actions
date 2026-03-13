@@ -1,5 +1,14 @@
 name: "DSB Build and deploy Maven artefact"
 #
+# A requirement for this workflow to run is that the following 'permissions' are granted by the calling workflow:
+#   permissions:
+#     contents: read        # required for actions/checkout
+#     actions: write        # required to be able to delete GitHub caches in the calling repo
+#     checks: write         # required for publish-unit-test-result-action
+#     packages: write       # required for maven deploy to GitHub Packages
+#     id-token: write       # required for GitHub artifact attestation (OIDC token)
+#     attestations: write   # required for writing build provenance attestations
+#
 # The following variables must available in the github 'vars' context:
 #   - vars.ORG_DSBNO_AZURE_TENANT_ID          <-- Azure tenant ID for passwordless login to ACR
 #   - vars.ORG_ACR_SUBSCRIPTION_ID            <-- Azure subscription ID where ACR resides

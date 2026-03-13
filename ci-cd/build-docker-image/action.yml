@@ -188,6 +188,7 @@ runs:
 
     # push docker image after E2E if nodejs-e2e-enabled is true
     - name: Push docker image (after E2E)
+      id: docker-push-e2e
       if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
       uses: docker/build-push-action@v6
       with:
@@ -198,6 +199,16 @@ runs:
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
 
+    # attest docker image after E2E push
+    - name: "🔏 Attest: 🐳 docker image (after E2E)"
+      id: attest-docker-e2e
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && steps.docker-push-e2e.outcome == 'success'
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-name: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}
+        subject-digest: ${{ steps.docker-push-e2e.outputs.digest }}
+        push-to-registry: true
+
     # clean up playwright image after E2E
     - name: Remove Playwright E2E image
       if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
@@ -205,8 +216,10 @@ runs:
       run: docker rmi ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}-playwright:local || true
 
     # build, tag and push docker image (default, no E2E)
-    - uses: docker/build-push-action@v6
+    - name: "🐳 Build, tag and push docker image"
+      id: docker-push-default
       if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && (!fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'])
+      uses: docker/build-push-action@v6
       with:
         pull: true
         push: true
@@ -214,3 +227,13 @@ runs:
         context: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+
+    # attest docker image (default path)
+    - name: "🔏 Attest: 🐳 docker image"
+      id: attest-docker-default
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && (!fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled']) && steps.docker-push-default.outcome == 'success'
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-name: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}
+        subject-digest: ${{ steps.docker-push-default.outputs.digest }}
+        push-to-registry: true

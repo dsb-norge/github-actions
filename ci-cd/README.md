@@ -30,6 +30,53 @@ These actions are used by the CI/CD workflow(s) in [./workflows](../workflows). 
 
 For documentation refer to the `description` section of each specific actions as well as comments within their definition.
 
+### Permissions
+
+The calling workflow must grant the following permissions:
+
+```yaml
+permissions:
+  contents: read        # required for actions/checkout
+  pull-requests: write  # required for commenting on PRs
+  actions: write        # required to be able to delete GitHub caches in the calling repo
+  checks: write         # required for publish-unit-test-result-action
+  packages: write       # required for maven deploy to GitHub Packages
+  id-token: write       # required for GitHub artifact attestation (OIDC token)
+  attestations: write   # required for writing build provenance attestations
+```
+
+Alternatively, `permissions: write-all` can be used as a shorthand which covers all of the above.
+
+### Artifact attestation
+
+Build provenance attestations are automatically created for:
+
+- **Docker images** (via `build-docker-image` and `build-spring-boot-image`) — attestation is pushed to the container registry as an OCI referrer using [`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance).
+- **Maven artifacts** (via `build-maven-project`) — attestation is stored on GitHub's attestation API, linked to the artifact's SHA-256 digest.
+
+Attestations are created for both PR/snapshot and release builds.
+
+#### Verification
+
+```bash
+# Docker images
+gh attestation verify oci://<registry>/<repo>/<image>:<tag> --owner dsb-norge
+
+# Maven artifacts (downloaded from GitHub Packages)
+gh attestation verify <artifact.jar> --owner dsb-norge
+```
+
+#### Self-hosted runner network requirements
+
+Artifact attestation requires outbound HTTPS (443) access to Sigstore endpoints from the runner. These are not documented by GitHub but are defined in the [`@actions/attest` source code](https://github.com/actions/toolkit/blob/main/packages/attest/src/endpoints.ts):
+
+| Endpoint | Purpose |
+|----------|---------|
+| `fulcio.githubapp.com` | Signing certificate issuance (private repos) |
+| `timestamp.githubapp.com` | Timestamp authority (private repos) |
+| `fulcio.sigstore.dev` | Signing certificate issuance (public repos) |
+| `rekor.sigstore.dev` | Transparency log (public repos) |
+
 ## Maintenance
 
 ### Development
