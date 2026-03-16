@@ -246,6 +246,34 @@ runs:
     - name: "🔏 Attest: 📦 maven artifacts"
       id: attest-maven-artifacts
       if: steps.deploy-artifacts.outcome == 'success' && steps.find-maven-artifacts.outputs.artifacts != ''
-      uses: actions/attest-build-provenance@v2
+      uses: actions/attest@v4
       with:
         subject-path: ${{ steps.find-maven-artifacts.outputs.artifacts }}
+
+    # generate SBOM for maven project
+    - name: "📋 Generate: 📦 maven SBOM"
+      id: generate-maven-sbom
+      if: steps.deploy-artifacts.outcome == 'success'
+      shell: bash
+      env:
+        APP_SOURCE_PATH: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
+      run: |
+        echo "Generating CycloneDX SBOM for maven project ..."
+        mvn -B --file "${APP_SOURCE_PATH}" org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom -DoutputFormat=json -DoutputName=bom
+        SBOM_FILE=$(find "${APP_SOURCE_PATH}" -maxdepth 2 -name 'bom.json' -path '*/target/*' | head -1)
+        if [ -n "$SBOM_FILE" ]; then
+          echo "Generated SBOM: ${SBOM_FILE}"
+          echo "sbom-file=${SBOM_FILE}" >> $GITHUB_OUTPUT
+        else
+          echo "::warning::No SBOM file generated."
+          echo "sbom-file=" >> $GITHUB_OUTPUT
+        fi
+
+    # attest SBOM for maven artifacts
+    - name: "🔏 Attest: 📋 maven SBOM"
+      id: attest-maven-sbom
+      if: steps.deploy-artifacts.outcome == 'success' && steps.generate-maven-sbom.outputs.sbom-file != '' && steps.find-maven-artifacts.outputs.artifacts != ''
+      uses: actions/attest@v4
+      with:
+        subject-path: ${{ steps.find-maven-artifacts.outputs.artifacts }}
+        sbom-path: ${{ steps.generate-maven-sbom.outputs.sbom-file }}

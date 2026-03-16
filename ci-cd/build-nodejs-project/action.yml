@@ -55,3 +55,47 @@ runs:
         INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
         NODE_AUTH_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).npmjs-token }}
       run: deno run --allow-env --allow-read --allow-write --allow-run=npm ${{ github.action_path }}/action/2_npm-build.ts
+
+    # generate SBOM for npm project
+    - name: "📋 Generate: 📦 npm SBOM"
+      id: generate-npm-sbom
+      shell: bash
+      working-directory: '${{ steps.work-dir.outputs.abs-path }}'
+      run: |
+        echo "Generating CycloneDX SBOM for npm project ..."
+        npx @cyclonedx/cyclonedx-npm --package-lock-only --output-file sbom.json
+        if [ -f "sbom.json" ]; then
+          echo "Generated SBOM: ${{ steps.work-dir.outputs.abs-path }}/sbom.json"
+          echo "sbom-file=${{ steps.work-dir.outputs.abs-path }}/sbom.json" >> $GITHUB_OUTPUT
+        else
+          echo "::warning::No SBOM file generated."
+          echo "sbom-file=" >> $GITHUB_OUTPUT
+        fi
+
+    # find built artifacts for SBOM attestation subject
+    - name: "🔍 Find: 📦 npm build artifacts"
+      id: find-npm-artifacts
+      if: steps.generate-npm-sbom.outputs.sbom-file != ''
+      shell: bash
+      working-directory: '${{ steps.work-dir.outputs.abs-path }}'
+      run: |
+        # Look for package tarball or dist directory
+        ARTIFACT=""
+        if [ -f "package.json" ]; then
+          ARTIFACT="package.json"
+        fi
+        if [ -n "$ARTIFACT" ]; then
+          echo "artifact=${ARTIFACT}" >> $GITHUB_OUTPUT
+        else
+          echo "::warning::No npm artifact found for SBOM attestation subject."
+          echo "artifact=" >> $GITHUB_OUTPUT
+        fi
+
+    # attest SBOM for npm project
+    - name: "🔏 Attest: 📋 npm SBOM"
+      id: attest-npm-sbom
+      if: steps.generate-npm-sbom.outputs.sbom-file != '' && steps.find-npm-artifacts.outputs.artifact != ''
+      uses: actions/attest@v4
+      with:
+        subject-path: ${{ steps.work-dir.outputs.abs-path }}/${{ steps.find-npm-artifacts.outputs.artifact }}
+        sbom-path: ${{ steps.generate-npm-sbom.outputs.sbom-file }}
