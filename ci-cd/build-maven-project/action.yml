@@ -229,7 +229,7 @@ runs:
         APP_SOURCE_PATH: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
       run: |
         # Find JAR, WAR and POM files in target directories (the artifacts that were deployed)
-        ARTIFACTS=$(find "${APP_SOURCE_PATH}" -path '*/target/*.jar' -not -name '*-sources.jar' -not -name '*-javadoc.jar' -not -name 'original-*.jar' -o -path '*/target/*.war' -o -path '*/target/*.pom' 2>/dev/null | head -50)
+        ARTIFACTS=$(find "${APP_SOURCE_PATH}" -path '*/target/*.jar' -not -name '*-sources.jar' -not -name '*-javadoc.jar' -not -name 'original-*.jar' -o -path '*/target/*.war' -o -path '*/target/*.pom' 2>/dev/null)
         if [ -n "$ARTIFACTS" ]; then
           echo "Found maven artifacts for attestation:"
           echo "$ARTIFACTS"
