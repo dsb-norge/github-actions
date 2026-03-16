@@ -16,11 +16,16 @@ inputs:
         nodejs-build-project-custom-command-pre-npm-run-build
         nodejs-build-project-custom-command-final
     required: true
+outputs:
+  sbom-file:
+    description: 'Path to the generated CycloneDX SBOM file (if any)'
+    value: ${{ steps.generate-npm-sbom.outputs.sbom-file }}
+
 runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v4
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@sbom-attest
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -63,7 +68,7 @@ runs:
       working-directory: '${{ steps.work-dir.outputs.abs-path }}'
       run: |
         echo "Generating CycloneDX SBOM for npm project ..."
-        npx @cyclonedx/cyclonedx-npm --package-lock-only --output-file sbom.json
+        npx --yes @cyclonedx/cyclonedx-npm --package-lock-only --output-file sbom.json
         if [ -f "sbom.json" ]; then
           echo "Generated SBOM: ${{ steps.work-dir.outputs.abs-path }}/sbom.json"
           echo "sbom-file=${{ steps.work-dir.outputs.abs-path }}/sbom.json" >> $GITHUB_OUTPUT
@@ -72,30 +77,5 @@ runs:
           echo "sbom-file=" >> $GITHUB_OUTPUT
         fi
 
-    # find built artifacts for SBOM attestation subject
-    - name: "🔍 Find: 📦 npm build artifacts"
-      id: find-npm-artifacts
-      if: steps.generate-npm-sbom.outputs.sbom-file != ''
-      shell: bash
-      working-directory: '${{ steps.work-dir.outputs.abs-path }}'
-      run: |
-        # Look for package tarball or dist directory
-        ARTIFACT=""
-        if [ -f "package.json" ]; then
-          ARTIFACT="package.json"
-        fi
-        if [ -n "$ARTIFACT" ]; then
-          echo "artifact=${ARTIFACT}" >> $GITHUB_OUTPUT
-        else
-          echo "::warning::No npm artifact found for SBOM attestation subject."
-          echo "artifact=" >> $GITHUB_OUTPUT
-        fi
-
-    # attest SBOM for npm project
-    - name: "🔏 Attest: 📋 npm SBOM"
-      id: attest-npm-sbom
-      if: steps.generate-npm-sbom.outputs.sbom-file != '' && steps.find-npm-artifacts.outputs.artifact != ''
-      uses: actions/attest@v4
-      with:
-        subject-path: ${{ steps.work-dir.outputs.abs-path }}/${{ steps.find-npm-artifacts.outputs.artifact }}
-        sbom-path: ${{ steps.generate-npm-sbom.outputs.sbom-file }}
+    # SBOM attestation is handled by the downstream docker image action (build-docker-image)
+    # which attests the SBOM against the actual Docker image digest
