@@ -16,6 +16,11 @@ inputs:
         nodejs-build-project-custom-command-pre-npm-run-build
         nodejs-build-project-custom-command-final
     required: true
+outputs:
+  sbom-file:
+    description: 'Path to the generated CycloneDX SBOM file (if any)'
+    value: ${{ steps.generate-npm-sbom.outputs.sbom-file }}
+
 runs:
   using: 'composite'
   steps:
@@ -55,3 +60,22 @@ runs:
         INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
         NODE_AUTH_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).npmjs-token }}
       run: deno run --allow-env --allow-read --allow-write --allow-run=npm ${{ github.action_path }}/action/2_npm-build.ts
+
+    # generate SBOM for npm project
+    - name: "📋 Generate: 📦 npm SBOM"
+      id: generate-npm-sbom
+      shell: bash
+      working-directory: '${{ steps.work-dir.outputs.abs-path }}'
+      run: |
+        echo "Generating CycloneDX SBOM for npm project ..."
+        npx --yes @cyclonedx/cyclonedx-npm --package-lock-only --output-file sbom.json
+        if [ -f "sbom.json" ]; then
+          echo "Generated SBOM: ${{ steps.work-dir.outputs.abs-path }}/sbom.json"
+          echo "sbom-file=${{ steps.work-dir.outputs.abs-path }}/sbom.json" >> $GITHUB_OUTPUT
+        else
+          echo "::warning::No SBOM file generated."
+          echo "sbom-file=" >> $GITHUB_OUTPUT
+        fi
+
+    # SBOM attestation is handled by the downstream docker image action (build-docker-image)
+    # which attests the SBOM against the actual Docker image digest
