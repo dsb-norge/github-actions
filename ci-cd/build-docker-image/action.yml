@@ -12,6 +12,10 @@ inputs:
       Optional fields:
         None.
     required: true
+  sbom-file:
+    description: 'Path to a CycloneDX SBOM file to attest against the Docker image'
+    required: false
+    default: ''
 runs:
   using: 'composite'
   steps:
@@ -203,10 +207,21 @@ runs:
     - name: "🔏 Attest: 🐳 docker image (after E2E)"
       id: attest-docker-e2e
       if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && steps.docker-push-e2e.outcome == 'success'
-      uses: actions/attest-build-provenance@v2
+      uses: actions/attest@v4
       with:
         subject-name: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}
         subject-digest: ${{ steps.docker-push-e2e.outputs.digest }}
+        push-to-registry: true
+
+    # attest SBOM against docker image after E2E push
+    - name: "🔏 Attest: 📋 SBOM for docker image (after E2E)"
+      id: attest-sbom-docker-e2e
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && steps.docker-push-e2e.outcome == 'success' && inputs.sbom-file != ''
+      uses: actions/attest@v4
+      with:
+        subject-name: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}
+        subject-digest: ${{ steps.docker-push-e2e.outputs.digest }}
+        sbom-path: ${{ inputs.sbom-file }}
         push-to-registry: true
 
     # clean up playwright image after E2E
@@ -232,8 +247,19 @@ runs:
     - name: "🔏 Attest: 🐳 docker image"
       id: attest-docker-default
       if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && (!fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled']) && steps.docker-push-default.outcome == 'success'
-      uses: actions/attest-build-provenance@v2
+      uses: actions/attest@v4
       with:
         subject-name: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}
         subject-digest: ${{ steps.docker-push-default.outputs.digest }}
+        push-to-registry: true
+
+    # attest SBOM against docker image (default path)
+    - name: "🔏 Attest: 📋 SBOM for docker image"
+      id: attest-sbom-docker-default
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && (!fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled']) && steps.docker-push-default.outcome == 'success' && inputs.sbom-file != ''
+      uses: actions/attest@v4
+      with:
+        subject-name: ${{ fromJSON(inputs.dsb-build-envs).application-image-id }}
+        subject-digest: ${{ steps.docker-push-default.outputs.digest }}
+        sbom-path: ${{ inputs.sbom-file }}
         push-to-registry: true

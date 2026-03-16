@@ -49,18 +49,22 @@ Alternatively, `permissions: write-all` can be used as a shorthand which covers 
 
 ### Artifact attestation
 
-Build provenance attestations are automatically created for:
+Build provenance and SBOM attestations are automatically created using [`actions/attest`](https://github.com/actions/attest):
 
-- **Docker images** (via `build-docker-image` and `build-spring-boot-image`) — attestation is pushed to the container registry as an OCI referrer using [`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance).
-- **Maven artifacts** (via `build-maven-project`) — attestation is stored on GitHub's attestation API, linked to the artifact's SHA-256 digest.
+- **Docker images** (via `build-docker-image` and `build-spring-boot-image`) — build provenance attestation is pushed to the container registry as an OCI referrer. If an SBOM is provided by the upstream build step, a CycloneDX SBOM attestation is also pushed to the registry.
+- **Maven artifacts** (via `build-maven-project`) — build provenance and CycloneDX SBOM attestations are stored on GitHub's attestation API, linked to the artifact's SHA-256 digest. The SBOM is also passed to the downstream Docker image build for image-level attestation.
+- **npm projects** (via `build-nodejs-project`) — a CycloneDX SBOM is generated and passed to the downstream Docker image build, where it is attested against the image digest.
 
 Attestations are created for both PR/snapshot and release builds.
 
 #### Verification
 
 ```bash
-# Docker images
+# Docker images — build provenance
 gh attestation verify oci://<registry>/<repo>/<image>:<tag> --owner dsb-norge
+
+# Docker images — SBOM
+gh attestation verify oci://<registry>/<repo>/<image>:<tag> --owner dsb-norge --predicate-type "https://cyclonedx.org/bom"
 
 # Maven artifacts (downloaded from GitHub Packages)
 gh attestation verify <artifact.jar> --owner dsb-norge
