@@ -59,7 +59,7 @@ export async function run() {
         cacheType = 'npm'
       } else {
         core.info(`Application type '${appType}' does not use dependency caching. Disabling.`)
-        appVars['github-dependencies-cache-enabled'] = 'false'
+        appVars['github-dependencies-cache-enabled'] = false
         delete appVars['github-dependencies-cache-key']
         delete appVars['github-dependencies-cache-restore-keys']
         delete appVars['github-dependencies-cache-pr-base-key']
