@@ -15,6 +15,10 @@ async function getSourceFilePath(
       return `${srcPath}/package.json`
     } else if (appType === 'python') {
       return `${srcPath}/pyproject.toml`
+    } else if (appType === 'deno') {
+      const jsonc = `${srcPath}/deno.jsonc`
+      if (await exists(jsonc)) return jsonc
+      return `${srcPath}/deno.json`
     }
   } else {
     return srcPath
@@ -85,6 +89,9 @@ async function extractMetadata(
         appDependencies.push({ name, operator: '', version: '' })
       }
     }
+  } else if (appType === 'deno') {
+    const jsonData = JSON.parse(srcData)
+    appDesc = jsonData.description
   } else {
     throw new Error(`Unknown 'application-type' '${appType}', not sure how to parse file '${sourceFilePath}'.`)
   }

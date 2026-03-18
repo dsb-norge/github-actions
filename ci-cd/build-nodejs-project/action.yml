@@ -25,7 +25,8 @@ runs:
   using: 'composite'
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v4
+    # TODO revert to @v4
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@deno-support
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
