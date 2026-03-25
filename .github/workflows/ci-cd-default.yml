@@ -244,7 +244,7 @@ jobs:
         if: |
           matrix.app-vars.application-type == 'spring-boot'
           && (
-            ( github.event_name == 'pull_request' && github.event.action != 'closed' )
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' && matrix.app-vars['pr-deploy-skip'] != true )
             || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
               && (
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
@@ -270,7 +270,7 @@ jobs:
         if: |
           matrix.app-vars.application-type == 'vue'
           && (
-            ( github.event_name == 'pull_request' && github.event.action != 'closed' )
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' && matrix.app-vars['pr-deploy-skip'] != true )
             || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
               && (
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
@@ -296,7 +296,7 @@ jobs:
         if: |
           matrix.app-vars.application-type == 'python'
           && (
-            ( github.event_name == 'pull_request' && github.event.action != 'closed' )
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' && matrix.app-vars['pr-deploy-skip'] != true )
             || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
               && (
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
