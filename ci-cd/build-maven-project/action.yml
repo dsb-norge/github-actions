@@ -1,4 +1,4 @@
-name: 'Configure Java and build maven project'
+name: "Configure Java and build maven project"
 description: |
   Given the required input this action configures the specified version of java and builds a given maven project.
   Before maven is invoked the version and distribution of JDK specified in 'dsb-build-envs' is installed.
@@ -75,20 +75,20 @@ description: |
               - Where <pom file> is defined by 'application-source-path' in 'dsb-build-envs', can point either to an existing pom.xml or
                 to a directory containing it.
             - To the maven repo configured under <distributionManagement><snapshotRepository>
-author: 'Direktoratet for samfunnssikkerhet og beredskap'
+author: "Direktoratet for samfunnssikkerhet og beredskap"
 inputs:
   mvn-version-cmd:
-    description: 'Override command string used when invoking maven in the first part.'
+    description: "Override command string used when invoking maven in the first part."
     required: false
-    default: ''
+    default: ""
   mvn-cmd:
-    description: 'Override command string used when invoking maven in the second part.'
+    description: "Override command string used when invoking maven in the second part."
     required: false
-    default: ''
+    default: ""
   set-extra-envs:
-    description: 'JSON object with extra environment variables to set in same scope as maven is invoked.'
+    description: "JSON object with extra environment variables to set in same scope as maven is invoked."
     required: false
-    default: ''
+    default: ""
   dsb-build-envs:
     description: |
       DSB build environment variables JSON.
@@ -111,14 +111,15 @@ inputs:
     required: true
 outputs:
   sbom-file:
-    description: 'Path to the generated CycloneDX SBOM file (if any)'
+    description: "Path to the generated CycloneDX SBOM file (if any)"
     value: ${{ steps.generate-maven-sbom.outputs.sbom-file }}
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v4
+    # TODO revert to @v3
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@dependency-bump
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -169,7 +170,8 @@ runs:
       run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_mvn-cmd.ts
 
     # configure maven settings
-    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@v4
+    # TODO revert to @v3
+    - uses: dsb-norge/github-actions/ci-cd/configure-maven-settings@dependency-bump
       with:
         user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
 
@@ -183,22 +185,22 @@ runs:
     - id: invoke-maven
       shell: bash
       env:
-        EXTRA_ENVS: '${{ inputs.set-extra-envs }}'
-        EXTRA_ENVS_FROM_GH: '${{ toJSON(fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github) }}'
+        EXTRA_ENVS: "${{ inputs.set-extra-envs }}"
+        EXTRA_ENVS_FROM_GH: "${{ toJSON(fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github) }}"
         JASYPT_LOCAL_ENCRYPTOR_PASSWORD: ${{ fromJSON(inputs.dsb-build-envs).jasypt-password }}
         GITHUB_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).github-repo-token }} # Needed for Sonar to get PR information, if any
         SONAR_TOKEN: ${{ fromJSON(inputs.dsb-build-envs).sonarqube-token }}
         INPUT_MVN_VERSION_CMD: ${{ steps.mvn-cmd.outputs.mvn-version-cmd }}
         INPUT_MVN_CMD: ${{ steps.mvn-cmd.outputs.mvn-cmd }}
-        GITHUB_WORKSPACE: '${{ github.workspace }}'
-        GITHUB_SHA: '${{ github.sha }}'
+        GITHUB_WORKSPACE: "${{ github.workspace }}"
+        GITHUB_SHA: "${{ github.sha }}"
       run: deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/2_invoke-maven.ts
 
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@567cc7f8dcea3eba5da355f6ebc95663310d8a07
       if: ${{ !cancelled() && github.action == 'maven-build' }}
       with:
-        check_name: 'Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}'
+        check_name: "Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
         files: |
           ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/surefire-reports/**/TEST-*.xml
           ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/TEST-*.xml
@@ -207,22 +209,22 @@ runs:
       uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5
       if: ${{ !cancelled() && github.action == 'maven-build'}}
       with:
-        name: 'Maven Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}'
-        path: '${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/**/TEST-*.xml'
+        name: "Maven Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
+        path: "${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/**/TEST-*.xml"
         reporter: java-junit
-        fail-on-empty: 'false'
+        fail-on-empty: "false"
 
     - id: deploy-artifacts
       shell: bash
       env:
-        INPUT_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
-        EXTRA_ENVS: '${{ inputs.set-extra-envs }}'
-        EXTRA_ENVS_FROM_GH: '${{ toJSON(fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github) }}'
-        DEPLOY_TO_REPOS_YML: '${{ fromJSON(inputs.dsb-build-envs).maven-build-project-deploy-to-repositories-yml }}'
-        GITHUB_WORKSPACE: '${{ github.workspace }}'
-        GITHUB_EVENT_ACTION: '${{ github.event.action }}'
-        GITHUB_EVENT_NAME: '${{ github.event_name }}'
-        GITHUB_EVENT_NUMBER: '${{ github.event.number }}'
+        INPUT_BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
+        EXTRA_ENVS: "${{ inputs.set-extra-envs }}"
+        EXTRA_ENVS_FROM_GH: "${{ toJSON(fromJSON(inputs.dsb-build-envs).maven-extra-envs-from-github) }}"
+        DEPLOY_TO_REPOS_YML: "${{ fromJSON(inputs.dsb-build-envs).maven-build-project-deploy-to-repositories-yml }}"
+        GITHUB_WORKSPACE: "${{ github.workspace }}"
+        GITHUB_EVENT_ACTION: "${{ github.event.action }}"
+        GITHUB_EVENT_NAME: "${{ github.event_name }}"
+        GITHUB_EVENT_NUMBER: "${{ github.event.number }}"
       run: deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/3_deploy-artifacts.ts
 
     # find deployed maven artifacts for attestation

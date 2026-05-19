@@ -1,8 +1,8 @@
-name: 'Build a Python project'
+name: "Build a Python project"
 description: |
   Given the required input this action configures the specified version of python and builds a given project.
   As for working directory the field 'application-source-path' of 'dsb-build-envs' should point to the base directory of the project.
-author: 'Direktoratet for samfunnssikkerhet og beredskap'
+author: "Direktoratet for samfunnssikkerhet og beredskap"
 inputs:
   dsb-build-envs:
     description: |
@@ -17,10 +17,11 @@ inputs:
         python-build-project-custom-command-final
     required: true
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     # verify we have required inputs in order to avoid blank labels/tags
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v4
+    # TODO revert to @v3
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@dependency-bump
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
@@ -35,8 +36,8 @@ runs:
     - id: work-dir
       shell: bash
       env:
-        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
-        GITHUB_WORKSPACE: '${{ github.workspace }}'
+        INPUT_DSB_BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
+        GITHUB_WORKSPACE: "${{ github.workspace }}"
       run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_work-dir.ts
 
     # set up Python
@@ -47,13 +48,13 @@ runs:
 
     - id: python-build
       shell: bash
-      working-directory: '${{ steps.work-dir.outputs.abs-path }}'
+      working-directory: "${{ steps.work-dir.outputs.abs-path }}"
       env:
-        INPUT_DSB_BUILD_ENVS: '${{ inputs.dsb-build-envs }}'
+        INPUT_DSB_BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
       run: |
-          deno run \
-          --allow-env \
-          --allow-read \
-          --allow-write \
-          --allow-run \
-          ${{ github.action_path }}/action/2_python-build.ts
+        deno run \
+        --allow-env \
+        --allow-read \
+        --allow-write \
+        --allow-run \
+        ${{ github.action_path }}/action/2_python-build.ts
