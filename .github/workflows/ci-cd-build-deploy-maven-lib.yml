@@ -8,6 +8,7 @@ name: "DSB Build and deploy Maven artefact"
 #     packages: write       # required for maven deploy to GitHub Packages
 #     id-token: write       # required for GitHub artifact attestation (OIDC token)
 #     attestations: write   # required for writing build provenance attestations
+#     security-events: write # required for uploading CodeQL SARIF results
 #
 # The following variables must available in the github 'vars' context:
 #   - vars.ORG_DSBNO_AZURE_TENANT_ID          <-- Azure tenant ID for passwordless login to ACR
@@ -131,6 +132,15 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
+      - name: "🔎 Initialize CodeQL for Java and Kotlin"
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'maven-library'
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          build-mode: manual
+
       - name: "🧮 Library: ⚒ Build and analyze with Maven"
         id: maven-build-lib
         if: |
@@ -139,6 +149,14 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/build-maven-project@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🔎 Perform CodeQL Analysis for Java and Kotlin"
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'maven-library'
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
 
       - name: "💾 Save 📚 build dependencies cache"
         id: cache-save
