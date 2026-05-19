@@ -9,7 +9,9 @@ Collection of DSB-Norge's reusable GitHub composite actions and workflows. Other
 Top-level layout:
 
 - `ci-cd/` — CI/CD composite actions (the main body of work). Has its own `deno.json` shared by all TS-based actions in that tree.
-- `.github/workflows/` — Reusable workflows (`ci-cd-default.yml`, `ci-cd-build-deploy-maven-lib.yml`, `maven-artifacts-pruner.yml`) that orchestrate the `ci-cd/` actions.
+- `.github/workflows/` — Two kinds of workflows live here:
+  - **Reusable** (consumed by other dsb-norge repos via `uses: …@v4`): `ci-cd-default.yml`, `ci-cd-build-deploy-maven-lib.yml`, `maven-artifacts-pruner.yml`. These orchestrate the `ci-cd/` actions.
+  - **Repo-specific** (only run on *this* repo, not consumed externally): `codeql.yml` — analyzes this repo's own TypeScript and workflow YAML. Don't add caller-facing inputs to it.
 - `get-github-app-installation-token/` — Standalone TS/Deno action with its own `deno.json` and `common/`.
 - `get-repo-lists/`, `run-maven-command/` — Standalone Bash actions (older style; pair `helpers.sh` + `helpers_additional.sh` with `action.yml`).
 
