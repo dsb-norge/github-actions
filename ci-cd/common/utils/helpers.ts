@@ -464,12 +464,7 @@ export function determineMavenCommand(
     core.info("Using command from 'inputs'.")
     const inputArgs = cmdInput.split(' ')
     if (!cmdInput.includes(MVN_FORCE_COLOR) && inputArgs[0] === 'mvn') {
-      let prefixed = `${inputArgs[0]} ${MVN_FORCE_COLOR} ${inputArgs.slice(1).join(' ')}`
-      if (debugEnabled && !hasDebugFlag(prefixed)) {
-        core.info(`Adding ${debugFlag} because RUNNER_DEBUG=1.`)
-        prefixed = `${prefixed} ${debugFlag}`
-      }
-      return prefixed
+      cmdInput = `${inputArgs[0]} ${MVN_FORCE_COLOR} ${inputArgs.slice(1).join(' ')}`
     }
     if (skipTests && !cmdInput.includes(skipTestsFlag)) {
       core.info(`Adding ${skipTestsFlag} based on skipTests flag.`)
