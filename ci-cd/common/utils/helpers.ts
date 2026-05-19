@@ -458,15 +458,26 @@ export function determineMavenCommand(
   skipTests: boolean = false,
 ): string {
   const skipTestsFlag = '-DskipTests'
+  const debugFlag = '-X'
+  const debugEnabled = shouldEnableMavenDebug(appVars)
   if (cmdInput) {
     core.info("Using command from 'inputs'.")
     const inputArgs = cmdInput.split(' ')
     if (!cmdInput.includes(MVN_FORCE_COLOR) && inputArgs[0] === 'mvn') {
-      return `${inputArgs[0]} ${MVN_FORCE_COLOR} ${inputArgs.slice(1).join(' ')}`
+      let prefixed = `${inputArgs[0]} ${MVN_FORCE_COLOR} ${inputArgs.slice(1).join(' ')}`
+      if (debugEnabled && !hasDebugFlag(prefixed)) {
+        core.info(`Adding ${debugFlag} because RUNNER_DEBUG=1.`)
+        prefixed = `${prefixed} ${debugFlag}`
+      }
+      return prefixed
     }
     if (skipTests && !cmdInput.includes(skipTestsFlag)) {
       core.info(`Adding ${skipTestsFlag} based on skipTests flag.`)
       cmdInput = `${cmdInput} ${skipTestsFlag}`
+    }
+    if (debugEnabled && !hasDebugFlag(cmdInput)) {
+      core.info(`Adding ${debugFlag} because RUNNER_DEBUG=1.`)
+      cmdInput = `${cmdInput} ${debugFlag}`
     }
     return cmdInput
   } else if (commandKey && appVars[commandKey]) {
@@ -479,6 +490,10 @@ export function determineMavenCommand(
     if (skipTests && !inputCommand.includes(skipTestsFlag)) {
       core.info(`Adding ${skipTestsFlag} based on skipTests flag.`)
       inputCommand = `${inputCommand} ${skipTestsFlag}`
+    }
+    if (debugEnabled && !hasDebugFlag(inputCommand)) {
+      core.info(`Adding ${debugFlag} because RUNNER_DEBUG=1.`)
+      inputCommand = `${inputCommand} ${debugFlag}`
     }
     return inputCommand
   } else {
@@ -496,10 +511,28 @@ export function determineMavenCommand(
       core.info(`Adding ${skipTestsFlag} based on skipTests flag.`)
       args = `${args} ${skipTestsFlag}`
     }
+    if (debugEnabled && !hasDebugFlag(args)) {
+      core.info(`Adding ${debugFlag} because RUNNER_DEBUG=1.`)
+      args = `${args} ${debugFlag}`
+    }
 
     core.info(`Goals: '${goals}' (Source: ${usingDefaultGoals ? 'default' : 'dsb-build-envs'})`)
     core.info(`Arguments: '${args}' (Source: ${usingDefaultArgs ? 'default' : 'dsb-build-envs'})`)
 
     return `mvn ${args} --file ${safePomFilePath} ${goals}`
   }
+}
+
+function hasDebugFlag(cmd: string): boolean {
+  return / -X(\s|$)/.test(` ${cmd}`) || cmd.includes('--debug')
+}
+
+function shouldEnableMavenDebug(appVars: AppVars): boolean {
+  if (Deno.env.get('RUNNER_DEBUG') !== '1') return false
+  const override = appVars['maven-debug']
+  if (override === false || override === 'false') {
+    core.info("RUNNER_DEBUG=1 but 'maven-debug' is set to false — skipping maven debug flag.")
+    return false
+  }
+  return true
 }

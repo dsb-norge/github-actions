@@ -107,6 +107,7 @@ inputs:
         maven-build-project-deploy-snapshot-artifacts
         maven-build-project-deploy-snapshot-version-command
         maven-build-project-deploy-snapshot-deploy-command
+        maven-debug
     required: true
 outputs:
   sbom-file:

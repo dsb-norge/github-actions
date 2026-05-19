@@ -56,6 +56,7 @@ export interface AppVars {
   'maven-build-project-deploy-snapshot-deploy-command'?: string
   'maven-build-project-deploy-snapshot-version-command'?: string
   'maven-build-skip-tests'?: string | boolean // Indicates if tests are skipped
+  'maven-debug'?: string | boolean // When unset, '-X' is added automatically if RUNNER_DEBUG=1. Set to false to suppress.
 
   // Node.js
   'nodejs-version'?: string
