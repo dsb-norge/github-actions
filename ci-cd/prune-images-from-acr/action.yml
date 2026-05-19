@@ -29,7 +29,7 @@ runs:
 
     # log into Azure for ACR access (delete)
     - name: "🔑 Login to Azure"
-      uses: azure/login@v2
+      uses: azure/login@v3
       if: inputs.dsb-build-envs && fromJSON(inputs.dsb-build-envs).acr-delete-service-principal-id != ''
       with:
         tenant-id: ${{ fromJSON(inputs.dsb-build-envs).acr-tenant-id }}
