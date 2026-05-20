@@ -238,7 +238,7 @@ jobs:
         # Soft rollout: CodeQL steps must not fail callers that lack GHAS or
         # security-events: write. Remove once all consumers are onboarded.
         continue-on-error: true
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin
           build-mode: manual
@@ -259,7 +259,7 @@ jobs:
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
         continue-on-error: true
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
 
@@ -285,7 +285,7 @@ jobs:
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
         continue-on-error: true
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           build-mode: none
@@ -310,7 +310,7 @@ jobs:
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
         continue-on-error: true
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:javascript-typescript/app:${{ matrix.app-vars.application-name }}"
 
@@ -336,7 +336,7 @@ jobs:
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'python'
         continue-on-error: true
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: python
           build-mode: none
@@ -357,7 +357,7 @@ jobs:
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'python'
         continue-on-error: true
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:python/app:${{ matrix.app-vars.application-name }}"
 
