@@ -51,8 +51,6 @@ runs:
       run: |
         echo "Installed uv version is ${{ steps.setup-uv.outputs.uv-version }}"
         echo "Installed Python version is ${{ steps.setup-uv.outputs.python-version }}"
-        echo "Uv cache hit: ${{ steps.setup-uv.outputs.cache-hit }}"
-        echo "Python cache hit: ${{ steps.setup-uv.outputs.python-cache-hit }}"
 
     - id: python-build
       shell: bash
