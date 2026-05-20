@@ -251,6 +251,7 @@ export const allowedCommands = [
   'az',
   'cp',
   'python',
+  'uv'
 ]
 
 /**
