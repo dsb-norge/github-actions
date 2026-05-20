@@ -177,7 +177,7 @@ jobs:
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
           && steps.cache-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ steps.cache-restore.outputs.cache-normalized-path }} # use the expanded and normalized path
           key: ${{ fromJSON(steps.build-env.outputs.json).github-dependencies-cache-key }}
