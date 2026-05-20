@@ -104,7 +104,7 @@ jobs:
         uses: dsb-norge/directory-recreate@v1
 
       - name: "⬇ Checkout working branch"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -152,7 +152,7 @@ jobs:
 
       - name: "⬇ Checkout working branch"
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
         id: auth
@@ -454,7 +454,7 @@ jobs:
 
       - name: "⬇ Checkout working branch"
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: "💾 Read build-envs from matrix job(s)"
         id: read-build-envs

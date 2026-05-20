@@ -80,7 +80,7 @@ jobs:
 
       - name: "⬇ Checkout working branch"
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
@@ -104,7 +104,7 @@ jobs:
 
       - name: "⬇ Checkout working branch"
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
