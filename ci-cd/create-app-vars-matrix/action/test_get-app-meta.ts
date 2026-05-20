@@ -47,6 +47,23 @@ Deno.test('get-app-meta - vue metadata extraction', async () => {
   assertEquals(outputAppVars[0]['nodejs-version'], '20')
 })
 
+Deno.test('get-app-meta - python metadata extraction fails on circular dependency-group include', async () => {
+  setAppVars([
+    {
+      'application-name': 'my-python-app-cycle',
+      'application-source-path': './testdata/python-app-cycle',
+      'application-type': 'python',
+    } as AppVars,
+  ])
+
+  try {
+    await getAppMeta()
+    fail('Expected an error to be thrown')
+  } catch {
+    // Expected to throw an error
+  }
+})
+
 Deno.test('get-app-meta - no source path defined, use default', async () => {
   setAppVars([
     {

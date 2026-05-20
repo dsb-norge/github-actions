@@ -3,6 +3,52 @@ import { core, exists, parseToml, parseXML } from 'common/deps.ts'
 import { handleError } from 'common/utils/error.ts'
 import { getActionInput, tryParseJson } from 'common/utils/helpers.ts'
 
+interface DependencyGroupInclude {
+  'include-group': string
+}
+
+function isDependencyGroupInclude(entry: unknown): entry is DependencyGroupInclude {
+  if (typeof entry !== 'object' || entry === null) {
+    return false
+  }
+  return typeof (entry as Record<string, unknown>)['include-group'] === 'string'
+}
+
+function resolveDependencyGroupEntries(
+  groupName: string,
+  dependencyGroups: Record<string, unknown[]>,
+  dependencyPath: string[] = [],
+): string[] {
+  if (dependencyPath.includes(groupName)) {
+    throw new Error(`Circular dependency-group include detected: ${[...dependencyPath, groupName].join(' -> ')}`)
+  }
+
+  const dependencies = dependencyGroups[groupName]
+  if (!dependencies) {
+    throw new Error(`Unable to resolve dependency group include '${groupName}', group does not exist.`)
+  }
+
+  const resolvedDependencies: string[] = []
+  for (const dependency of dependencies) {
+    if (typeof dependency === 'string') {
+      resolvedDependencies.push(dependency)
+      continue
+    }
+
+    if (isDependencyGroupInclude(dependency)) {
+      resolvedDependencies.push(
+        ...resolveDependencyGroupEntries(
+          dependency['include-group'],
+          dependencyGroups,
+          [...dependencyPath, groupName],
+        ),
+      )
+    }
+  }
+
+  return resolvedDependencies
+}
+
 async function getSourceFilePath(
   srcPath: string,
   appType: string,
@@ -91,44 +137,10 @@ async function extractMetadata(
     }
 
     // [dependency-groups.<group>] — PEP 735 dependency groups (e.g. dev)
-    const dependencyGroups = tomlData?.['dependency-groups'] || {}
-    const resolveDependencyGroupEntries = (
-      groupName: string,
-      groups: Record<string, unknown>,
-      visitingGroups: Set<string>,
-    ): string[] => {
-      if (visitingGroups.has(groupName)) {
-        core.warning(`Detected cyclic dependency group include for '${groupName}'. Skipping recursive include.`)
-        return []
-      }
-
-      visitingGroups.add(groupName)
-      const groupEntries = groups[groupName]
-      const resolvedEntries: string[] = []
-
-      if (Array.isArray(groupEntries)) {
-        for (const entry of groupEntries) {
-          if (typeof entry === 'string') {
-            resolvedEntries.push(entry)
-            continue
-          }
-
-          if (entry && typeof entry === 'object') {
-            const includeGroup = (entry as Record<string, unknown>)['include-group']
-            if (typeof includeGroup === 'string') {
-              resolvedEntries.push(...resolveDependencyGroupEntries(includeGroup, groups, visitingGroups))
-            }
-          }
-        }
-      }
-
-      visitingGroups.delete(groupName)
-      return resolvedEntries
-    }
-
-    for (const groupName of Object.keys(dependencyGroups) as string[]) {
-      const resolvedGroupEntries = resolveDependencyGroupEntries(groupName, dependencyGroups as Record<string, unknown>, new Set<string>())
-      for (const dep of resolvedGroupEntries) {
+    const dependencyGroups = (tomlData?.['dependency-groups'] || {}) as Record<string, unknown[]>
+    for (const [groupName] of Object.entries(dependencyGroups)) {
+      const deps = resolveDependencyGroupEntries(groupName, dependencyGroups)
+      for (const dep of deps) {
         appDependencies.push(...parsePep508(dep, groupName))
       }
     }
