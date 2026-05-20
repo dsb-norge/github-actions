@@ -1,4 +1,4 @@
-import { assertEquals, fail } from 'common/test_deps.ts'
+import { assert, assertEquals, fail } from 'common/test_deps.ts'
 import { getAppMeta } from './4_get-app-meta.ts'
 import { AppVars } from 'common/interfaces/application-variables.ts'
 import { setCore } from 'common/deps.ts'
@@ -140,4 +140,28 @@ Deno.test('get-app-meta - APPVARS is an empty array', async () => {
   } catch {
     // Expected to throw an error
   }
+})
+
+Deno.test('get-app-meta - python optional and dependency-groups metadata extraction', async () => {
+  setAppVars([
+    {
+      'application-name': 'my-python-app',
+      'application-source-path': './testdata/python-app',
+      'application-type': 'python',
+    } as AppVars,
+  ])
+
+  await getAppMeta()
+
+  const outputAppVars = mockCore.getOutputAppVars()
+  const dependencies = outputAppVars[0]['application-dependencies'] ?? []
+
+  assertEquals(outputAppVars[0]['application-description'], 'Python test application')
+  assertEquals(outputAppVars[0]['python-version'], '>=3.12')
+  assert(dependencies.some((dependency) => dependency.name === 'fastapi' && dependency.operator === '>=' && dependency.version === '0.111.0'))
+  assert(dependencies.some((dependency) => dependency.name === 'fastapi' && dependency.operator === '<' && dependency.version === '1.0.0'))
+  assert(dependencies.some((dependency) => dependency.name === 'ruff' && dependency.group === 'dev' && dependency.operator === '==' && dependency.version === '0.6.9'))
+  assert(dependencies.some((dependency) => dependency.name === 'ruff' && dependency.group === 'lint' && dependency.operator === '>=' && dependency.version === '0.6.0'))
+  assert(dependencies.some((dependency) => dependency.name === 'ruff' && dependency.group === 'test' && dependency.operator === '>=' && dependency.version === '0.6.0'))
+  assert(dependencies.some((dependency) => dependency.name === 'pytest' && dependency.group === 'test' && dependency.operator === '>=' && dependency.version === '8.3.0'))
 })

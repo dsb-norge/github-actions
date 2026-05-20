@@ -18,9 +18,9 @@ export async function run(): Promise<void> {
       throw new Error('Failed to parse dsb-build-envs JSON. Custom commands will be skipped.')
     }
 
-    // pre-pip install hook
+    // pre-install hook
     if (appVars['python-build-project-custom-command-pre-install']) {
-      core.info('Executing pre pip install custom command...')
+      core.info('Executing pre install custom command...')
       await executeCommand(appVars['python-build-project-custom-command-pre-install'], 'Custom command: pre install')
     }
 

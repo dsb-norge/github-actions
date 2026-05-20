@@ -92,12 +92,44 @@ async function extractMetadata(
 
     // [dependency-groups.<group>] — PEP 735 dependency groups (e.g. dev)
     const dependencyGroups = tomlData?.['dependency-groups'] || {}
-    for (const [groupName, deps] of Object.entries(dependencyGroups) as [string, unknown[]][]) {
-      for (const dep of deps) {
-        // PEP 735 entries can be strings or { include-group = "..." } tables; skip the latter
-        if (typeof dep === 'string') {
-          appDependencies.push(...parsePep508(dep, groupName))
+    const resolveDependencyGroupEntries = (
+      groupName: string,
+      groups: Record<string, unknown>,
+      visitingGroups: Set<string>,
+    ): string[] => {
+      if (visitingGroups.has(groupName)) {
+        core.warning(`Detected cyclic dependency group include for '${groupName}'. Skipping recursive include.`)
+        return []
+      }
+
+      visitingGroups.add(groupName)
+      const groupEntries = groups[groupName]
+      const resolvedEntries: string[] = []
+
+      if (Array.isArray(groupEntries)) {
+        for (const entry of groupEntries) {
+          if (typeof entry === 'string') {
+            resolvedEntries.push(entry)
+            continue
+          }
+
+          if (entry && typeof entry === 'object') {
+            const includeGroup = (entry as Record<string, unknown>)['include-group']
+            if (typeof includeGroup === 'string') {
+              resolvedEntries.push(...resolveDependencyGroupEntries(includeGroup, groups, visitingGroups))
+            }
+          }
         }
+      }
+
+      visitingGroups.delete(groupName)
+      return resolvedEntries
+    }
+
+    for (const groupName of Object.keys(dependencyGroups) as string[]) {
+      const resolvedGroupEntries = resolveDependencyGroupEntries(groupName, dependencyGroups as Record<string, unknown>, new Set<string>())
+      for (const dep of resolvedGroupEntries) {
+        appDependencies.push(...parsePep508(dep, groupName))
       }
     }
   } else {
