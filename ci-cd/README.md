@@ -74,22 +74,22 @@ gh attestation verify <artifact.jar> --owner dsb-norge
 
 Artifact attestation requires outbound HTTPS (443) access to Sigstore endpoints from the runner. These are not documented by GitHub but are defined in the [`@actions/attest` source code](https://github.com/actions/toolkit/blob/main/packages/attest/src/endpoints.ts):
 
-| Endpoint | Purpose |
-|----------|---------|
-| `fulcio.githubapp.com` | Signing certificate issuance (private repos) |
-| `timestamp.githubapp.com` | Timestamp authority (private repos) |
-| `fulcio.sigstore.dev` | Signing certificate issuance (public repos) |
-| `rekor.sigstore.dev` | Transparency log (public repos) |
+| Endpoint                  | Purpose                                      |
+| ------------------------- | -------------------------------------------- |
+| `fulcio.githubapp.com`    | Signing certificate issuance (private repos) |
+| `timestamp.githubapp.com` | Timestamp authority (private repos)          |
+| `fulcio.sigstore.dev`     | Signing certificate issuance (public repos)  |
+| `rekor.sigstore.dev`      | Transparency log (public repos)              |
 
 ## Maintenance
 
 ### Development
 
-1. Replace version-tag of all dsb-actions in this repo with a temporary tag, ex. `@v3` becomes `@my-feature`.
+1. Replace version-tag of all dsb-actions in this repo with a temporary tag, ex. `@v4` becomes `@my-feature`.
 
     Replace regex pattern for vscode:
-    - Find: `(^\s*)((- ){0,1}uses: dsb-norge/github-actions/.*@)v3`
-    - Replace: `$1# TODO revert to @v3\n$1$2my-feature`
+    - Find: `(^\s*)((- ){0,1}uses: dsb-norge/github-actions/.*@)v4`
+    - Replace: `$1# TODO revert to @v4\n$1$2my-feature`
 
 2. Make your changes and commit your changes on a branch, for example `my-feature-branch`.
 3. Tag latest commit on you branch:
