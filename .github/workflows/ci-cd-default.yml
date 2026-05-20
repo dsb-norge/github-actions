@@ -76,16 +76,14 @@ jobs:
         shell: bash
     steps:
       - name: Notify Internal Status (ci-cd-started)
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@python-uv
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
         with:
           status: started
           step-name: ci-cd-started
           basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
 
       - name: "🩺 Check Docker disk usage and prune if necessary"
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/check-docker-disk-space@python-uv
+        uses: dsb-norge/github-actions/ci-cd/check-docker-disk-space@v4
         with:
           threshold-gb: "7"
 
@@ -110,8 +108,7 @@ jobs:
           fetch-depth: 0
 
       - name: Notify Internal Status (build-matrix-started)
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@python-uv
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
         with:
           status: started
           step-name: build-matrix-started
@@ -119,15 +116,13 @@ jobs:
 
       - name: "🎰 Generate: 📋 app vars build matrix"
         id: create-matrix
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@python-uv
+        uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v4
         with:
           apps: ${{ inputs.apps }}
 
       - name: Notify Internal Status (build-matrix-finished)
         if: always()
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@python-uv
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
         with:
           status: ${{ job.status }}
           step-name: build-matrix-finished
@@ -146,8 +141,7 @@ jobs:
         shell: bash
     steps:
       - name: "🩺 Check Docker disk usage and prune if necessary"
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/check-docker-disk-space@python-uv
+        uses: dsb-norge/github-actions/ci-cd/check-docker-disk-space@v4
         with:
           threshold-gb: "7"
 
@@ -161,8 +155,7 @@ jobs:
 
       - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
         id: auth
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/get-github-app-installation-token@python-uv
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v4
         with:
           github-app-id: ${{ vars.ORG_CICD_APP_ID }}
           github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
@@ -170,8 +163,7 @@ jobs:
 
       - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@python-uv
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v4
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -191,8 +183,7 @@ jobs:
           acr-delete-service-principal-id: ${{ vars.ORG_ACR_DELETE_SERVICE_PRINCIPAL_ID }}
 
       - name: Notify Internal Status (app-build-started)
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@python-uv
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
         with:
           status: started
           step-name: app-build-started
@@ -234,8 +225,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@python-uv
+        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -245,8 +235,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@python-uv
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -261,8 +250,7 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@python-uv
+        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
           sbom-file: ${{ steps.maven-build.outputs.sbom-file }}
@@ -273,8 +261,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@python-uv
+        uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -289,8 +276,7 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/build-docker-image@python-uv
+        uses: dsb-norge/github-actions/ci-cd/build-docker-image@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
           sbom-file: ${{ steps.npm-build.outputs.sbom-file }}
@@ -301,8 +287,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'python'
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/build-python-project@python-uv
+        uses: dsb-norge/github-actions/ci-cd/build-python-project@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -317,8 +302,7 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/build-docker-image@python-uv
+        uses: dsb-norge/github-actions/ci-cd/build-docker-image@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -341,16 +325,14 @@ jobs:
           && github.event.action != 'closed'
           && github.actor != 'renovate[bot]'
           && matrix.app-vars['pr-deploy-skip'] != true
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@python-uv
+        uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "🗑 Teardown: 🌍 of ephemeral PR environment"
         id: ephemeral-teardown
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/teardown-pr-environment@python-uv
+        uses: dsb-norge/github-actions/ci-cd/teardown-pr-environment@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -361,16 +343,14 @@ jobs:
           && (( fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch )
             || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/prune-images-from-acr@python-uv
+        uses: dsb-norge/github-actions/ci-cd/prune-images-from-acr@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "🗑 Delete: 🐳 PR docker images from ACR"
         id: delete-pr-images
         if: github.event_name == 'pull_request' && github.event.action == 'closed' && always() && steps.build-env.outcome == 'success'
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@python-uv
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-images-from-acr@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -381,16 +361,14 @@ jobs:
           && always() && steps.build-env.outcome == 'success'
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-delete-on-pr-close
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@python-uv
+        uses: dsb-norge/github-actions/ci-cd/delete-pr-github-caches@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
         continue-on-error: true
 
       - name: Notify Internal Status (app-build-finished)
         if: always()
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@python-uv
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
         with:
           status: ${{ job.status }}
           step-name: app-build-finished
@@ -418,22 +396,19 @@ jobs:
 
       - name: "💾 Read build-envs from matrix job(s)"
         id: read-build-envs
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@python-uv
+        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v4
         with:
           build-envs-artifact-name-prefix: build-envs-${{ needs.create-matrix.outputs.applications-version }}
 
       - name: "✔ Check if deploy is allowed from calling branch"
         id: deploy-static-check
         # This check is required to block deploys when workflow is manually triggered from a non-default branch
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@python-uv
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static-is-allowed@v4
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
 
       - name: Notify Internal Status (app-deploy-started)
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@python-uv
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
         with:
           status: started
           step-name: app-deploy-started
@@ -442,8 +417,7 @@ jobs:
       - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
         id: auth
         if: steps.deploy-static-check.outputs.result == 'true'
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/get-github-app-installation-token@python-uv
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v4
         with:
           github-app-id: ${{ vars.ORG_CICD_APP_ID }}
           github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
@@ -452,8 +426,7 @@ jobs:
       - name: "🐙 Deploy: 🌍 apps to static environment(s)"
         id: static-deploy
         if: steps.deploy-static-check.outputs.result == 'true'
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@python-uv
+        uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@v4
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
           app-config-repo-token: ${{ steps.auth.outputs.github-token }}
@@ -473,8 +446,7 @@ jobs:
 
       - name: Notify Internal Status (app-deploy-finished)
         if: always()
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@python-uv
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
         with:
           status: ${{ job.status }}
           step-name: app-deploy-finished
@@ -494,8 +466,7 @@ jobs:
     steps:
       - name: "🗑 Prune: 📦 maven artifacts"
         id: prune-artifacts
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@python-uv
+        uses: dsb-norge/github-actions/ci-cd/prune-maven-artifacts-in-repo@v4
         with:
           github-packages-token: ${{ secrets.ORG_GITHUB_PACKAGES_ADMIN_PAT }}
           other-prune-keep-min-count: ${{ inputs.maven-artifacts-other-prune-keep-min-count }}
