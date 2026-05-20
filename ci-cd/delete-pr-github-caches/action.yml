@@ -1,4 +1,4 @@
-name: 'Delete GitHub caches created from a PR branch'
+name: "Delete GitHub caches created from a PR branch"
 description: |
   This action deletes all GitHub caches created from a PR branch.
   This is to force deletion of caches overriding default cache eviction policy.
@@ -12,7 +12,7 @@ description: |
     https://github.com/actions/cache/blob/704facf57e6136b1bc63b828d79edcd491f0ee84/tips-and-workarounds.md#force-deletion-of-caches-overriding-default-cache-eviction-policy
   Branch scope restriction:
     https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#restrictions-for-accessing-a-cache
-author: 'Direktoratet for samfunnssikkerhet og beredskap'
+author: "Direktoratet for samfunnssikkerhet og beredskap"
 inputs:
   dsb-build-envs:
     description: |
@@ -23,7 +23,7 @@ inputs:
         None.
     required: true
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     # we need to verify inputs since they are optional input to create-build-envs action
     - id: check-input
