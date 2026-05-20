@@ -1,4 +1,4 @@
-import { assert, assertEquals, fail } from 'common/test_deps.ts'
+import { assert, assertEquals, assertRejects, fail } from 'common/test_deps.ts'
 import { getAppMeta } from './4_get-app-meta.ts'
 import { AppVars } from 'common/interfaces/application-variables.ts'
 import { setCore } from 'common/deps.ts'
@@ -56,12 +56,11 @@ Deno.test('get-app-meta - python metadata extraction fails on circular dependenc
     } as AppVars,
   ])
 
-  try {
-    await getAppMeta()
-    fail('Expected an error to be thrown')
-  } catch {
-    // Expected to throw an error
-  }
+  await assertRejects(
+    () => getAppMeta(),
+    Error,
+    'Circular dependency-group include detected',
+  )
 })
 
 Deno.test('get-app-meta - no source path defined, use default', async () => {
