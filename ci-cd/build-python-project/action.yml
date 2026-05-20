@@ -44,6 +44,7 @@ runs:
       name: Set up uv 🦄
       uses: astral-sh/setup-uv@v7
       with:
+        python-version: ${{ fromJSON(inputs.dsb-build-envs).python-version }}
         enable-cache: true
 
     - name: Print uv info
