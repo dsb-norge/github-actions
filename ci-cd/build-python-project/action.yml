@@ -41,14 +41,19 @@ runs:
       run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_work-dir.ts
 
     # set up uv (and let uv manage the Python install)
-    - name: Set up uv 🦄
+    - id: setup-uv
+      name: Set up uv 🦄
       uses: astral-sh/setup-uv@v7
       with:
         enable-cache: true
 
-    - name: Print the installed uv version
+    - name: Print uv info
       shell: bash
-      run: echo "Installed uv version is ${{ steps.setup-uv.outputs.uv-version }}"
+      run: |
+        echo "Installed uv version is ${{ steps.setup-uv.outputs.uv-version }}"
+        echo "Installed Python version is ${{ steps.setup-uv.outputs.python-version }}"
+        echo "Uv cache hit: ${{ steps.setup-uv.outputs.cache-hit }}"
+        echo "Python cache hit: ${{ steps.setup-uv.outputs.python-cache-hit }}"
 
     - id: python-build
       shell: bash
