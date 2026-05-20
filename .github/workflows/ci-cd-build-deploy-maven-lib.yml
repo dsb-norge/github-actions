@@ -136,6 +136,9 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
+        # Soft rollout: CodeQL steps must not fail callers that lack GHAS or
+        # security-events: write. Remove once all consumers are onboarded.
+        continue-on-error: true
         uses: github/codeql-action/init@v3
         with:
           languages: java-kotlin
@@ -154,6 +157,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
+        continue-on-error: true
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
