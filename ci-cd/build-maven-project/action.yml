@@ -192,7 +192,10 @@ runs:
         INPUT_MVN_CMD: ${{ steps.mvn-cmd.outputs.mvn-cmd }}
         GITHUB_WORKSPACE: "${{ github.workspace }}"
         GITHUB_SHA: "${{ github.sha }}"
-      run: deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/2_invoke-maven.ts
+      # EXPERIMENT: testing hypothesis that `env -u LD_LIBRARY_PATH`
+      # bypasses Deno's LD_PRELOAD permission-check during CodeQL Java tracing.
+      # If this test succeeds we keep it; if not, revert and use --allow-run unscoped.
+      run: env -u LD_LIBRARY_PATH deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/2_invoke-maven.ts
 
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@567cc7f8dcea3eba5da355f6ebc95663310d8a07
@@ -223,7 +226,8 @@ runs:
         GITHUB_EVENT_ACTION: "${{ github.event.action }}"
         GITHUB_EVENT_NAME: "${{ github.event_name }}"
         GITHUB_EVENT_NUMBER: "${{ github.event.number }}"
-      run: deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/3_deploy-artifacts.ts
+      # EXPERIMENT: see 2_invoke-maven.ts step above.
+      run: env -u LD_LIBRARY_PATH deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/3_deploy-artifacts.ts
 
     # find deployed maven artifacts for attestation
     - name: "🔍 Find: 📦 deployed maven artifacts"

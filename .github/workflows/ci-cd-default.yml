@@ -249,7 +249,9 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v4
+        # TODO revert to @v4 before merging — pinned to feature branch to test
+        # env -u LD_LIBRARY_PATH workaround in build-maven-project/action.yml.
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@feature/enable-codeql
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
