@@ -265,6 +265,18 @@ jobs:
         with:
           category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
 
+      - name: "🧹 Clear CodeQL tracer env (LD_PRELOAD) after analysis"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'spring-boot'
+        # CodeQL's manual-mode tracer sets LD_PRELOAD via GITHUB_ENV; it
+        # persists for the rest of the job and breaks subsequent Deno steps
+        # that use scoped --allow-run. Clear it so docker/az/helm/etc. actions
+        # keep their tight subprocess allowlists.
+        shell: bash
+        run: echo "LD_PRELOAD=" >> "$GITHUB_ENV"
+
       - name: "🍃 Spring Boot app: 🐳 Build, tag and push docker image"
         id: maven-docker-build
         if: |

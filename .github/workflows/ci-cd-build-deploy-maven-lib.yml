@@ -162,6 +162,14 @@ jobs:
         with:
           category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
 
+      - name: "🧹 Clear CodeQL tracer env (LD_PRELOAD) after analysis"
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'maven-library'
+        # See ci-cd-default.yml for rationale.
+        shell: bash
+        run: echo "LD_PRELOAD=" >> "$GITHUB_ENV"
+
       - name: "💾 Save 📚 build dependencies cache"
         id: cache-save
         # Skip step when closing a PR, only run when deps cache is enabled, and skip if cache already exists (aka. cache-hit)
