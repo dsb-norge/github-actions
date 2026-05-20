@@ -42,7 +42,7 @@ runs:
 
     # set up uv (and let uv manage the Python install)
     - name: Set up uv 🦄
-      uses: astral-sh/setup-uv@v8
+      uses: astral-sh/setup-uv@v7
       with:
         enable-cache: true
 
