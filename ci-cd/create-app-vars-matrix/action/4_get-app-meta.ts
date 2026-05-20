@@ -63,26 +63,41 @@ async function extractMetadata(
     appDesc = tomlData.project.description
     appPythonVersion = tomlData.project['requires-python']
 
-    const rawDependencies = tomlData?.project?.dependencies || []
-    for (const dep of rawDependencies) {
-      // Match name with optional extras in brackets
+    const parsePep508 = (dep: string, group?: string): AppDependency[] => {
       const nameMatch = dep.match(/^([a-zA-Z0-9_\-\.]+(\[[a-zA-Z0-9_,\-]+\])?)/)
       const name = nameMatch ? nameMatch[1] : dep
-      // Extract version spec (after name/extras)
       const versionSpec = dep.replace(/^([a-zA-Z0-9_\-\.]+(\[[a-zA-Z0-9_,\-]+\])?)\s*/, '')
-      // Split on commas for multiple specifiers
       const specs = versionSpec.split(',').map((s: string) => s.trim()).filter(Boolean)
       if (specs.length > 0 && specs[0]) {
-        for (const spec of specs) {
+        return specs.map((spec) => {
           const opMatch = spec.match(/^([<>=!~]+)\s*(.+)$/)
-          appDependencies.push({
-            name,
-            operator: opMatch ? opMatch[1] : '',
-            version: opMatch ? opMatch[2] : '',
-          })
+          return { name, group, operator: opMatch ? opMatch[1] : '', version: opMatch ? opMatch[2] : '' }
+        })
+      }
+      return [{ name, group, operator: '', version: '' }]
+    }
+
+    // [project.dependencies] — main runtime deps (no group)
+    for (const dep of (tomlData?.project?.dependencies || []) as string[]) {
+      appDependencies.push(...parsePep508(dep))
+    }
+
+    // [project.optional-dependencies.<extra>] — PEP 621 extras
+    const optionalDeps = tomlData?.project?.['optional-dependencies'] || {}
+    for (const [groupName, deps] of Object.entries(optionalDeps) as [string, string[]][]) {
+      for (const dep of deps) {
+        appDependencies.push(...parsePep508(dep, groupName))
+      }
+    }
+
+    // [dependency-groups.<group>] — PEP 735 dependency groups (e.g. dev)
+    const dependencyGroups = tomlData?.['dependency-groups'] || {}
+    for (const [groupName, deps] of Object.entries(dependencyGroups) as [string, unknown[]][]) {
+      for (const dep of deps) {
+        // PEP 735 entries can be strings or { include-group = "..." } tables; skip the latter
+        if (typeof dep === 'string') {
+          appDependencies.push(...parsePep508(dep, groupName))
         }
-      } else {
-        appDependencies.push({ name, operator: '', version: '' })
       }
     }
   } else {

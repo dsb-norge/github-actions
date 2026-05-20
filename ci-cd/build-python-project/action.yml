@@ -39,11 +39,15 @@ runs:
         GITHUB_WORKSPACE: "${{ github.workspace }}"
       run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_work-dir.ts
 
-    # set up Python
-    - name: Set up Python 🐍
-      uses: actions/setup-python@v4
+    # set up uv (and let uv manage the Python install)
+    - name: Set up uv 🦄
+      uses: astral-sh/setup-uv@v3
       with:
-        python-version: ${{ fromJSON(inputs.dsb-build-envs).python-version }}
+        enable-cache: true
+
+    - name: Print the installed uv version
+      shell: bash
+      run: echo "Installed uv version is ${{ steps.setup-uv.outputs.uv-version }}"
 
     - id: python-build
       shell: bash
