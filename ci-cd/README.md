@@ -85,37 +85,54 @@ Artifact attestation requires outbound HTTPS (443) access to Sigstore endpoints 
 
 ### Development
 
-1. Replace version-tag of all dsb-actions in this repo with a temporary tag, ex. `@v3` becomes `@my-feature`.
+How you test changes before merging depends on what you've touched. In both cases the caller repo's workflow points at your **branch name** (not a tag) so each new commit you push is automatically picked up on the next CI run.
 
-    Replace regex pattern for vscode:
-    - Find: `(^\s*)((- ){0,1}uses: dsb-norge/github-actions/.*@)v3`
-    - Replace: `$1# TODO revert to @v3\n$1$2my-feature`
+#### Scenario A: workflow-only changes (`.github/workflows/*.yml`)
 
-2. Make your changes and commit your changes on a branch, for example `my-feature-branch`.
-3. Tag latest commit on you branch:
-   ```bash
-   git tag -f -a 'my-feature'
-   git push -f origin 'refs/tags/my-feature'
-   ```
-4. To try out your changes, in the calling repo change the calling workflow to call using your **branch name**. Ex. with a dev branch named `my-feature-branch`:
+If your change only touches the reusable workflows themselves and not the underlying `ci-cd/*` actions, no rewriting is needed inside this repo.
+
+1. Push your changes to a feature branch (e.g. `my-feature-branch`).
+2. In the calling repo, change the `uses:` ref of the reusable workflow from `@v4` to your branch name:
+
    ```yaml
-    jobs:
-        ci-cd:
-            # TODO revert to '@v3'
-            uses: dsb-norge/github-actions/.github/workflows/ci-cd-default.yml@my-feature-branch
+   jobs:
+     ci-cd:
+       # TODO revert to '@v4'
+       uses: dsb-norge/github-actions/.github/workflows/ci-cd-default.yml@my-feature-branch
    ```
-5. Test your changes from the calling repo. Make changes and remember to always move your tag `my-feature` to the latest commit.
-6. When ready remove your temporary tag:
-   ```bash
-   git tag --delete 'my-feature'
-   git push --delete origin 'my-feature'
-   ```
-    and revert from using the temporary tag to the version-tag for your release in actions, i.e. `@my-feature` becomes `@v3` or `@v4` or whatever.
+3. Push the change in the calling repo and let CI run. Iterate by pushing new commits on your feature branch — the next CI run in the calling repo picks them up automatically.
+4. Before merging your PR here, the calling repo reverts `@my-feature-branch` back to `@v4`.
 
-    Replace regex pattern for vscode:
-    - Find: `(^\s*# TODO revert to @v3\n)(^\s*)((- )?uses: dsb-norge/github-actions/.*@)my-feature`
-    - Replace: `$2$3v3`
-7. Create PR and merge to main.
+#### Scenario B: changes that also touch `ci-cd/*` actions or `get-github-app-installation-token`
+
+The reusable workflows' internal `uses: dsb-norge/github-actions/ci-cd/*@v4` references will still resolve to the **stable `@v4`** tag — so your action changes won't be picked up by callers unless you also rewrite those internal refs in your branch.
+
+1. In your branch, rewrite every internal `@v4` ref to point at your branch name. Replace regex pattern for VSCode:
+   - Find: `(^\s*)((- ){0,1}uses: dsb-norge/github-actions/.*@)v4`
+   - Replace: `$1# TODO revert to @v4\n$1$2my-feature-branch`
+2. Commit and push.
+3. Point the calling repo at your branch name (as in Scenario A) and iterate.
+4. **Before merging**, revert all internal `@my-feature-branch` refs back to `@v4`. Replace regex pattern for VSCode:
+   - Find: `(^\s*# TODO revert to @v4\n)(^\s*)((- )?uses: dsb-norge/github-actions/.*@)my-feature-branch`
+   - Replace: `$2$3v4`
+
+#### Optional: pin to a movable tag instead of a branch
+
+For scenarios where you want snapshot semantics — multiple people testing the same commit simultaneously, or freezing your test target while you iterate on something else — create a movable tag and reference `@my-feature` in place of the branch name:
+
+```bash
+git tag -f -a 'my-feature'
+git push -f origin 'refs/tags/my-feature'
+```
+
+Move the tag with the same commands after each new commit. Delete when done:
+
+```bash
+git tag --delete 'my-feature'
+git push --delete origin 'my-feature'
+```
+
+For solo iterative testing, branch-pinning is enough.
 
 ### Release
 
@@ -123,22 +140,22 @@ After merge to main use tags to release.
 
 #### Minor release
 
-Ex. for smaller backwards compatible changes. Add a new minor version tag ex `v2.1` with a description of the changes and amend the description to the major version tag.
+Ex. for smaller backwards compatible changes. Add a new minor version tag (e.g. `v4.5`) with a description of the changes and amend the description to the major version tag.
 
-Example for release `v2.22`:
+Example for release `v4.5`:
 ```bash
 git checkout origin/main
 git pull origin main
 # review latest release tag to determine which is the next one
 git tag --sort=-creatordate | head -n 5
 # output changes since last release
-git log v2..HEAD --pretty=format:"%s"
-git tag -a 'v2.22'
+git log v4..HEAD --pretty=format:"%s"
+git tag -a 'v4.5'
 # you are prompted for the tag annotation (change description)
-git tag -f -a 'v2'
+git tag -f -a 'v4'
 # you are prompted for the tag annotation, amend the change description
-git push -f origin 'refs/tags/v2.22'
-git push -f origin 'refs/tags/v2'
+git push -f origin 'refs/tags/v4.5'
+git push -f origin 'refs/tags/v4'
 ```
 
 **Note:** If you are having problems pulling main after a release, try to force fetch the tags: `git fetch --tags -f`.
@@ -147,20 +164,20 @@ git push -f origin 'refs/tags/v2'
 
 Same as minor release except that the major version tag is a new one. I.e. we do not need to force tag/push.
 
-Example for release `v3`:
+Example for release `v5`:
 ```bash
 git checkout origin/main
 git pull origin main
 # review latest release tag to determine which is the next one
 git tag --sort=-creatordate | head -n 5
 # output changes since last release
-git log v2..HEAD --pretty=format:"%s"
-git tag -a 'v3.0'
+git log v4..HEAD --pretty=format:"%s"
+git tag -a 'v5.0'
 # you are prompted for the tag annotation (change description)
-git tag -a 'v3'
+git tag -a 'v5'
 # you are prompted for the tag annotation
-git push -f origin 'refs/tags/v3.0'
-git push -f origin 'refs/tags/v3'
+git push -f origin 'refs/tags/v5.0'
+git push -f origin 'refs/tags/v5'
 ```
 
 **Note:** If you are having problems pulling main after a release, try to force fetch the tags: `git fetch --tags -f`.
@@ -170,13 +187,13 @@ git push -f origin 'refs/tags/v3'
 
 In case of trouble where a fix takes long time to develop, this is how to rollback the major tag to the previous minor release.
 
-Example un-release `v2.9` and revert to `v2.8`:
+Example un-release `v4.5` and revert to `v4.4`:
 ```bash
 git checkout origin/main
 git pull origin main
 
-moveTag='v2'
-moveToTag='v2.8'
+moveTag='v4'
+moveToTag='v4.4'
 moveToHash=$(git rev-parse --verify ${moveToTag})
 
 git push origin "refs/tags/${moveTag}"      # delete the old tag remotely

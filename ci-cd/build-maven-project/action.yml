@@ -192,7 +192,12 @@ runs:
         INPUT_MVN_CMD: ${{ steps.mvn-cmd.outputs.mvn-cmd }}
         GITHUB_WORKSPACE: "${{ github.workspace }}"
         GITHUB_SHA: "${{ github.sha }}"
-      run: deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/2_invoke-maven.ts
+      # --allow-run unscoped (no =mvn) because CodeQL's manual-mode tracer for
+      # Java/Kotlin sets LD_PRELOAD, which Deno requires unscoped --allow-run
+      # to honour. mvn itself is a code-execution primitive (plugin fetching,
+      # exec:exec, plugin-execution hooks), so a binary allowlist gave only
+      # nominal isolation in practice.
+      run: deno run --allow-env --allow-read --allow-write --allow-run ${{ github.action_path }}/action/2_invoke-maven.ts
 
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@567cc7f8dcea3eba5da355f6ebc95663310d8a07
@@ -223,7 +228,8 @@ runs:
         GITHUB_EVENT_ACTION: "${{ github.event.action }}"
         GITHUB_EVENT_NAME: "${{ github.event_name }}"
         GITHUB_EVENT_NUMBER: "${{ github.event.number }}"
-      run: deno run --allow-env --allow-read --allow-write --allow-run=mvn ${{ github.action_path }}/action/3_deploy-artifacts.ts
+      # See 2_invoke-maven.ts step above for why --allow-run is unscoped.
+      run: deno run --allow-env --allow-read --allow-write --allow-run ${{ github.action_path }}/action/3_deploy-artifacts.ts
 
     # find deployed maven artifacts for attestation
     - name: "🔍 Find: 📦 deployed maven artifacts"
