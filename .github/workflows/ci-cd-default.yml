@@ -9,6 +9,7 @@ name: "DSB Build, push and deploy"
 #     packages: write       # required for maven deploy to GitHub Packages
 #     id-token: write       # required for GitHub artifact attestation (OIDC token)
 #     attestations: write   # required for writing build provenance attestations
+#     security-events: write # required for uploading CodeQL SARIF results
 #
 # In order to use this workflow a github app must be installed in the calling workflow's organization.
 # The app must at minimum have 'contents: write' permissions in the application config repo(s) of the calling workflow.
@@ -239,6 +240,19 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
+      - name: "🔎 Initialize CodeQL for Java and Kotlin"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'spring-boot'
+        # Soft rollout: CodeQL steps must not fail callers that lack GHAS or
+        # security-events: write. Remove once all consumers are onboarded.
+        continue-on-error: true
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+
       - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build
         if: |
@@ -249,6 +263,28 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/build-maven-project@python-uv
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🔎 Perform CodeQL Analysis for Java and Kotlin"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'spring-boot'
+        continue-on-error: true
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
+
+      - name: "🧹 Clear CodeQL tracer env (LD_PRELOAD) after analysis"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'spring-boot'
+        # CodeQL's manual-mode tracer sets LD_PRELOAD via GITHUB_ENV; it
+        # persists for the rest of the job and breaks subsequent Deno steps
+        # that use scoped --allow-run. Clear it so docker/az/helm/etc. actions
+        # keep their tight subprocess allowlists.
+        shell: bash
+        run: echo "LD_PRELOAD=" >> "$GITHUB_ENV"
 
       - name: "🍃 Spring Boot app: 🐳 Build, tag and push docker image"
         id: maven-docker-build
@@ -267,6 +303,21 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
           sbom-file: ${{ steps.maven-build.outputs.sbom-file }}
 
+      - name: "🔎 Initialize CodeQL for JavaScript and TypeScript"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'vue'
+        continue-on-error: true
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          config: |
+            paths-ignore:
+              - '**/dist/**'
+              - '**/node_modules/**'
+
       - name: "🌐 Vue.js app: ⚒ Build and test with npm"
         id: npm-build
         if: |
@@ -277,6 +328,16 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/build-nodejs-project@python-uv
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🔎 Perform CodeQL Analysis for JavaScript and TypeScript"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'vue'
+        continue-on-error: true
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:javascript-typescript/app:${{ matrix.app-vars.application-name }}"
 
       - name: "🌐 Vue.js app: 🐳 Build, tag and push docker image for vue"
         id: npm-docker-build
@@ -295,6 +356,17 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
           sbom-file: ${{ steps.npm-build.outputs.sbom-file }}
 
+      - name: "🔎 Initialize CodeQL for Python"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'python'
+        continue-on-error: true
+        uses: github/codeql-action/init@v4
+        with:
+          languages: python
+          build-mode: none
+
       - name: "🐍 Python app: ⚒ Build and test with pip"
         id: pip-build
         if: |
@@ -305,6 +377,16 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/build-python-project@python-uv
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🔎 Perform CodeQL Analysis for Python"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'python'
+        continue-on-error: true
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:python/app:${{ matrix.app-vars.application-name }}"
 
       - name: "🐍 Python app: 🐳 Build, tag and push docker image"
         id: pip-docker-build
