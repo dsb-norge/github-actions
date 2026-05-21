@@ -46,7 +46,7 @@ runs:
       run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_work-dir.ts
 
     # set up Node.js
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version: ${{ fromJSON(inputs.dsb-build-envs).nodejs-version }}
         registry-url: "https://registry.npmjs.org"

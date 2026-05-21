@@ -24,7 +24,7 @@ runs:
 
     # download artifact
     - id: download-artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         pattern: ${{ inputs.build-envs-artifact-name-prefix }}-*
         merge-multiple: true

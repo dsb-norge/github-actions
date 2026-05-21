@@ -395,7 +395,7 @@ jobs:
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
           && steps.cache-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ steps.cache-restore.outputs.cache-normalized-path }}
           key: ${{ fromJSON(steps.build-env.outputs.json).github-dependencies-cache-key }}
@@ -516,7 +516,7 @@ jobs:
       - name: "🏷️ Tag current git commit with application version"
         id: version-tag
         if: steps.deploy-static-check.outputs.result == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             github.rest.git.createRef({

@@ -174,7 +174,7 @@ runs:
         user-settings-repositories-yml: ${{ fromJSON(inputs.dsb-build-envs).maven-user-settings-repositories-yml }}
 
     # set up JDK
-    - uses: actions/setup-java@v4
+    - uses: actions/setup-java@v5
       with:
         distribution: ${{ fromJSON(inputs.dsb-build-envs).java-distribution }}
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
@@ -209,7 +209,7 @@ runs:
           ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/failsafe-reports/**/TEST-*.xml
 
     - name: Log Test Results
-      uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
       if: ${{ !cancelled() && github.action == 'maven-build'}}
       with:
         name: "Maven Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
