@@ -18,14 +18,14 @@ export async function run(): Promise<void> {
       throw new Error('Failed to parse dsb-build-envs JSON. Custom commands will be skipped.')
     }
 
-    // pre-pip install hook
+    // pre-install hook
     if (appVars['python-build-project-custom-command-pre-install']) {
-      core.info('Executing pre pip install custom command...')
+      core.info('Executing pre install custom command...')
       await executeCommand(appVars['python-build-project-custom-command-pre-install'], 'Custom command: pre install')
     }
 
-    // pip install
-    await executeCommand('python -m pip install .', 'Installing dependencies with pip install')
+    // install project + (locked) dependencies into a uv-managed .venv
+    await executeCommand('uv sync --locked', 'Installing dependencies with uv sync (from uv.lock)')
 
     // pre-lint hook
     if (appVars['python-build-project-custom-command-pre-lint']) {
@@ -36,7 +36,7 @@ export async function run(): Promise<void> {
     // linting
     core.info('Running linting...')
     if (appVars['application-dependencies']?.map((dep) => dep.name).includes('ruff')) {
-      await executeCommand('python -m ruff check', 'Running ruff lint')
+      await executeCommand('uv run ruff check', 'Running ruff lint')
     } else {
       core.warning('Skipping lint step no linter was found in application-dependencies.')
     }
@@ -50,7 +50,7 @@ export async function run(): Promise<void> {
     // type checking
     core.info('Running type checking...')
     if (appVars['application-dependencies']?.map((dep) => dep.name).includes('pyright')) {
-      await executeCommand('python -m pyright', 'Running pyright type check')
+      await executeCommand('uv run pyright', 'Running pyright type check')
     } else {
       core.warning('Skipping type check step no type checker was found in application-dependencies.')
     }
@@ -63,7 +63,7 @@ export async function run(): Promise<void> {
 
     // testing
     if (appVars['application-dependencies']?.map((dep) => dep.name).includes('pytest')) {
-      await executeCommand('python -m pytest -vv', 'Running tests with pytest')
+      await executeCommand('uv run pytest -vv', 'Running tests with pytest')
     } else {
       core.warning('Skipping test step no test framework was found in application-dependencies.')
     }

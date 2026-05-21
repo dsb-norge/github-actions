@@ -3,6 +3,52 @@ import { core, exists, parseToml, parseXML } from 'common/deps.ts'
 import { handleError } from 'common/utils/error.ts'
 import { getActionInput, tryParseJson } from 'common/utils/helpers.ts'
 
+interface DependencyGroupInclude {
+  'include-group': string
+}
+
+function isDependencyGroupInclude(entry: unknown): entry is DependencyGroupInclude {
+  if (typeof entry !== 'object' || entry === null) {
+    return false
+  }
+  return typeof (entry as Record<string, unknown>)['include-group'] === 'string'
+}
+
+function resolveDependencyGroupEntries(
+  groupName: string,
+  dependencyGroups: Record<string, unknown[]>,
+  dependencyPath: string[] = [],
+): string[] {
+  if (dependencyPath.includes(groupName)) {
+    throw new Error(`Circular dependency-group include detected: ${[...dependencyPath, groupName].join(' -> ')}`)
+  }
+
+  const dependencies = dependencyGroups[groupName]
+  if (!dependencies) {
+    throw new Error(`Unable to resolve dependency group include '${groupName}', group does not exist.`)
+  }
+
+  const resolvedDependencies: string[] = []
+  for (const dependency of dependencies) {
+    if (typeof dependency === 'string') {
+      resolvedDependencies.push(dependency)
+      continue
+    }
+
+    if (isDependencyGroupInclude(dependency)) {
+      resolvedDependencies.push(
+        ...resolveDependencyGroupEntries(
+          dependency['include-group'],
+          dependencyGroups,
+          [...dependencyPath, groupName],
+        ),
+      )
+    }
+  }
+
+  return resolvedDependencies
+}
+
 async function getSourceFilePath(
   srcPath: string,
   appType: string,
@@ -63,26 +109,39 @@ async function extractMetadata(
     appDesc = tomlData.project.description
     appPythonVersion = tomlData.project['requires-python']
 
-    const rawDependencies = tomlData?.project?.dependencies || []
-    for (const dep of rawDependencies) {
-      // Match name with optional extras in brackets
+    const parsePep508 = (dep: string, group?: string): AppDependency[] => {
       const nameMatch = dep.match(/^([a-zA-Z0-9_\-\.]+(\[[a-zA-Z0-9_,\-]+\])?)/)
       const name = nameMatch ? nameMatch[1] : dep
-      // Extract version spec (after name/extras)
       const versionSpec = dep.replace(/^([a-zA-Z0-9_\-\.]+(\[[a-zA-Z0-9_,\-]+\])?)\s*/, '')
-      // Split on commas for multiple specifiers
       const specs = versionSpec.split(',').map((s: string) => s.trim()).filter(Boolean)
       if (specs.length > 0 && specs[0]) {
-        for (const spec of specs) {
+        return specs.map((spec) => {
           const opMatch = spec.match(/^([<>=!~]+)\s*(.+)$/)
-          appDependencies.push({
-            name,
-            operator: opMatch ? opMatch[1] : '',
-            version: opMatch ? opMatch[2] : '',
-          })
-        }
-      } else {
-        appDependencies.push({ name, operator: '', version: '' })
+          return { name, group, operator: opMatch ? opMatch[1] : '', version: opMatch ? opMatch[2] : '' }
+        })
+      }
+      return [{ name, group, operator: '', version: '' }]
+    }
+
+    // [project.dependencies] — main runtime deps (no group)
+    for (const dep of (tomlData?.project?.dependencies || []) as string[]) {
+      appDependencies.push(...parsePep508(dep))
+    }
+
+    // [project.optional-dependencies.<extra>] — PEP 621 extras
+    const optionalDeps = tomlData?.project?.['optional-dependencies'] || {}
+    for (const [groupName, deps] of Object.entries(optionalDeps) as [string, string[]][]) {
+      for (const dep of deps) {
+        appDependencies.push(...parsePep508(dep, groupName))
+      }
+    }
+
+    // [dependency-groups.<group>] — PEP 735 dependency groups (e.g. dev)
+    const dependencyGroups = (tomlData?.['dependency-groups'] || {}) as Record<string, unknown[]>
+    for (const [groupName] of Object.entries(dependencyGroups)) {
+      const deps = resolveDependencyGroupEntries(groupName, dependencyGroups)
+      for (const dep of deps) {
+        appDependencies.push(...parsePep508(dep, groupName))
       }
     }
   } else {

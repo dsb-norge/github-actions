@@ -1,0 +1,21 @@
+[project]
+name = 'python-app'
+description = 'Python test application'
+requires-python = '>=3.12'
+dependencies = [
+  'fastapi>=0.111.0,<1.0.0',
+]
+
+[project.optional-dependencies]
+dev = [
+  'ruff==0.6.9',
+]
+
+[dependency-groups]
+lint = [
+  'ruff>=0.6.0',
+]
+test = [
+  { include-group = 'lint' },
+  'pytest>=8.3.0',
+]
