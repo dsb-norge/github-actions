@@ -13,7 +13,7 @@ export function setGithub(newGithub: unknown) {
 export { exists } from 'jsr:@std/fs@1.0.15/exists'
 export { basename, dirname, isAbsolute, join, relative, resolve } from 'jsr:@std/path@1.0.8'
 export { parse as parseYaml, stringify as stringifyYaml } from 'jsr:@std/yaml@1.0.5'
-export { XMLParser as parseXML } from 'npm:fast-xml-parser@5.0.9'
+export { XMLParser as parseXML } from 'npm:fast-xml-parser@5.8.0'
 export { crypto } from 'jsr:@std/crypto@1.0.4'
 export { ensureDir, expandGlob } from 'jsr:@std/fs@1.0.15'
 export { encodeHex } from 'jsr:@std/encoding@1.0.8/hex'
