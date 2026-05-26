@@ -242,6 +242,10 @@ jobs:
         with:
           languages: java-kotlin
           build-mode: manual
+          # AlertSuppression pack lets callers suppress alerts inline with
+          # `// codeql[query-id]` comments; the dismiss-alerts step below
+          # consumes the SARIF suppression data and dismisses matching alerts.
+          packs: codeql/java-queries:AlertSuppression.ql
 
       - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build
@@ -254,6 +258,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "🔎 Perform CodeQL Analysis for Java and Kotlin"
+        id: codeql-analyze-java
         if: |
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
@@ -262,6 +267,25 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
+          output: codeql-sarif-java
+
+      - name: "🗙 Dismiss in-source suppressed CodeQL alerts (Java/Kotlin)"
+        # Reads suppression markers (// codeql[query-id]) from the SARIF and
+        # dismisses matching alerts via the GitHub API. Default-branch-only:
+        # alert dismissal is a global property — running this on PR/feature
+        # branches would dismiss on main too.
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && matrix.app-vars.application-type == 'spring-boot'
+          && github.event_name == 'push'
+          && fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
+        continue-on-error: true
+        uses: advanced-security/dismiss-alerts@046d6b48d2e43cf563f96f67332c47c432eff83e # v2.0.2
+        with:
+          sarif-id: ${{ steps.codeql-analyze-java.outputs.sarif-id }}
+          sarif-file: codeql-sarif-java/java-kotlin.sarif
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: "🧹 Clear CodeQL tracer env (LD_PRELOAD) after analysis"
         if: |
@@ -301,6 +325,7 @@ jobs:
         with:
           languages: javascript-typescript
           build-mode: none
+          packs: codeql/javascript-queries:AlertSuppression.ql
           config: |
             paths-ignore:
               - '**/dist/**'
@@ -317,6 +342,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "🔎 Perform CodeQL Analysis for JavaScript and TypeScript"
+        id: codeql-analyze-js
         if: |
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
@@ -325,6 +351,21 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:javascript-typescript/app:${{ matrix.app-vars.application-name }}"
+          output: codeql-sarif-js
+
+      - name: "🗙 Dismiss in-source suppressed CodeQL alerts (JS/TS)"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && matrix.app-vars.application-type == 'vue'
+          && github.event_name == 'push'
+          && fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
+        continue-on-error: true
+        uses: advanced-security/dismiss-alerts@046d6b48d2e43cf563f96f67332c47c432eff83e # v2.0.2
+        with:
+          sarif-id: ${{ steps.codeql-analyze-js.outputs.sarif-id }}
+          sarif-file: codeql-sarif-js/javascript-typescript.sarif
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: "🌐 Vue.js app: 🐳 Build, tag and push docker image for vue"
         id: npm-docker-build
@@ -352,6 +393,7 @@ jobs:
         with:
           languages: python
           build-mode: none
+          packs: codeql/python-queries:AlertSuppression.ql
 
       - name: "🐍 Python app: ⚒ Build and test with pip"
         id: pip-build
@@ -364,6 +406,7 @@ jobs:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
       - name: "🔎 Perform CodeQL Analysis for Python"
+        id: codeql-analyze-python
         if: |
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
@@ -372,6 +415,21 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:python/app:${{ matrix.app-vars.application-name }}"
+          output: codeql-sarif-python
+
+      - name: "🗙 Dismiss in-source suppressed CodeQL alerts (Python)"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && matrix.app-vars.application-type == 'python'
+          && github.event_name == 'push'
+          && fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
+        continue-on-error: true
+        uses: advanced-security/dismiss-alerts@046d6b48d2e43cf563f96f67332c47c432eff83e # v2.0.2
+        with:
+          sarif-id: ${{ steps.codeql-analyze-python.outputs.sarif-id }}
+          sarif-file: codeql-sarif-python/python.sarif
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: "🐍 Python app: 🐳 Build, tag and push docker image"
         id: pip-docker-build
