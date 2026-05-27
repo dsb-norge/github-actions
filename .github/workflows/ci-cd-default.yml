@@ -269,7 +269,7 @@ jobs:
           category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
           output: codeql-sarif-java
 
-      - name: "🔕 Dismiss in-source suppressed CodeQL alerts (Java/Kotlin)"
+      - name: "🤫 Dismiss in-source suppressed CodeQL alerts (Java/Kotlin)"
         # Reads suppression markers (// codeql[query-id]) from the SARIF and
         # dismisses matching alerts via the GitHub API. Default-branch-only:
         # alert dismissal is a global property — running this on PR/feature
@@ -283,7 +283,10 @@ jobs:
         uses: advanced-security/dismiss-alerts@046d6b48d2e43cf563f96f67332c47c432eff83e # v2.0.2
         with:
           sarif-id: ${{ steps.codeql-analyze-java.outputs.sarif-id }}
-          sarif-file: codeql-sarif-java/java-kotlin.sarif
+          # Directory, not a filename: CodeQL v4 names the SARIF by the
+          # resolved language (java.sarif), not the alias (java-kotlin.sarif).
+          # Pointing at the dir processes whatever it's named.
+          sarif-file: codeql-sarif-java
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -353,7 +356,7 @@ jobs:
           category: "/language:javascript-typescript/app:${{ matrix.app-vars.application-name }}"
           output: codeql-sarif-js
 
-      - name: "🔕 Dismiss in-source suppressed CodeQL alerts (JS/TS)"
+      - name: "🤫 Dismiss in-source suppressed CodeQL alerts (JS/TS)"
         if: |
           matrix.app-vars['has-changes'] == true
           && matrix.app-vars.application-type == 'vue'
@@ -363,7 +366,8 @@ jobs:
         uses: advanced-security/dismiss-alerts@046d6b48d2e43cf563f96f67332c47c432eff83e # v2.0.2
         with:
           sarif-id: ${{ steps.codeql-analyze-js.outputs.sarif-id }}
-          sarif-file: codeql-sarif-js/javascript-typescript.sarif
+          # Directory, not a filename (see Java step for rationale).
+          sarif-file: codeql-sarif-js
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -417,7 +421,7 @@ jobs:
           category: "/language:python/app:${{ matrix.app-vars.application-name }}"
           output: codeql-sarif-python
 
-      - name: "🔕 Dismiss in-source suppressed CodeQL alerts (Python)"
+      - name: "🤫 Dismiss in-source suppressed CodeQL alerts (Python)"
         if: |
           matrix.app-vars['has-changes'] == true
           && matrix.app-vars.application-type == 'python'
@@ -427,7 +431,8 @@ jobs:
         uses: advanced-security/dismiss-alerts@046d6b48d2e43cf563f96f67332c47c432eff83e # v2.0.2
         with:
           sarif-id: ${{ steps.codeql-analyze-python.outputs.sarif-id }}
-          sarif-file: codeql-sarif-python/python.sarif
+          # Directory, not a filename (see Java step for rationale).
+          sarif-file: codeql-sarif-python
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
