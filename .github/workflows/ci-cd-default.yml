@@ -269,7 +269,7 @@ jobs:
           category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
           output: codeql-sarif-java
 
-      - name: "🗙 Dismiss in-source suppressed CodeQL alerts (Java/Kotlin)"
+      - name: "🔕 Dismiss in-source suppressed CodeQL alerts (Java/Kotlin)"
         # Reads suppression markers (// codeql[query-id]) from the SARIF and
         # dismisses matching alerts via the GitHub API. Default-branch-only:
         # alert dismissal is a global property — running this on PR/feature
@@ -353,7 +353,7 @@ jobs:
           category: "/language:javascript-typescript/app:${{ matrix.app-vars.application-name }}"
           output: codeql-sarif-js
 
-      - name: "🗙 Dismiss in-source suppressed CodeQL alerts (JS/TS)"
+      - name: "🔕 Dismiss in-source suppressed CodeQL alerts (JS/TS)"
         if: |
           matrix.app-vars['has-changes'] == true
           && matrix.app-vars.application-type == 'vue'
@@ -417,7 +417,7 @@ jobs:
           category: "/language:python/app:${{ matrix.app-vars.application-name }}"
           output: codeql-sarif-python
 
-      - name: "🗙 Dismiss in-source suppressed CodeQL alerts (Python)"
+      - name: "🔕 Dismiss in-source suppressed CodeQL alerts (Python)"
         if: |
           matrix.app-vars['has-changes'] == true
           && matrix.app-vars.application-type == 'python'
