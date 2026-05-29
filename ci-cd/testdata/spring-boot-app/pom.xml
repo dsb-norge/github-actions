@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.4</version>
+        <version>3.5.14</version>
         <!-- lookup parent from repository -->
         <relativePath/>
     </parent>
@@ -20,8 +20,8 @@
 
     <properties>
         <java.version>21</java.version>
-        <kotlin.version>2.1.20</kotlin.version>
-        <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
+        <kotlin.version>2.3.21</kotlin.version>
+        <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
 
         <dsb-starter-appinfo.version>2024.11.29.4648</dsb-starter-appinfo.version>
         <dsb-starter-prometheus.version>2024.12.20.7382</dsb-starter-prometheus.version>
@@ -32,12 +32,12 @@
             See: Mapping from Spring Boot / Spring Cloud version to Spring Cloud Azure / azure-sdk-bom version
                 https://github.com/Azure/azure-sdk-for-java/wiki/Spring-Versions-Mapping#which-version-of-spring-cloud-azure-should-i-use
          -->
-        <azure-starter.version>5.21.0</azure-starter.version>
+        <azure-starter.version>5.25.0</azure-starter.version>
 
         <jasypt-spring-boot.version>3.0.5</jasypt-spring-boot.version>
 
-        <testcontainers.mssqlserver.version>1.20.6</testcontainers.mssqlserver.version>
-        <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+        <testcontainers.mssqlserver.version>1.21.4</testcontainers.mssqlserver.version>
+        <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
 
         <!-- Sonar properties: -->
         <sonar.projectKey>dsb-norge_test-application</sonar.projectKey>
@@ -130,7 +130,7 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-resolver-dns-native-macos</artifactId>
-            <version>4.1.119.Final</version>
+            <version>4.2.14.Final</version>
             <classifier>osx-aarch_64</classifier>
         </dependency>
         <dependency>
