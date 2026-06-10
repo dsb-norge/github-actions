@@ -241,7 +241,12 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin
-          build-mode: manual
+          # build-mode: none (was: manual) — CodeQL's trace-mode Kotlin
+          # extractor only supports Kotlin < 2.3.30, so tracing the Maven
+          # build crashes on Kotlin 2.4.0. none extracts from source instead,
+          # decoupling CodeQL from the Kotlin compiler version. Lower fidelity;
+          # revert to manual once CodeQL supports our Kotlin (github/codeql#21938).
+          build-mode: none
 
       - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build
