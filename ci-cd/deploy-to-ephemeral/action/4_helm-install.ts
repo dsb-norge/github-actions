@@ -29,7 +29,9 @@ export async function run(): Promise<void> {
     const helmCmdArgs: string[] = [
       'upgrade',
       '--install',
-      '--atomic',
+      '--server-side=true',
+      '--force-conflicts',
+      '--rollback-on-failure',
       '--create-namespace',
       '--namespace',
       namespace,
