@@ -47,10 +47,13 @@ on:
         # Enables gradual, per-repo migration to GitHub-hosted runners with one-line rollback.
         default: '["self-hosted", "dsb-builder", "linux", "x64"]'
         description: |
-          Runner to run jobs on, as a JSON-encoded string (decoded with fromJSON).
-          Either a label array, e.g. '["self-hosted", "dsb-builder", "linux", "x64"]' (default),
-          or a single GitHub-hosted runner name, e.g. '"builder-app-platform-ghr-ubuntu-large"'.
-          Applies to all jobs except the final 'ci-cd-conclusion' gate (always ubuntu-latest).
+          Runner to run jobs on, as a JSON array string (decoded with fromJSON). Use a one-element
+          array for a single GitHub-hosted larger runner (matched by name), same shape as the default:
+            self-hosted pool (default): '["self-hosted", "dsb-builder", "linux", "x64"]'
+            GitHub-hosted larger runner: '["builder-app-platform-ghr-ubuntu-large"]'
+          (A bare JSON string like '"builder-app-platform-ghr-ubuntu-large"' also works, but the array
+          form is preferred for consistency.) Applies to all jobs except the final 'ci-cd-conclusion'
+          gate (always ubuntu-latest).
       # below are repo-specific settings, not app specific and thus does not belong in 'apps'
       # for explanation of maven artifact pruning configuration see inputs of 'ci-cd/prune-maven-artifacts-in-repo/action.yml'
       # sane defaults are defined but can be overridden pr. repo
