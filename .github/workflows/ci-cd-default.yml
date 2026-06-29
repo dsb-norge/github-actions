@@ -40,6 +40,17 @@ on:
             - application-name        - string
           For optional fields see possible inputs to the create-build-envs action.
         required: true
+      runs-on:
+        type: string
+        required: false
+        # Default IS the historical hardcoded value, so callers that don't set this are unaffected.
+        # Enables gradual, per-repo migration to GitHub-hosted runners with one-line rollback.
+        default: '["self-hosted", "dsb-builder", "linux", "x64"]'
+        description: |
+          Runner to run jobs on, as a JSON-encoded string (decoded with fromJSON).
+          Either a label array, e.g. '["self-hosted", "dsb-builder", "linux", "x64"]' (default),
+          or a single GitHub-hosted runner name, e.g. '"builder-app-platform-ghr-ubuntu-large"'.
+          Applies to all jobs except the final 'ci-cd-conclusion' gate (always ubuntu-latest).
       # below are repo-specific settings, not app specific and thus does not belong in 'apps'
       # for explanation of maven artifact pruning configuration see inputs of 'ci-cd/prune-maven-artifacts-in-repo/action.yml'
       # sane defaults are defined but can be overridden pr. repo
@@ -71,7 +82,7 @@ on:
 jobs:
   check-docker-disk-space:
     name: Check Docker Disk Space & Prune if Needed
-    runs-on: [self-hosted, dsb-builder, linux, x64]
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     defaults:
       run:
         shell: bash
@@ -91,7 +102,7 @@ jobs:
   create-matrix:
     name: Create build matrix
     needs: check-docker-disk-space
-    runs-on: [self-hosted, dsb-builder, linux, x64]
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     defaults:
       run:
         shell: bash
@@ -133,7 +144,7 @@ jobs:
   build-deploy:
     name: Build and deploy
     needs: create-matrix
-    runs-on: [self-hosted, dsb-builder, linux, x64]
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     strategy:
       matrix: ${{ fromJSON(needs.create-matrix.outputs.app-vars-matrix) }}
       fail-fast: false
@@ -468,7 +479,7 @@ jobs:
     if: |
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
     needs: [create-matrix, build-deploy]
-    runs-on: [self-hosted, dsb-builder, linux, x64]
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     defaults:
       run:
         shell: bash
@@ -546,7 +557,7 @@ jobs:
       &&
       ( github.event_name != 'pull_request' || github.event.action == 'closed' )
     needs: [create-matrix, build-deploy]
-    runs-on: [self-hosted, dsb-builder, linux, x64]
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     defaults:
       run:
         shell: bash
