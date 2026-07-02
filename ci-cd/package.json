@@ -4,8 +4,8 @@
   "description": "Create build/deploy vars for one or more DSB apps",
   "dependencies": {
     "@actions/core": "1.11.1",
-    "@actions/github": "6.0.0",
-    "fast-xml-parser": "5.8.0"
+    "@actions/github": "6.0.1",
+    "fast-xml-parser": "5.9.3"
   },
   "type": "module",
   "main": "src/main.ts"
