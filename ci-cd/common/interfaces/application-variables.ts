@@ -64,6 +64,11 @@ export interface AppVars {
   'nodejs-build-project-custom-command-pre-npm-ci'?: string
   'nodejs-build-project-custom-command-pre-npm-run-build'?: string
   'nodejs-build-project-custom-command-pre-npm-run-lint'?: string
+  // Unit tests are auto-detected from package.json. Set to a script name to run a specific one,
+  // or to false to skip them for a project whose test script CI should not run.
+  'nodejs-unit-test-script'?: string | boolean
+  // Where the unit test run leaves its JUnit XML, for publishing results back to the PR.
+  'nodejs-unit-test-results-path'?: string
   'nodejs-e2e-enabled'?: string | boolean // Indicates if E2E tests are enabled
   'nodejs-e2e-backend-json'?: string // Path to JSON file containing json-server config
   'nodejs-e2e-backend-routes'?: string // Path to JSON file containing json-server routes

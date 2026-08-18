@@ -2,6 +2,7 @@ import { core } from 'common/deps.ts' // Assuming core and copy are exported her
 import { executeCommand, getActionInput, tryParseJson } from 'common/utils/helpers.ts'
 import { handleError } from 'common/utils/error.ts'
 import { AppVars } from 'common/interfaces/application-variables.ts'
+import { resolveUnitTestScript } from './unit-tests.ts'
 
 /**
  * Main function for the GitHub Action step.
@@ -38,17 +39,30 @@ export async function run(): Promise<void> {
     // Optional: Add error handling or check if lint script exists in package.json
     await executeCommand('npm run lint --color=always', 'Running npm lint')
 
-    // 5. Pre npm run build hook
+    // 5. npm run <unit tests>, when the project has any. Runs before the build so a failing
+    // test stops the pipeline at the cheapest point.
+    const unitTestScript = resolveUnitTestScript(await readPackageScripts(), appVars['nodejs-unit-test-script'])
+    // Set before running: a failing test throws, and the workflow still needs to know a test
+    // report is expected so it can publish it.
+    core.setOutput('unit-tests-ran', unitTestScript !== null ? 'true' : 'false')
+
+    if (unitTestScript) {
+      await executeCommand(`npm run ${unitTestScript} --color=always`, `Running npm ${unitTestScript}`)
+    } else {
+      core.info('No unit test script found in package.json, skipping unit tests.')
+    }
+
+    // 6. Pre npm run build hook
     if (appVars['nodejs-build-project-custom-command-pre-npm-run-build']) {
       core.info('Executing pre npm run build custom command...')
       await executeCommand(appVars['nodejs-build-project-custom-command-pre-npm-run-build'], 'Custom command: pre npm run build')
     }
 
-    // 6. npm run build
+    // 7. npm run build
     // Optional: Add error handling or check if build script exists
     await executeCommand('npm run build --color=always', 'Running npm build')
 
-    // 7. Final hook
+    // 8. Final hook
     if (appVars['nodejs-build-project-custom-command-final']) {
       core.info('Executing final custom command...')
       await executeCommand(appVars['nodejs-build-project-custom-command-final'], 'Custom command: final')
@@ -58,6 +72,20 @@ export async function run(): Promise<void> {
   } catch (error) {
     // Catch errors from executeCommand or other unexpected issues
     handleError(error, 'running Node.js build process')
+  }
+}
+
+/**
+ * The `scripts` block of the project's package.json, read from the working directory the
+ * action step runs in. An unreadable package.json is left to the npm commands to report.
+ */
+async function readPackageScripts(): Promise<Record<string, string> | null> {
+  try {
+    const packageJson = tryParseJson<{ scripts?: Record<string, string> }>(await Deno.readTextFile('package.json'))
+    return packageJson?.scripts ?? null
+  } catch (error) {
+    core.debug(`Could not read package.json: ${error instanceof Error ? error.message : String(error)}`)
+    return null
   }
 }
 
