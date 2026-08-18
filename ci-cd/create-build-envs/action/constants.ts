@@ -86,6 +86,8 @@ export const ENVS_WITHOUT_SECRETS: Set<string> = new Set([
   'nodejs-build-project-custom-command-pre-npm-run-build',
   'nodejs-build-project-custom-command-pre-npm-run-lint',
   'nodejs-version',
+  'nodejs-unit-test-script',
+  'nodejs-unit-test-results-path',
   'nodejs-e2e-enabled',
   'nodejs-e2e-backend-json',
   'nodejs-e2e-backend-routes',
