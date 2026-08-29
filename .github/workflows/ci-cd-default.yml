@@ -263,11 +263,15 @@ jobs:
           # extracted Kotlin at all, so pure-Kotlin apps failed analysis with
           # "CodeQL could not process any code written in Java/Kotlin".
           build-mode: manual
-          # Run the code-quality query suite in the same analysis and upload
-          # the results to GitHub Code Quality (the SonarQube replacement).
-          # NB: the input is marked [Internal] while Code Quality is in
-          # preview, so its behaviour may change with codeql-action upgrades.
-          analysis-kinds: code-scanning,code-quality
+          # Add the code-quality query suite (maintainability/reliability — the
+          # SonarQube-type findings) on top of the security queries. Findings
+          # land in code scanning alongside the security results: while GitHub
+          # Code Quality is in preview, only its own default setup may upload
+          # to the Code Quality product (`analysis-kinds: code-quality` is
+          # rejected in custom workflows with "use the queries input with
+          # code-quality instead"). TODO: switch to Code Quality uploads when
+          # the preview opens for advanced setup.
+          queries: +code-quality
 
       - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build

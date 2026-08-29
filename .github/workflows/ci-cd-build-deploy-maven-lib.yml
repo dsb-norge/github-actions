@@ -160,8 +160,9 @@ jobs:
           # rationale: CodeQL >= 2.26.2 handles Kotlin up to 2.4.10, and
           # none-mode never extracted Kotlin at all.
           build-mode: manual
-          # Upload code-quality results too (GitHub Code Quality, preview).
-          analysis-kinds: code-scanning,code-quality
+          # Add the code-quality query suite on top of the security queries —
+          # see ci-cd-default.yml for why this is not `analysis-kinds`.
+          queries: +code-quality
 
       - name: "🧮 Library: ⚒ Build and analyze with Maven"
         id: maven-build-lib
