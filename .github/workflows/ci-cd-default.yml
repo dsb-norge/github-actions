@@ -305,6 +305,60 @@ jobs:
         shell: bash
         run: echo "LD_PRELOAD=" >> "$GITHUB_ENV"
 
+      - name: "🕵️ detekt: Kotlin static analysis"
+        id: detekt
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'spring-boot'
+        # Kotlin code smells/complexity — complements CodeQL, whose quality suite
+        # is Java-centric and has next to no Kotlin-specific rules. Opt-in per
+        # app: runs only when a detekt.yml exists in the app's source path (works
+        # for both monorepo layouts like ./backend and root-level apps at ./).
+        # The repo's detekt.yml holds overrides on top of detekt's default config.
+        shell: bash
+        env:
+          DETEKT_VERSION: "1.23.8"
+          DETEKT_SHA256: "2ce2ff952e150baf28a29cda70a363b0340b3e81a55f43e51ec5edffc3d066c1"
+          APP_SOURCE_PATH: ${{ matrix.app-vars.application-source-path }}
+          APP_NAME: ${{ matrix.app-vars.application-name }}
+        run: |
+          if [ ! -f "${APP_SOURCE_PATH}/detekt.yml" ]; then
+            echo "No detekt.yml in '${APP_SOURCE_PATH}' — skipping detekt."
+            echo "sarif-created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          curl -sSfL -o "${RUNNER_TEMP}/detekt-cli.jar" \
+            "https://github.com/detekt/detekt/releases/download/v${DETEKT_VERSION}/detekt-cli-${DETEKT_VERSION}-all.jar"
+          echo "${DETEKT_SHA256}  ${RUNNER_TEMP}/detekt-cli.jar" | sha256sum -c -
+          # Exit codes: 0 = clean, 2 = issues found (fine — they are reported via
+          # code scanning, not by failing the build), anything else = real error.
+          set +e
+          java -jar "${RUNNER_TEMP}/detekt-cli.jar" \
+            --input "${APP_SOURCE_PATH}" \
+            --config "${APP_SOURCE_PATH}/detekt.yml" \
+            --build-upon-default-config \
+            --excludes '**/target/**,**/build/**,**/generated/**' \
+            --base-path "${GITHUB_WORKSPACE}" \
+            --report "sarif:${RUNNER_TEMP}/detekt-${APP_NAME}.sarif"
+          detekt_exit=$?
+          set -e
+          if [ "${detekt_exit}" -ne 0 ] && [ "${detekt_exit}" -ne 2 ]; then
+            echo "detekt failed with exit code ${detekt_exit}"
+            exit "${detekt_exit}"
+          fi
+          echo "sarif-created=true" >> "$GITHUB_OUTPUT"
+
+      - name: "🕵️ Upload detekt results to code scanning"
+        if: steps.detekt.outputs.sarif-created == 'true'
+        # Soft rollout: must not fail callers that lack GHAS or
+        # security-events: write — same policy as the CodeQL steps.
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ runner.temp }}/detekt-${{ matrix.app-vars.application-name }}.sarif
+          category: "detekt/app:${{ matrix.app-vars.application-name }}"
+
       - name: "🍃 Spring Boot app: 🐳 Build, tag and push docker image"
         id: maven-docker-build
         if: |
