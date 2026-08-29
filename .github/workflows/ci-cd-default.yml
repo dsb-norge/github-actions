@@ -255,12 +255,19 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin
-          # build-mode: none (was: manual) — CodeQL's trace-mode Kotlin
-          # extractor only supports Kotlin < 2.3.30, so tracing the Maven
-          # build crashes on Kotlin 2.4.0. none extracts from source instead,
-          # decoupling CodeQL from the Kotlin compiler version. Lower fidelity;
-          # revert to manual once CodeQL supports our Kotlin (github/codeql#21938).
-          build-mode: none
+          # build-mode: manual (was: none) — the tracer follows the real Maven
+          # build below, which runs on our runners with access to internal
+          # artifacts. CodeQL >= 2.26.2 supports Kotlin up to 2.4.10
+          # (github/codeql#21938 is fixed), so the tracer no longer crashes on
+          # Kotlin 2.4 projects. none-mode was not an alternative: it never
+          # extracted Kotlin at all, so pure-Kotlin apps failed analysis with
+          # "CodeQL could not process any code written in Java/Kotlin".
+          build-mode: manual
+          # Run the code-quality query suite in the same analysis and upload
+          # the results to GitHub Code Quality (the SonarQube replacement).
+          # NB: the input is marked [Internal] while Code Quality is in
+          # preview, so its behaviour may change with codeql-action upgrades.
+          analysis-kinds: code-scanning,code-quality
 
       - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build
