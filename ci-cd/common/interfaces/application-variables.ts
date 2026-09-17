@@ -110,6 +110,9 @@ export interface AppVars {
   'github-dependencies-cache-pr-base-key'?: string // Generated
   'github-dependencies-cache-delete-on-pr-close'?: string | boolean
 
+  // Code scanning
+  'codeql-enabled'?: string | boolean // Set to false to skip CodeQL init/analysis for the app, normalized to a boolean by create-build-envs
+
   // Other Secrets / Tokens
   'app-config-repo'?: string
   'app-config-repo-token'?: string // Secret

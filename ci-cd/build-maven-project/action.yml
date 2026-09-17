@@ -180,6 +180,18 @@ runs:
         java-version: ${{ fromJSON(inputs.dsb-build-envs).java-version }}
         overwrite-settings: false # do not overwrite settings.xml from the configure-maven-settings action
 
+    # CodeQL's manual-mode tracer injects itself into kotlinc. If the project's Kotlin version is
+    # newer than the installed CodeQL bundle supports, the extractor throws before compilation and
+    # fails the build — 'continue-on-error' on the CodeQL steps does not cover that, since the
+    # failure lands here. This step disables Kotlin extraction in that case (Java is unaffected).
+    - id: codeql-kotlin-guard
+      shell: bash
+      env:
+        INPUT_DSB_BUILD_ENVS: ${{ inputs.dsb-build-envs }}
+        GITHUB_WORKSPACE: ${{ github.workspace }}
+      # See 3_invoke-maven.ts step below for why --allow-run is unscoped.
+      run: deno run --allow-env --allow-read --allow-write --allow-run ${{ github.action_path }}/action/2_codeql-kotlin-guard.ts
+
     - id: invoke-maven
       shell: bash
       env:
@@ -197,7 +209,7 @@ runs:
       # to honour. mvn itself is a code-execution primitive (plugin fetching,
       # exec:exec, plugin-execution hooks), so a binary allowlist gave only
       # nominal isolation in practice.
-      run: deno run --allow-env --allow-read --allow-write --allow-run ${{ github.action_path }}/action/2_invoke-maven.ts
+      run: deno run --allow-env --allow-read --allow-write --allow-run ${{ github.action_path }}/action/3_invoke-maven.ts
 
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@567cc7f8dcea3eba5da355f6ebc95663310d8a07
@@ -228,8 +240,8 @@ runs:
         GITHUB_EVENT_ACTION: "${{ github.event.action }}"
         GITHUB_EVENT_NAME: "${{ github.event_name }}"
         GITHUB_EVENT_NUMBER: "${{ github.event.number }}"
-      # See 2_invoke-maven.ts step above for why --allow-run is unscoped.
-      run: deno run --allow-env --allow-read --allow-write --allow-run ${{ github.action_path }}/action/3_deploy-artifacts.ts
+      # See 3_invoke-maven.ts step above for why --allow-run is unscoped.
+      run: deno run --allow-env --allow-read --allow-write --allow-run ${{ github.action_path }}/action/4_deploy-artifacts.ts
 
     # find deployed maven artifacts for attestation
     - name: "🔍 Find: 📦 deployed maven artifacts"

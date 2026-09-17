@@ -81,6 +81,33 @@ Artifact attestation requires outbound HTTPS (443) access to Sigstore endpoints 
 | `fulcio.sigstore.dev` | Signing certificate issuance (public repos) |
 | `rekor.sigstore.dev` | Transparency log (public repos) |
 
+### Code scanning (CodeQL)
+
+CodeQL runs as part of the build for `spring-boot` (java-kotlin), `vue` (javascript-typescript), `python` and `maven-library` apps, with the `code-quality` query suite on top of the security queries. Kotlin apps additionally get [detekt](https://detekt.dev/) findings uploaded to code scanning when the app source path contains a `detekt.yml`.
+
+#### Kotlin version guard
+
+Java/Kotlin analysis uses `build-mode: manual`, which means CodeQL's tracer injects itself into `kotlinc` during the real Maven build. When the project's Kotlin version is newer than the installed CodeQL bundle supports, the extractor throws before compilation:
+
+```
+com.semmle.extractor.java.interceptors.KotlinInterceptor$KotlinVersionTooRecentError:
+  Kotlin version 2.4.20 is too recent. CodeQL currently supports versions below 2.4.20
+```
+
+That failure lands in the Maven build step, so `continue-on-error` on the CodeQL steps does not contain it — the whole build and deploy fails. `build-maven-project` therefore compares the project's Kotlin version against the extractors the installed bundle ships (`2_codeql-kotlin-guard.ts`) and sets `CODEQL_EXTRACTOR_JAVA_AGENT_DISABLE_KOTLIN=true` when CodeQL cannot handle it. The build then proceeds, Java code is still analyzed, and Kotlin analysis resumes by itself once a CodeQL bundle with support for that Kotlin version is released. The guard logs a warning when it kicks in, and never fails the build itself.
+
+#### Opting out per application
+
+Set `codeql-enabled: false` on an app in `apps` to skip code scanning for it — that covers CodeQL init and analysis, and with it the detekt run, whose findings are uploaded through `codeql-action/upload-sarif`. Both the YAML boolean and the quoted string `"false"` are accepted:
+
+```yaml
+apps: |
+  - application-name: my-app
+    codeql-enabled: false
+```
+
+The value is normalized to a real boolean by `create-build-envs` and defaults to `true`, so the workflows can test it directly in an `if:` expression. That matters: an app var that is not set reads as `null`, and GitHub casts both `null` and boolean `false` to `0` when comparing, which makes `!= false` impossible to express correctly.
+
 ## Maintenance
 
 ### Development
