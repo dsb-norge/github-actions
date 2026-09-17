@@ -249,6 +249,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
+          && fromJSON(steps.build-env.outputs.json).codeql-enabled
         # Soft rollout: CodeQL steps must not fail callers that lack GHAS or
         # security-events: write. Remove once all consumers are onboarded.
         continue-on-error: true
@@ -257,11 +258,13 @@ jobs:
           languages: java-kotlin
           # build-mode: manual (was: none) — the tracer follows the real Maven
           # build below, which runs on our runners with access to internal
-          # artifacts. CodeQL >= 2.26.2 supports Kotlin up to 2.4.10
-          # (github/codeql#21938 is fixed), so the tracer no longer crashes on
-          # Kotlin 2.4 projects. none-mode was not an alternative: it never
-          # extracted Kotlin at all, so pure-Kotlin apps failed analysis with
-          # "CodeQL could not process any code written in Java/Kotlin".
+          # artifacts. none-mode was not an alternative: it never extracted
+          # Kotlin at all, so pure-Kotlin apps failed analysis with "CodeQL
+          # could not process any code written in Java/Kotlin".
+          # The flip side of manual mode is that the tracer injects itself into
+          # kotlinc and refuses Kotlin versions newer than the bundle supports,
+          # which fails the Maven build itself (not this step). build-maven-project
+          # guards against that by disabling Kotlin extraction when needed.
           build-mode: manual
           # Add the code-quality query suite (maintainability/reliability — the
           # SonarQube-type findings) on top of the security queries. Findings
@@ -288,6 +291,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
+          && fromJSON(steps.build-env.outputs.json).codeql-enabled
         continue-on-error: true
         uses: github/codeql-action/analyze@v4
         with:
@@ -380,6 +384,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
+          && fromJSON(steps.build-env.outputs.json).codeql-enabled
         continue-on-error: true
         uses: github/codeql-action/init@v4
         with:
@@ -405,6 +410,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'vue'
+          && fromJSON(steps.build-env.outputs.json).codeql-enabled
         continue-on-error: true
         uses: github/codeql-action/analyze@v4
         with:
@@ -431,6 +437,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'python'
+          && fromJSON(steps.build-env.outputs.json).codeql-enabled
         continue-on-error: true
         uses: github/codeql-action/init@v4
         with:
@@ -452,6 +459,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'python'
+          && fromJSON(steps.build-env.outputs.json).codeql-enabled
         continue-on-error: true
         uses: github/codeql-action/analyze@v4
         with:

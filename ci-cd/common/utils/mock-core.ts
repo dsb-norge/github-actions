@@ -5,6 +5,7 @@ export const mockInfoLogs: string[] = []
 export const mockErrorLogs: string[] = []
 export const mockWarningLogs: string[] = []
 export const mockDebugLogs: string[] = []
+export const mockExportedVars: { [key: string]: string } = {}
 
 export const mockCore = {
   yamlPath: '',
@@ -76,6 +77,10 @@ export const mockCore = {
   setSecret: (_value: string) => {
     // No-op for mock
   },
+  exportVariable: (name: string, value: string) => {
+    console.log(`EXPORT: ${name}=${value}`)
+    mockExportedVars[name] = value
+  },
 }
 
 const appVars: AppVars[] = [] // Define appVars in a broader scope
@@ -96,6 +101,9 @@ export function resetMockCore() {
   mockErrorLogs.length = 0
   mockWarningLogs.length = 0
   mockDebugLogs.length = 0
+  for (const key in mockExportedVars) {
+    delete mockExportedVars[key]
+  }
 
   mockCore.yamlPath = ''
   // No need to set APPVARS here, setAppVars should be called if needed by test

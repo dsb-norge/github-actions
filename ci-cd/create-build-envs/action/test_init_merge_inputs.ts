@@ -260,8 +260,37 @@ Deno.test('init_merge_inputs - All Empty Inputs', async () => {
   await run()
   const appVars = JSON.parse(mockOutputs['APPVARS'])
 
-  // Should result in an empty object with no errors
-  assertEquals(Object.keys(appVars).length, 0)
+  // Should result in no errors, and only the defaulted 'codeql-enabled' flag
+  assertEquals(Object.keys(appVars), ['codeql-enabled'])
+  assertEquals(appVars['codeql-enabled'], true)
+})
+
+Deno.test('init_merge_inputs - codeql-enabled defaults to true and normalizes to a boolean', async () => {
+  const mockAppVars = (appVars: Record<string, unknown>) => {
+    resetMockCore()
+    initContextFileReader()
+    mockCore.getInput = (name: string) => (name.toLowerCase().replace(/_/g, '-') === 'app-vars' ? JSON.stringify(appVars) : '')
+  }
+
+  // Not specified: CodeQL is on
+  mockAppVars({ 'application-name': 'test-app' })
+  await run()
+  assertEquals(JSON.parse(mockOutputs['APPVARS'])['codeql-enabled'], true)
+
+  // Opted out with a YAML boolean
+  mockAppVars({ 'application-name': 'test-app', 'codeql-enabled': false })
+  await run()
+  assertEquals(JSON.parse(mockOutputs['APPVARS'])['codeql-enabled'], false)
+
+  // Opted out with a string, as it looks when quoted in YAML
+  mockAppVars({ 'application-name': 'test-app', 'codeql-enabled': 'false' })
+  await run()
+  assertEquals(JSON.parse(mockOutputs['APPVARS'])['codeql-enabled'], false)
+
+  // Explicitly enabled
+  mockAppVars({ 'application-name': 'test-app', 'codeql-enabled': 'true' })
+  await run()
+  assertEquals(JSON.parse(mockOutputs['APPVARS'])['codeql-enabled'], true)
 })
 
 Deno.test('init_merge_inputs - Error Handling', async () => {

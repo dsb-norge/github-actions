@@ -55,6 +55,7 @@ export const ENVS_WITHOUT_SECRETS: Set<string> = new Set([
   'caller-repo-calling-branch',
   'caller-repo-default-branch',
   'caller-repo-is-on-default-branch',
+  'codeql-enabled',
   'docker-image-prune-keep-min-images',
   'docker-image-prune-keep-num-days',
   'docker-image-registry',

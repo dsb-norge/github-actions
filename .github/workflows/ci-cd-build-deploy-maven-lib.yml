@@ -150,6 +150,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
+          && fromJSON(steps.build-env.outputs.json).codeql-enabled
         # Soft rollout: CodeQL steps must not fail callers that lack GHAS or
         # security-events: write. Remove once all consumers are onboarded.
         continue-on-error: true
@@ -157,8 +158,8 @@ jobs:
         with:
           languages: java-kotlin
           # build-mode: manual (was: none) — see ci-cd-default.yml for the full
-          # rationale: CodeQL >= 2.26.2 handles Kotlin up to 2.4.10, and
-          # none-mode never extracted Kotlin at all.
+          # rationale, including how build-maven-project keeps the tracer from
+          # failing builds on Kotlin versions CodeQL does not support yet.
           build-mode: manual
           # Add the code-quality query suite on top of the security queries —
           # see ci-cd-default.yml for why this is not `analysis-kinds`.
@@ -177,6 +178,7 @@ jobs:
         if: |
           ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'maven-library'
+          && fromJSON(steps.build-env.outputs.json).codeql-enabled
         continue-on-error: true
         uses: github/codeql-action/analyze@v4
         with:
