@@ -20,7 +20,7 @@ import { executeCommandWithOutput, findPomXml, getActionInput, getWorkspacePath,
 const DISABLE_KOTLIN_ENV: string = 'CODEQL_EXTRACTOR_JAVA_AGENT_DISABLE_KOTLIN'
 
 /** Pinned so the plugin version is reproducible and no LATEST metadata lookup is needed. */
-const MVN_HELP_PLUGIN: string = 'org.apache.maven.plugins:maven-help-plugin:3.5.2:evaluate'
+const MVN_HELP_PLUGIN: string = 'org.apache.maven.plugins:maven-help-plugin:3.5.2'
 
 /**
  * Highest Kotlin feature version supported by the CodeQL bundle, used only when the extractor jars
@@ -76,6 +76,22 @@ export function parseExtractorJarVersion(fileName: string): string | null {
 export function extractKotlinVersionFromPom(pomXml: string): string | null {
   const match = /<kotlin\.version>\s*([^<\s]+)\s*<\/kotlin\.version>/.exec(pomXml)
   return match ? match[1] : null
+}
+
+/**
+ * Reads the version configured on the 'kotlin-maven-plugin' itself, for projects that pin the plugin
+ * directly instead of going through the 'kotlin.version' property. Versions that are still property
+ * placeholders ('${kotlin.version}') are ignored — only maven can resolve those.
+ */
+export function extractKotlinPluginVersionFromPom(pomXml: string): string | null {
+  const versions: string[] = []
+  for (const block of pomXml.matchAll(/<plugin\b[^>]*>([\s\S]*?)<\/plugin>/g)) {
+    const plugin = block[1]
+    if (!/<artifactId>\s*kotlin-maven-plugin\s*<\/artifactId>/.test(plugin)) continue
+    const version = /<version>\s*([^<\s]+)\s*<\/version>/.exec(plugin)?.[1]
+    if (version && parseKotlinVersion(version)) versions.push(version)
+  }
+  return versions.length > 0 ? versions.sort(compareVersions).at(-1)! : null
 }
 
 export interface KotlinSupportDecision {
@@ -144,36 +160,67 @@ async function hasKotlinSources(sourceDir: string): Promise<boolean> {
 }
 
 /**
- * Determines the Kotlin version of the project. Poms that declare 'kotlin.version' themselves answer
- * this for free, otherwise maven is asked to evaluate the property (it is typically inherited from
- * spring-boot-starter-parent).
+ * Collects Kotlin versions that the poms below `sourceDir` state outright, either as the
+ * 'kotlin.version' property or as a version on the kotlin-maven-plugin. Returns the highest one, as
+ * that is the version most likely to be rejected by the extractor.
  */
-export async function detectKotlinVersion(sourceDir: string, pomFilePath: string): Promise<string | null> {
+async function collectDeclaredKotlinVersions(sourceDir: string): Promise<string | null> {
   const declared: string[] = []
   for await (const entry of expandGlob('**/pom.xml', { root: sourceDir, exclude: GLOB_EXCLUDES, includeDirs: false })) {
-    const version = extractKotlinVersionFromPom(await Deno.readTextFile(entry.path))
-    if (version) declared.push(version)
+    const pomXml = await Deno.readTextFile(entry.path)
+    const propertyVersion = extractKotlinVersionFromPom(pomXml)
+    if (propertyVersion && parseKotlinVersion(propertyVersion)) declared.push(propertyVersion)
+    const pluginVersion = extractKotlinPluginVersionFromPom(pomXml)
+    if (pluginVersion) declared.push(pluginVersion)
   }
-  if (declared.length > 0) {
-    const highest = declared.sort(compareVersions).at(-1)!
-    core.info(`Found 'kotlin.version' declared in pom.xml: ${highest}`)
-    return highest
+  return declared.length > 0 ? declared.sort(compareVersions).at(-1)! : null
+}
+
+/**
+ * Asks maven for the effective pom and reads the Kotlin version off it. This resolves inheritance
+ * (spring-boot-starter-parent and the like), property indirection and differently named properties,
+ * so it covers everything the plain pom scan above cannot see. The whole reactor is included, and
+ * the highest version found wins.
+ */
+async function detectKotlinVersionFromEffectivePom(pomFilePath: string): Promise<string | null> {
+  const effectivePomFile = await Deno.makeTempFile({ prefix: 'effective-pom-', suffix: '.xml' })
+  try {
+    await executeCommandWithOutput(
+      ['mvn', '-B', '-q', '--file', pomFilePath, `${MVN_HELP_PLUGIN}:effective-pom`, `-Doutput=${effectivePomFile}`],
+      'Resolving the effective pom to determine the Kotlin version',
+    )
+    const effectivePom = await Deno.readTextFile(effectivePomFile)
+    const candidates = [extractKotlinPluginVersionFromPom(effectivePom), extractKotlinVersionFromPom(effectivePom)]
+      .filter((version): version is string => version !== null && parseKotlinVersion(version) !== null)
+    return candidates.length > 0 ? candidates.sort(compareVersions).at(-1)! : null
+  } finally {
+    await Deno.remove(effectivePomFile).catch(() => {})
+  }
+}
+
+/**
+ * Determines the Kotlin version the build will compile with. Poms that state the version themselves
+ * answer this for free, everything else is resolved by maven.
+ */
+export async function detectKotlinVersion(sourceDir: string, pomFilePath: string): Promise<string | null> {
+  const declared = await collectDeclaredKotlinVersions(sourceDir)
+  if (declared) {
+    core.info(`Found Kotlin version declared in pom.xml: ${declared}`)
+    return declared
   }
 
-  core.info("No 'kotlin.version' declared in the project's poms, asking maven to evaluate the property...")
+  core.info("No Kotlin version declared in the project's poms, resolving the effective pom with maven...")
   try {
-    const { stdout } = await executeCommandWithOutput(
-      ['mvn', '-B', '-q', '-N', '--file', pomFilePath, MVN_HELP_PLUGIN, '-Dexpression=kotlin.version', '-DforceStdout'],
-      'Evaluating kotlin.version',
-    )
-    const version = stdout.trim().split('\n').at(-1)?.trim() ?? ''
-    if (parseKotlinVersion(version)) {
-      core.info(`Maven evaluated 'kotlin.version' to: ${version}`)
-      return version
+    const resolved = await detectKotlinVersionFromEffectivePom(pomFilePath)
+    if (resolved) {
+      core.info(`Effective pom resolves the Kotlin version to: ${resolved}`)
+      return resolved
     }
-    core.info(`Maven did not resolve 'kotlin.version' (got '${version}')`)
+    // No kotlin-maven-plugin in the effective pom means maven does not compile Kotlin here, so the
+    // extractor is never invoked for it and there is nothing to guard against.
+    core.info('The effective pom configures no Kotlin version, maven does not compile Kotlin in this project.')
   } catch (error) {
-    core.info(`Could not evaluate 'kotlin.version' with maven: ${error instanceof Error ? error.message : String(error)}`)
+    core.info(`Could not resolve the effective pom: ${error instanceof Error ? error.message : String(error)}`)
   }
   return null
 }

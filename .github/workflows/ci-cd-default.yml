@@ -315,6 +315,7 @@ jobs:
           matrix.app-vars['has-changes'] == true
           && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
           && matrix.app-vars.application-type == 'spring-boot'
+          && fromJSON(steps.build-env.outputs.json).codeql-enabled
         # Kotlin code smells/complexity — complements CodeQL, whose quality suite
         # is Java-centric and has next to no Kotlin-specific rules. Opt-in per
         # app: runs only when a detekt.yml exists in the app's source path (works
@@ -354,6 +355,9 @@ jobs:
           echo "sarif-created=true" >> "$GITHUB_OUTPUT"
 
       - name: "🕵️ Upload detekt results to code scanning"
+        # No 'codeql-enabled' check needed: the detekt step above is gated on it, and a skipped step
+        # sets no outputs. detekt findings go to code scanning through codeql-action/upload-sarif,
+        # so opting out of CodeQL opts out of this upload too.
         if: steps.detekt.outputs.sarif-created == 'true'
         # Soft rollout: must not fail callers that lack GHAS or
         # security-events: write — same policy as the CodeQL steps.

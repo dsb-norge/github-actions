@@ -98,13 +98,15 @@ That failure lands in the Maven build step, so `continue-on-error` on the CodeQL
 
 #### Opting out per application
 
-Set `codeql-enabled: false` on an app in `apps` to skip CodeQL init and analysis for it (it must be a YAML boolean, not a quoted string):
+Set `codeql-enabled: false` on an app in `apps` to skip code scanning for it — that covers CodeQL init and analysis, and with it the detekt run, whose findings are uploaded through `codeql-action/upload-sarif`. Both the YAML boolean and the quoted string `"false"` are accepted:
 
 ```yaml
 apps: |
   - application-name: my-app
     codeql-enabled: false
 ```
+
+The value is normalized to a real boolean by `create-build-envs` and defaults to `true`, so the workflows can test it directly in an `if:` expression. That matters: an app var that is not set reads as `null`, and GitHub casts both `null` and boolean `false` to `0` when comparing, which makes `!= false` impossible to express correctly.
 
 ## Maintenance
 

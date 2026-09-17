@@ -139,14 +139,6 @@ export async function run() {
     }
     core.info('Input merge complete.')
 
-    // CodeQL is enabled unless an app explicitly opts out. Normalized to a real boolean here so the
-    // workflows can test it directly: an absent app var is null, and GitHub casts both null and
-    // 'false' (boolean) to 0 in comparisons, which makes 'not false' impossible to express in an
-    // 'if:' expression. A value that is always present and always a boolean avoids all of that.
-    const codeqlEnabledInput = appVars['codeql-enabled']
-    appVars['codeql-enabled'] = String(codeqlEnabledInput ?? 'true').toLowerCase() !== 'false'
-    core.info(`CodeQL analysis is ${appVars['codeql-enabled'] ? 'enabled' : 'disabled'} for this app.`)
-
     // --- Output ---
     const finalAppVarsJsonString = JSON.stringify(appVars)
     core.setOutput('APPVARS', finalAppVarsJsonString)

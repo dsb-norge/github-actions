@@ -1,7 +1,7 @@
 import { assertEquals, assertStringIncludes } from 'common/test_deps.ts'
 import { mockCore, mockExportedVars, mockWarningLogs, resetMockCore } from 'common/utils/mock-core.ts'
 import { setCore } from 'common/deps.ts'
-import { compareVersions, decideKotlinSupport, extractKotlinVersionFromPom, findSupportedKotlinVersions, parseExtractorJarVersion, parseKotlinVersion, run, toFeatureVersion } from './2_codeql-kotlin-guard.ts'
+import { compareVersions, decideKotlinSupport, extractKotlinPluginVersionFromPom, extractKotlinVersionFromPom, findSupportedKotlinVersions, parseExtractorJarVersion, parseKotlinVersion, run, toFeatureVersion } from './2_codeql-kotlin-guard.ts'
 import { join } from 'common/deps.ts'
 
 // Replace the real core with the mock
@@ -45,6 +45,31 @@ Deno.test('codeql-kotlin-guard - extractKotlinVersionFromPom reads the kotlin.ve
   assertEquals(extractKotlinVersionFromPom('<properties>\n  <kotlin.version>2.4.20</kotlin.version>\n</properties>'), '2.4.20')
   assertEquals(extractKotlinVersionFromPom('<kotlin.version> 2.4.10 </kotlin.version>'), '2.4.10')
   assertEquals(extractKotlinVersionFromPom('<properties><java.version>25</java.version></properties>'), null)
+})
+
+Deno.test('codeql-kotlin-guard - extractKotlinPluginVersionFromPom reads a directly pinned plugin version', () => {
+  const pinned = `<build><plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.6</version>
+      </plugin>
+      <plugin>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-maven-plugin</artifactId>
+        <version>2.4.20</version>
+      </plugin>
+    </plugins></build>`
+  assertEquals(extractKotlinPluginVersionFromPom(pinned), '2.4.20')
+
+  // Unresolved property placeholders are left to maven
+  assertEquals(extractKotlinPluginVersionFromPom('<plugin><artifactId>kotlin-maven-plugin</artifactId><version>${kotlin.version}</version></plugin>'), null)
+
+  // No version at all (inherited from a parent) is left to maven too
+  assertEquals(extractKotlinPluginVersionFromPom('<plugin><artifactId>kotlin-maven-plugin</artifactId></plugin>'), null)
+
+  // The version belonging to another plugin is never picked up
+  assertEquals(extractKotlinPluginVersionFromPom('<plugin><artifactId>maven-compiler-plugin</artifactId><version>3.14.0</version></plugin>'), null)
 })
 
 Deno.test('codeql-kotlin-guard - decideKotlinSupport against the versions a bundle ships', () => {
@@ -132,6 +157,37 @@ Deno.test('codeql-kotlin-guard - run() disables Kotlin extraction for a too rece
 
     assertEquals(mockExportedVars['CODEQL_EXTRACTOR_JAVA_AGENT_DISABLE_KOTLIN'], 'true')
     assertStringIncludes(mockWarningLogs.join('\n'), 'Kotlin 2.4.20')
+  } finally {
+    Deno.env.delete('CODEQL_EXTRACTOR_JAVA_ROOT')
+    await Deno.remove(workspace, { recursive: true })
+    await Deno.remove(codeqlRoot, { recursive: true })
+  }
+})
+
+Deno.test('codeql-kotlin-guard - run() catches a Kotlin version pinned on the plugin, without kotlin.version', async () => {
+  resetMockCore()
+  const workspace = await Deno.makeTempDir()
+  const codeqlRoot = await Deno.makeTempDir()
+  try {
+    await Deno.mkdir(join(workspace, 'src'), { recursive: true })
+    await Deno.writeTextFile(
+      join(workspace, 'pom.xml'),
+      '<project><build><plugins><plugin><artifactId>kotlin-maven-plugin</artifactId><version>2.4.20</version></plugin></plugins></build></project>',
+    )
+    await Deno.writeTextFile(join(workspace, 'src', 'Main.kt'), 'fun main() {}')
+
+    const toolsDir = join(codeqlRoot, 'tools', 'kotlin-extractor')
+    await Deno.mkdir(toolsDir, { recursive: true })
+    await Deno.writeTextFile(join(toolsDir, 'codeql-extractor-kotlin-standalone-2.4.0.jar'), '')
+
+    Deno.env.set('CODEQL_EXTRACTOR_JAVA_ROOT', codeqlRoot)
+    Deno.env.delete('CODEQL_EXTRACTOR_JAVA_AGENT_DISABLE_KOTLIN')
+    Deno.env.set('GITHUB_WORKSPACE', workspace)
+    mockCore.outputs['DSB_BUILD_ENVS'] = JSON.stringify({ 'application-source-path': '.' })
+
+    await run()
+
+    assertEquals(mockExportedVars['CODEQL_EXTRACTOR_JAVA_AGENT_DISABLE_KOTLIN'], 'true')
   } finally {
     Deno.env.delete('CODEQL_EXTRACTOR_JAVA_ROOT')
     await Deno.remove(workspace, { recursive: true })
