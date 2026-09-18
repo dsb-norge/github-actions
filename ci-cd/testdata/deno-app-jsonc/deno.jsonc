@@ -1,0 +1,7 @@
+{
+  // JSONC allows comments, which JSON.parse rejects
+  "description": "DSB's deno test application using JSONC config.",
+  "tasks": {
+    "start": "deno run --allow-net src/index.ts",
+  },
+}

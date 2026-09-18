@@ -1,0 +1,6 @@
+{
+  "description": "DSB's deno test application for Kubernetes.",
+  "tasks": {
+    "start": "deno run --allow-net src/index.ts"
+  }
+}

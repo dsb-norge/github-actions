@@ -1,5 +1,5 @@
 import { AppDependency, AppVars } from 'common/interfaces/application-variables.ts'
-import { core, exists, parseToml, parseXML } from 'common/deps.ts'
+import { core, exists, parseJsonc, parseToml, parseXML } from 'common/deps.ts'
 import { handleError } from 'common/utils/error.ts'
 import { getActionInput, tryParseJson } from 'common/utils/helpers.ts'
 
@@ -61,6 +61,10 @@ async function getSourceFilePath(
       return `${srcPath}/package.json`
     } else if (appType === 'python') {
       return `${srcPath}/pyproject.toml`
+    } else if (appType === 'deno') {
+      const jsonc = `${srcPath}/deno.jsonc`
+      if (await exists(jsonc)) return jsonc
+      return `${srcPath}/deno.json`
     }
   } else {
     return srcPath
@@ -144,6 +148,10 @@ async function extractMetadata(
         appDependencies.push(...parsePep508(dep, groupName))
       }
     }
+  } else if (appType === 'deno') {
+    // deno.json may be JSONC (comments / trailing commas), which JSON.parse rejects
+    const jsonData = parseJsonc(srcData) as { description?: string } | null
+    appDesc = jsonData?.description
   } else {
     throw new Error(`Unknown 'application-type' '${appType}', not sure how to parse file '${sourceFilePath}'.`)
   }

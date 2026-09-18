@@ -47,6 +47,44 @@ Deno.test('get-app-meta - vue metadata extraction', async () => {
   assertEquals(outputAppVars[0]['nodejs-version'], '20')
 })
 
+Deno.test('get-app-meta - deno metadata extraction', async () => {
+  setAppVars([
+    {
+      'application-name': 'my-deno-app',
+      'application-source-path': './testdata/deno-app',
+      'application-type': 'deno',
+    } as AppVars,
+  ])
+
+  await getAppMeta()
+
+  const outputAppVars = mockCore.getOutputAppVars()
+
+  assertEquals(
+    outputAppVars[0]['application-description'],
+    "DSB's deno test application for Kubernetes.",
+  )
+})
+
+Deno.test('get-app-meta - deno metadata extraction from JSONC with comments', async () => {
+  setAppVars([
+    {
+      'application-name': 'my-deno-jsonc-app',
+      'application-source-path': './testdata/deno-app-jsonc',
+      'application-type': 'deno',
+    } as AppVars,
+  ])
+
+  await getAppMeta()
+
+  const outputAppVars = mockCore.getOutputAppVars()
+
+  assertEquals(
+    outputAppVars[0]['application-description'],
+    "DSB's deno test application using JSONC config.",
+  )
+})
+
 Deno.test('get-app-meta - python metadata extraction fails on circular dependency-group include', async () => {
   setAppVars([
     {
