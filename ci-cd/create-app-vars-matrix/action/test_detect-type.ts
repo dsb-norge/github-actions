@@ -28,6 +28,32 @@ Deno.test('detect-type - detects vue', async () => {
   assertEquals(appVars[0]['application-type'], 'vue')
 })
 
+Deno.test('detect-type - detects deno from deno.json', async () => {
+  const appVars: AppVars[] = [
+    {
+      'application-name': 'my-deno-app',
+      'application-source-path': './testdata/deno-app', // Test directory with a deno.json
+    } as AppVars,
+  ]
+
+  await detectApplicationType(appVars)
+
+  assertEquals(appVars[0]['application-type'], 'deno')
+})
+
+Deno.test('detect-type - detects deno from deno.jsonc', async () => {
+  const appVars: AppVars[] = [
+    {
+      'application-name': 'my-deno-jsonc-app',
+      'application-source-path': './testdata/deno-app-jsonc', // Test directory with a deno.jsonc
+    } as AppVars,
+  ]
+
+  await detectApplicationType(appVars)
+
+  assertEquals(appVars[0]['application-type'], 'deno')
+})
+
 Deno.test('detect-type - no type detected', async () => {
   const appVars: AppVars[] = [
     {

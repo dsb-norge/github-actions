@@ -484,6 +484,21 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
+      - name: "🦕 Deno app: 🐳 Build, tag and push docker image"
+        id: deno-docker-build
+        if: |
+          matrix.app-vars.application-type == 'deno'
+          && (
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' && matrix.app-vars['pr-deploy-skip'] != true )
+            || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
+              && (
+                fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
+                || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
+          )))
+        uses: dsb-norge/github-actions/ci-cd/build-docker-image@v4
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
       - name: "💾 Save 📚 build dependencies cache"
         id: cache-save
         if: |
