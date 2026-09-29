@@ -381,6 +381,8 @@ jobs:
         with:
           languages: javascript-typescript
           build-mode: none
+          # Code-quality suite on top of the security queries, see the Java/Kotlin init above.
+          queries: +code-quality
           config: |
             paths-ignore:
               - '**/dist/**'
@@ -434,6 +436,8 @@ jobs:
         with:
           languages: python
           build-mode: none
+          # Code-quality suite on top of the security queries, see the Java/Kotlin init above.
+          queries: +code-quality
 
       - name: "🐍 Python app: ⚒ Build and test with pip"
         id: pip-build

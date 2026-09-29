@@ -103,7 +103,7 @@ That failure lands in the Maven build step, so `continue-on-error` on the CodeQL
 detekt runs for every `spring-boot` and `maven-library` app that contains Kotlin sources (`*.kt` outside `target`/`build`), in `ci-cd/run-detekt`:
 
 - When the app has a `detekt.yml` in its `application-source-path`, that config is used.
-- Otherwise the DSB default config [`run-detekt/detekt-default.yml`](run-detekt/detekt-default.yml) is used. It is tuned for Spring Boot services (constructor injection, controllers with many endpoints, guard clauses) and only lists deviations from detekt's defaults.
+- Otherwise the DSB default config [`run-detekt/detekt-default.yml`](run-detekt/detekt-default.yml) is used. It is tuned for Spring Boot services (constructor injection, controllers with many endpoints, guard clauses), turns off pure formatting rules (line length, wildcard imports, trailing newline) and only lists deviations from detekt's defaults.
 
 Either config is applied on top of detekt's own default config (`--build-upon-default-config`). To start from the DSB defaults and adjust them, copy `detekt-default.yml` into the app as `detekt.yml`. Findings are uploaded to code scanning and never fail the build.
 

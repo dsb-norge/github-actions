@@ -3,7 +3,8 @@
 # (--build-upon-default-config), so only deviations from detekt's defaults are listed here.
 #
 # Tuned for Spring Boot services: constructor injection, controllers/services with many endpoints
-# and early-return guard clauses are idiomatic there and should not show up as findings.
+# and early-return guard clauses are idiomatic there and should not show up as findings. Pure
+# formatting rules are disabled.
 # Findings are reported to code scanning, they never fail the build.
 #
 # An app that wants different rules adds its own detekt.yml, which then replaces this file
@@ -33,8 +34,15 @@ naming:
     ignoreAnnotated: ['Test', 'ParameterizedTest', 'RepeatedTest', 'TestFactory']
 
 style:
+  # Pure formatting rules are off: formatting belongs in the IDE/ktlint, not in code scanning,
+  # and these made up most of the findings on real repos.
   MaxLineLength:
-    maxLineLength: 150
+    active: false
+  NewLineAtEndOfFile:
+    active: false
+  WildcardImport:
+    # IntelliJ's default Kotlin code style uses wildcard imports.
+    active: false
   MagicNumber:
     # Configuration defaults and annotation arguments (@Size(max = 255), @Scheduled(...)).
     ignorePropertyDeclaration: true
