@@ -1,0 +1,83 @@
+name: "Run detekt"
+description: |
+  Runs detekt (Kotlin static analysis) on the app in 'application-source-path' and writes the findings as SARIF,
+  to be uploaded to code scanning by the caller. Complements CodeQL, whose quality suite is Java-centric and has
+  next to no Kotlin-specific rules.
+  - Skipped when the app contains no Kotlin sources.
+  - Uses the app's own 'detekt.yml' in 'application-source-path' when there is one, otherwise the DSB default
+    config 'detekt-default.yml' next to this action. Either is applied on top of detekt's default config.
+  - Findings never fail the build, only detekt errors do.
+author: "Direktoratet for samfunnssikkerhet og beredskap"
+inputs:
+  dsb-build-envs:
+    description: |
+      DSB build environment variables JSON.
+      Required fields:
+        application-name
+        application-source-path
+    required: true
+outputs:
+  sarif-created:
+    description: "'true' when detekt ran and wrote a SARIF report"
+    value: ${{ steps.detekt.outputs.sarif-created }}
+  sarif-file:
+    description: "Path to the SARIF report, empty when none was created"
+    value: ${{ steps.detekt.outputs.sarif-file }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v4
+      with:
+        dsb-build-envs: ${{ inputs.dsb-build-envs }}
+        require: |
+          application-name
+          application-source-path
+
+    - id: detekt
+      shell: bash
+      env:
+        DETEKT_VERSION: "1.23.8"
+        DETEKT_SHA256: "2ce2ff952e150baf28a29cda70a363b0340b3e81a55f43e51ec5edffc3d066c1"
+        DEFAULT_CONFIG: ${{ github.action_path }}/detekt-default.yml
+        APP_SOURCE_PATH: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}
+        APP_NAME: ${{ fromJSON(inputs.dsb-build-envs).application-name }}
+      run: |
+        echo "sarif-created=false" >> "$GITHUB_OUTPUT"
+
+        if [ -z "$(find "${APP_SOURCE_PATH}" \( -name target -o -name build -o -name node_modules -o -name .git \) -prune -o -name '*.kt' -print -quit)" ]; then
+          echo "No Kotlin sources in '${APP_SOURCE_PATH}' — skipping detekt."
+          exit 0
+        fi
+
+        if [ -f "${APP_SOURCE_PATH}/detekt.yml" ]; then
+          DETEKT_CONFIG="${APP_SOURCE_PATH}/detekt.yml"
+          echo "Using the app's own detekt config '${DETEKT_CONFIG}'."
+        else
+          DETEKT_CONFIG="${DEFAULT_CONFIG}"
+          echo "No detekt.yml in '${APP_SOURCE_PATH}' — using the DSB default detekt config."
+        fi
+
+        curl -sSfL -o "${RUNNER_TEMP}/detekt-cli.jar" \
+          "https://github.com/detekt/detekt/releases/download/v${DETEKT_VERSION}/detekt-cli-${DETEKT_VERSION}-all.jar"
+        echo "${DETEKT_SHA256}  ${RUNNER_TEMP}/detekt-cli.jar" | sha256sum -c -
+
+        SARIF_FILE="${RUNNER_TEMP}/detekt-${APP_NAME}.sarif"
+        # Exit codes: 0 = clean, 2 = issues found (fine — they are reported via
+        # code scanning, not by failing the build), anything else = real error.
+        set +e
+        java -jar "${RUNNER_TEMP}/detekt-cli.jar" \
+          --input "${APP_SOURCE_PATH}" \
+          --config "${DETEKT_CONFIG}" \
+          --build-upon-default-config \
+          --excludes '**/target/**,**/build/**,**/generated/**' \
+          --base-path "${GITHUB_WORKSPACE}" \
+          --report "sarif:${SARIF_FILE}"
+        detekt_exit=$?
+        set -e
+        if [ "${detekt_exit}" -ne 0 ] && [ "${detekt_exit}" -ne 2 ]; then
+          echo "detekt failed with exit code ${detekt_exit}"
+          exit "${detekt_exit}"
+        fi
+        echo "sarif-created=true" >> "$GITHUB_OUTPUT"
+        echo "sarif-file=${SARIF_FILE}" >> "$GITHUB_OUTPUT"

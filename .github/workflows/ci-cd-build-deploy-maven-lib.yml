@@ -9,6 +9,7 @@ name: "DSB Build and deploy Maven artefact"
 #     id-token: write       # required for GitHub artifact attestation (OIDC token)
 #     attestations: write   # required for writing build provenance attestations
 #     security-events: write # required for uploading CodeQL SARIF results
+#     code-quality: write   # required for uploading code coverage
 #
 # The following variables must available in the github 'vars' context:
 #   - vars.ORG_DSBNO_AZURE_TENANT_ID          <-- Azure tenant ID for passwordless login to ACR
@@ -191,6 +192,37 @@ jobs:
         # See ci-cd-default.yml for rationale.
         shell: bash
         run: echo "LD_PRELOAD=" >> "$GITHUB_ENV"
+
+      - name: "📊 Upload code coverage"
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'maven-library'
+          && fromJSON(steps.build-env.outputs.json).coverage-enabled
+        # See ci-cd-default.yml.
+        continue-on-error: true
+        uses: dsb-norge/github-actions/ci-cd/upload-code-coverage@v4
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🕵️ detekt: Kotlin static analysis"
+        id: detekt
+        if: |
+          ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'maven-library'
+          && fromJSON(steps.build-env.outputs.json).codeql-enabled
+          && fromJSON(steps.build-env.outputs.json).detekt-enabled
+        # See ci-cd-default.yml.
+        uses: dsb-norge/github-actions/ci-cd/run-detekt@v4
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🕵️ Upload detekt results to code scanning"
+        if: steps.detekt.outputs.sarif-created == 'true'
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.detekt.outputs.sarif-file }}
+          category: "detekt/app:${{ matrix.app-vars.application-name }}"
 
       - name: "💾 Save 📚 build dependencies cache"
         id: cache-save

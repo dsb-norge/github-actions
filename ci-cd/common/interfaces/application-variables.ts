@@ -112,6 +112,8 @@ export interface AppVars {
 
   // Code scanning
   'codeql-enabled'?: string | boolean // Set to false to skip CodeQL init/analysis for the app, normalized to a boolean by create-build-envs
+  'detekt-enabled'?: string | boolean // Set to false to skip detekt for the app, normalized to a boolean by create-build-envs
+  'coverage-enabled'?: string | boolean // Set to false to skip code coverage upload for the app, normalized to a boolean by create-build-envs
 
   // Other Secrets / Tokens
   'app-config-repo'?: string

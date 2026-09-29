@@ -5,7 +5,7 @@ import { handleError } from 'common/utils/error.ts'
 import { ENVS_WITHOUT_SECRETS } from './constants.ts'
 
 /**
- * CodeQL is enabled unless an app explicitly opts out.
+ * Code scanning, detekt and code coverage are each enabled unless an app explicitly opts out.
  *
  * The result is a real boolean and is always set, so the workflows can test it directly in an 'if:'
  * expression. Neither is incidental: an app var that is not set reads as null, and GitHub casts both
@@ -15,9 +15,11 @@ import { ENVS_WITHOUT_SECRETS } from './constants.ts'
  * Note that this is applied here, in the last step, on purpose: the earlier steps treat an appVars
  * object without keys as a failure to parse, and defaulting a field before them would mask that.
  */
-export function isCodeqlEnabled(value: string | boolean | undefined | null): boolean {
+export function isEnabledUnlessOptedOut(value: string | boolean | undefined | null): boolean {
   return String(value ?? 'true').toLowerCase() !== 'false'
 }
+
+const OPT_OUT_FLAGS = ['codeql-enabled', 'detekt-enabled', 'coverage-enabled'] as const
 
 /**
  * Finalizes and prepares the action outputs.
@@ -66,9 +68,11 @@ export async function run() {
       core.debug("Could not generate 'application-image-id' due to missing registry, repo, or image name.")
     }
 
-    // Code scanning opt-out
-    appVars['codeql-enabled'] = isCodeqlEnabled(appVars['codeql-enabled'])
-    logMultiline("Value 'codeql-enabled'", String(appVars['codeql-enabled']))
+    // Code scanning, detekt and code coverage opt-outs
+    for (const key of OPT_OUT_FLAGS) {
+      appVars[key] = isEnabledUnlessOptedOut(appVars[key])
+      logMultiline(`Value '${key}'`, String(appVars[key]))
+    }
 
     // Source Info
     if (githubRepository) {
