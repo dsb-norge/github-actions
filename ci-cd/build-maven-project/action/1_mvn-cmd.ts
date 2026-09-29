@@ -7,7 +7,7 @@ import { handleError } from 'common/utils/error.ts'
 const MVN_VERSION_ARGUMENTS_DEFAULT: string = '-B'
 const MVN_VERSION_GOALS_DEFAULT: string = 'versions:set'
 const MVN_ARGUMENTS_DEFAULT: string = '-B'
-const MVN_GOALS_DEFAULT: string = 'clean install org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'
+const MVN_GOALS_DEFAULT: string = 'clean install'
 
 /**
  * Main function for the GitHub Action.
