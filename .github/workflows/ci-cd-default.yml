@@ -10,7 +10,7 @@ name: "DSB Build, push and deploy"
 #     id-token: write       # required for GitHub artifact attestation (OIDC token)
 #     attestations: write   # required for writing build provenance attestations
 #     security-events: write # required for uploading CodeQL SARIF results
-#     code-quality: write   # required for uploading code coverage
+#     code-quality: write   # required for uploading code coverage (included in write-all)
 #
 # In order to use this workflow a github app must be installed in the calling workflow's organization.
 # The app must at minimum have 'contents: write' permissions in the application config repo(s) of the calling workflow.
@@ -179,7 +179,8 @@ jobs:
 
       - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v4
+        # TODO revert to @v4
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@feat/code-coverage-and-default-detekt
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -320,7 +321,8 @@ jobs:
         # coverage. Skipped inside the action when the build produced no JaCoCo XML report.
         # Soft rollout: must not fail callers that lack 'code-quality: write'.
         continue-on-error: true
-        uses: dsb-norge/github-actions/ci-cd/upload-code-coverage@v4
+        # TODO revert to @v4
+        uses: dsb-norge/github-actions/ci-cd/upload-code-coverage@feat/code-coverage-and-default-detekt
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -334,7 +336,8 @@ jobs:
           && fromJSON(steps.build-env.outputs.json).detekt-enabled
         # Runs for every app with Kotlin sources, with the app's own detekt.yml or the DSB default
         # config. Also gated on 'codeql-enabled' because the findings go to code scanning.
-        uses: dsb-norge/github-actions/ci-cd/run-detekt@v4
+        # TODO revert to @v4
+        uses: dsb-norge/github-actions/ci-cd/run-detekt@feat/code-coverage-and-default-detekt
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 

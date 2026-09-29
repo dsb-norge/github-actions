@@ -114,7 +114,7 @@ Either config is applied on top of detekt's own default config (`--build-upon-de
 Requirements for coverage to show up:
 
 - The pom runs `jacoco-maven-plugin` with the `prepare-agent` and `report` goals, so the build writes `target/site/jacoco/jacoco.xml`. Without a report the step is skipped.
-- The calling workflow grants `code-quality: write`.
+- The calling workflow grants `code-quality: write` (included in `permissions: write-all`).
 - Code coverage is enabled for the repository in its Code Quality settings.
 - The runner has the GitHub CLI (`gh`) and `python3`, which `actions/upload-code-coverage` uses.
 

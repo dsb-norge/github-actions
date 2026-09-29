@@ -9,7 +9,7 @@ name: "DSB Build and deploy Maven artefact"
 #     id-token: write       # required for GitHub artifact attestation (OIDC token)
 #     attestations: write   # required for writing build provenance attestations
 #     security-events: write # required for uploading CodeQL SARIF results
-#     code-quality: write   # required for uploading code coverage
+#     code-quality: write   # required for uploading code coverage (included in write-all)
 #
 # The following variables must available in the github 'vars' context:
 #   - vars.ORG_DSBNO_AZURE_TENANT_ID          <-- Azure tenant ID for passwordless login to ACR
@@ -123,7 +123,8 @@ jobs:
 
       - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v4
+        # TODO revert to @v4
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@feat/code-coverage-and-default-detekt
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -200,7 +201,8 @@ jobs:
           && fromJSON(steps.build-env.outputs.json).coverage-enabled
         # See ci-cd-default.yml.
         continue-on-error: true
-        uses: dsb-norge/github-actions/ci-cd/upload-code-coverage@v4
+        # TODO revert to @v4
+        uses: dsb-norge/github-actions/ci-cd/upload-code-coverage@feat/code-coverage-and-default-detekt
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -212,7 +214,8 @@ jobs:
           && fromJSON(steps.build-env.outputs.json).codeql-enabled
           && fromJSON(steps.build-env.outputs.json).detekt-enabled
         # See ci-cd-default.yml.
-        uses: dsb-norge/github-actions/ci-cd/run-detekt@v4
+        # TODO revert to @v4
+        uses: dsb-norge/github-actions/ci-cd/run-detekt@feat/code-coverage-and-default-detekt
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
