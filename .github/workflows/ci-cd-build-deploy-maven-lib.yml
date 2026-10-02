@@ -123,8 +123,7 @@ jobs:
 
       - name: "🎰 Generate: 🔢 DSB build variables"
         id: build-env
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/create-build-envs@feat/code-coverage-and-default-detekt
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v4
         with:
           app-vars: ${{ toJSON(matrix.app-vars) }}
           github-json: ${{ toJSON(github) }}
@@ -201,8 +200,7 @@ jobs:
           && fromJSON(steps.build-env.outputs.json).coverage-enabled
         # See ci-cd-default.yml.
         continue-on-error: true
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/upload-code-coverage@feat/code-coverage-and-default-detekt
+        uses: dsb-norge/github-actions/ci-cd/upload-code-coverage@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
@@ -214,8 +212,7 @@ jobs:
           && fromJSON(steps.build-env.outputs.json).codeql-enabled
           && fromJSON(steps.build-env.outputs.json).detekt-enabled
         # See ci-cd-default.yml.
-        # TODO revert to @v4
-        uses: dsb-norge/github-actions/ci-cd/run-detekt@feat/code-coverage-and-default-detekt
+        uses: dsb-norge/github-actions/ci-cd/run-detekt@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
