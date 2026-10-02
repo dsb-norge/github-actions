@@ -45,6 +45,11 @@ runs:
       run: |
         echo "sarif-created=false" >> "$GITHUB_OUTPUT"
 
+        # 'application-source-path' may also point at the pom.xml itself.
+        if [ -f "${APP_SOURCE_PATH}" ]; then
+          APP_SOURCE_PATH="$(dirname "${APP_SOURCE_PATH}")"
+        fi
+
         if [ -z "$(find "${APP_SOURCE_PATH}" \( -name target -o -name build -o -name node_modules -o -name .git \) -prune -o -name '*.kt' -print -quit)" ]; then
           echo "No Kotlin sources in '${APP_SOURCE_PATH}' — skipping detekt."
           exit 0

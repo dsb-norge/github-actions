@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertStringIncludes } from 'common/test_deps.ts'
 import { mockCore, mockOutputs, mockWarningLogs, resetMockCore } from 'common/utils/mock-core.ts'
 import { ensureDir, join, parseXML, setCore } from 'common/deps.ts'
-import { buildSourceIndex, CoverageMap, detectLanguage, mergeJacocoReport, moduleDirOfReport, resolveSourcePath, run, SourceIndex, toCobertura } from './1_convert-jacoco.ts'
+import { buildSourceIndex, CoverageMap, declaredPackagePath, detectLanguage, mergeJacocoReport, moduleDirOfReport, resolveSourcePath, run, SourceFile, SourceIndex, sourceRootOf, toCobertura } from './1_convert-jacoco.ts'
 
 // Replace the real core with the mock
 setCore(mockCore)
@@ -49,6 +49,21 @@ async function writeFile(workspace: string, path: string, content: string = ''):
   await Deno.writeTextFile(full, content)
 }
 
+/** Index entries for files that declare the package their directory implies below 'src/{main,test}/<lang>/'. */
+function indexOf(...paths: string[]): SourceIndex {
+  const index: SourceIndex = new Map()
+  for (const path of paths) addToIndex(index, path, path.replace(/^(.*\/)?src\/[^/]+\/[^/]+\//, '').replace(/\/?[^/]+$/, ''))
+  return index
+}
+
+function addToIndex(index: SourceIndex, path: string, packagePath: string): SourceIndex {
+  const name = path.substring(path.lastIndexOf('/') + 1)
+  const files: SourceFile[] = index.get(name) ?? []
+  files.push({ path, packagePath })
+  index.set(name, files)
+  return index
+}
+
 function lineOf(coverage: CoverageMap, path: string, nr: number) {
   return coverage.get(path)?.get(nr)
 }
@@ -59,27 +74,42 @@ Deno.test('convert-jacoco - moduleDirOfReport takes everything before target', (
   assertEquals(moduleDirOfReport('target/site/jacoco/jacoco.xml'), '.')
 })
 
-Deno.test('convert-jacoco - resolveSourcePath matches on package directory and prefers the reporting module', () => {
-  const index: SourceIndex = new Map([
-    ['App.kt', ['backend/a/src/main/kotlin/no/dsb/app/App.kt', 'backend/b/src/main/kotlin/no/dsb/app/App.kt', 'backend/a/src/main/kotlin/no/dsb/other/App.kt']],
-    ['Flat.kt', ['backend/a/src/main/kotlin/Flat.kt']],
-    ['Twice.kt', ['x/src/main/kotlin/Twice.kt', 'y/src/main/kotlin/Twice.kt']],
-  ])
+Deno.test('convert-jacoco - declaredPackagePath reads the package declaration', () => {
+  assertEquals(declaredPackagePath('/* license */\n@file:JvmName("X")\npackage no.dsb.app\n\nclass A'), 'no/dsb/app')
+  assertEquals(declaredPackagePath('package no.dsb.app;\npublic class A {}'), 'no/dsb/app')
+  assertEquals(declaredPackagePath('package no.dsb.`in`.app'), 'no/dsb/in/app')
+  assertEquals(declaredPackagePath('class A'), '')
+})
+
+Deno.test('convert-jacoco - resolveSourcePath matches on declared package and prefers the reporting module', () => {
+  const index = indexOf('backend/a/src/main/kotlin/no/dsb/app/App.kt', 'backend/b/src/main/kotlin/no/dsb/app/App.kt', 'backend/a/src/main/kotlin/no/dsb/other/App.kt', 'x/src/main/kotlin/Twice.kt', 'y/src/main/kotlin/Twice.kt')
   assertEquals(resolveSourcePath(index, 'no/dsb/app', 'App.kt', 'backend/b'), 'backend/b/src/main/kotlin/no/dsb/app/App.kt')
+  // The reporting module has no file of that package, as for an aggregate report: the unique match elsewhere is used.
   assertEquals(resolveSourcePath(index, 'no/dsb/other', 'App.kt', 'backend/b'), 'backend/a/src/main/kotlin/no/dsb/other/App.kt')
   // Ambiguous and outside both modules: left out rather than guessed.
   assertEquals(resolveSourcePath(index, 'no/dsb/app', 'App.kt', 'backend/c'), null)
-  // Kotlin file whose directory does not match its package: unique name is enough.
-  assertEquals(resolveSourcePath(index, 'no/dsb/app', 'Flat.kt', 'backend/a'), 'backend/a/src/main/kotlin/Flat.kt')
-  assertEquals(resolveSourcePath(index, 'no/dsb/app', 'Twice.kt', 'z'), null)
+  assertEquals(resolveSourcePath(index, '', 'Twice.kt', 'z'), null)
+  // A file of another package is never a match, even when its name is unique.
+  assertEquals(resolveSourcePath(index, 'no/dsb/third', 'App.kt', 'backend/a'), null)
   assertEquals(resolveSourcePath(index, 'no/dsb/app', 'Missing.kt', 'backend/a'), null)
 })
 
+Deno.test('convert-jacoco - resolveSourcePath uses the declared package for Kotlin files outside their package directory', () => {
+  // Module a keeps App.kt flat but declares no.dsb.app; module b has the same package in the matching directory.
+  const index = addToIndex(indexOf('backend/b/src/main/kotlin/no/dsb/app/App.kt'), 'backend/a/src/main/kotlin/App.kt', 'no/dsb/app')
+  assertEquals(resolveSourcePath(index, 'no/dsb/app', 'App.kt', 'backend/a'), 'backend/a/src/main/kotlin/App.kt')
+  assertEquals(resolveSourcePath(index, 'no/dsb/app', 'App.kt', 'backend/b'), 'backend/b/src/main/kotlin/no/dsb/app/App.kt')
+})
+
+Deno.test('convert-jacoco - resolveSourcePath prefers main over test sources, also in a root-level project', () => {
+  const index = indexOf('src/main/kotlin/no/dsb/app/App.kt', 'src/test/kotlin/no/dsb/app/App.kt')
+  assertEquals(resolveSourcePath(index, 'no/dsb/app', 'App.kt', '.'), 'src/main/kotlin/no/dsb/app/App.kt')
+  const nested = indexOf('backend/src/main/kotlin/no/dsb/app/App.kt', 'backend/src/test/kotlin/no/dsb/app/App.kt')
+  assertEquals(resolveSourcePath(nested, 'no/dsb/app', 'App.kt', 'backend'), 'backend/src/main/kotlin/no/dsb/app/App.kt')
+})
+
 Deno.test('convert-jacoco - mergeJacocoReport merges reports keeping the best coverage per line', () => {
-  const index: SourceIndex = new Map([
-    ['App.kt', ['backend/src/main/kotlin/no/dsb/app/App.kt']],
-    ['Util.java', ['backend/src/main/java/no/dsb/app/Util.java']],
-  ])
+  const index = indexOf('backend/src/main/kotlin/no/dsb/app/App.kt', 'backend/src/main/java/no/dsb/app/Util.java')
   const coverage: CoverageMap = new Map()
   assertEquals(mergeJacocoReport(UNIT_REPORT, 'backend/target/site/jacoco/jacoco.xml', index, coverage), 0)
   assertEquals(mergeJacocoReport(IT_REPORT, 'backend/target/site/jacoco-it/jacoco.xml', index, coverage), 0)
@@ -93,7 +123,7 @@ Deno.test('convert-jacoco - mergeJacocoReport merges reports keeping the best co
 
 Deno.test('convert-jacoco - mergeJacocoReport handles groups, counts unresolved files and rejects non-reports', () => {
   const grouped = jacocoReport(`<group name="core"><package name="no/dsb/core"><sourcefile name="Core.kt"><line nr="1" mi="0" ci="1" mb="0" cb="0"/></sourcefile><sourcefile name="Gone.kt"><line nr="1" mi="1" ci="0" mb="0" cb="0"/></sourcefile></package></group>`)
-  const index: SourceIndex = new Map([['Core.kt', ['core/src/main/kotlin/no/dsb/core/Core.kt']]])
+  const index = indexOf('core/src/main/kotlin/no/dsb/core/Core.kt')
   const coverage: CoverageMap = new Map()
   assertEquals(mergeJacocoReport(grouped, 'aggregate/target/site/jacoco-aggregate/jacoco.xml', index, coverage), 1)
   assertEquals(lineOf(coverage, 'core/src/main/kotlin/no/dsb/core/Core.kt', 1)?.hits, 1)
@@ -123,20 +153,38 @@ Deno.test('convert-jacoco - detectLanguage picks the language with the most line
   assertEquals(detectLanguage(new Map([['a/A.kt', new Map([[1, line]])]])), 'Kotlin')
 })
 
+async function writeBackendBuild(workspace: string): Promise<void> {
+  await writeFile(workspace, 'backend/pom.xml', '<project/>')
+  await writeFile(workspace, 'backend/src/main/kotlin/no/dsb/app/App.kt', 'package no.dsb.app\n')
+  await writeFile(workspace, 'backend/src/main/java/no/dsb/app/Util.java', 'package no.dsb.app;\n')
+  await writeFile(workspace, 'backend/target/site/jacoco/jacoco.xml', UNIT_REPORT)
+  await writeFile(workspace, 'backend/target/site/jacoco-it/jacoco.xml', IT_REPORT)
+  // Sources copied into target must not make the paths ambiguous.
+  await writeFile(workspace, 'backend/target/classes/no/dsb/app/App.kt', 'package no.dsb.app\n')
+}
+
+async function runFor(workspace: string, appSourcePath: string): Promise<void> {
+  resetMockCore()
+  Deno.env.set('GITHUB_WORKSPACE', workspace)
+  Deno.env.set('RUNNER_TEMP', workspace)
+  mockCore.outputs['DSB_BUILD_ENVS'] = JSON.stringify({ 'application-name': 'my-app', 'application-source-path': appSourcePath })
+  await run()
+}
+
+Deno.test('convert-jacoco - sourceRootOf accepts a directory or the pom.xml itself', async () => {
+  await withWorkspace(async (workspace) => {
+    await writeFile(workspace, 'backend/pom.xml', '<project/>')
+    assertEquals(await sourceRootOf(workspace, './backend'), join(workspace, 'backend'))
+    assertEquals(await sourceRootOf(workspace, 'backend/pom.xml'), join(workspace, 'backend'))
+    assertEquals(await sourceRootOf(workspace, undefined), workspace)
+    assertEquals(await sourceRootOf(workspace, 'missing'), join(workspace, 'missing'))
+  })
+})
+
 Deno.test('convert-jacoco - run converts all reports of the app into one Cobertura file', async () => {
   await withWorkspace(async (workspace) => {
-    await writeFile(workspace, 'backend/src/main/kotlin/no/dsb/app/App.kt')
-    await writeFile(workspace, 'backend/src/main/java/no/dsb/app/Util.java')
-    await writeFile(workspace, 'backend/target/site/jacoco/jacoco.xml', UNIT_REPORT)
-    await writeFile(workspace, 'backend/target/site/jacoco-it/jacoco.xml', IT_REPORT)
-    // Sources copied into target must not make the paths ambiguous.
-    await writeFile(workspace, 'backend/target/classes/no/dsb/app/App.kt')
-
-    resetMockCore()
-    Deno.env.set('GITHUB_WORKSPACE', workspace)
-    Deno.env.set('RUNNER_TEMP', workspace)
-    mockCore.outputs['DSB_BUILD_ENVS'] = JSON.stringify({ 'application-name': 'my-app', 'application-source-path': './backend' })
-    await run()
+    await writeBackendBuild(workspace)
+    await runFor(workspace, './backend')
 
     assertEquals(mockOutputs['report-created'], 'true')
     assertEquals(mockOutputs['language'], 'Kotlin')
@@ -146,6 +194,16 @@ Deno.test('convert-jacoco - run converts all reports of the app into one Cobertu
     assertStringIncludes(xml, 'filename="backend/src/main/java/no/dsb/app/Util.java"')
     assertStringIncludes(xml, '<line number="5" hits="2" branch="true" condition-coverage="50% (1/2)"/>')
     assertEquals(mockWarningLogs.length, 0)
+  })
+})
+
+Deno.test('convert-jacoco - run accepts application-source-path pointing at the pom.xml', async () => {
+  await withWorkspace(async (workspace) => {
+    await writeBackendBuild(workspace)
+    await runFor(workspace, 'backend/pom.xml')
+
+    assertEquals(mockOutputs['report-created'], 'true')
+    assertStringIncludes(await Deno.readTextFile(mockOutputs['report-file']), 'filename="backend/src/main/kotlin/no/dsb/app/App.kt"')
   })
 })
 
@@ -166,10 +224,10 @@ Deno.test('convert-jacoco - run without reports skips without failing', async ()
 
 Deno.test('convert-jacoco - buildSourceIndex skips build output directories', async () => {
   await withWorkspace(async (workspace) => {
-    await writeFile(workspace, 'app/src/main/kotlin/A.kt')
+    await writeFile(workspace, 'app/src/main/kotlin/A.kt', '// header\npackage no.dsb.a\n')
     await writeFile(workspace, 'app/target/generated-sources/A.kt')
     await writeFile(workspace, 'app/build/A.kt')
     const index = await buildSourceIndex(workspace, join(workspace, 'app'))
-    assertEquals(index.get('A.kt'), ['app/src/main/kotlin/A.kt'])
+    assertEquals(index.get('A.kt'), [{ path: 'app/src/main/kotlin/A.kt', packagePath: 'no/dsb/a' }])
   })
 })

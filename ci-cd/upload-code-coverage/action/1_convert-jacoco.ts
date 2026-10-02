@@ -1,4 +1,4 @@
-import { basename, core, expandGlob, join, parseXML, relative } from 'common/deps.ts'
+import { basename, core, dirname, expandGlob, join, parseXML, relative } from 'common/deps.ts'
 import { AppVars } from 'common/interfaces/application-variables.ts'
 import { handleError } from 'common/utils/error.ts'
 import { getActionInput, getWorkspacePath, tryParseJson } from 'common/utils/helpers.ts'
@@ -12,9 +12,15 @@ import { getActionInput, getWorkspacePath, tryParseJson } from 'common/utils/hel
  * so unit, integration and merged reports can coexist) and writes one Cobertura report with file
  * paths relative to the repository root, which is what GitHub maps onto the PR diff.
  *
- * JaCoCo reports source files as '<package dir>/<file name>' relative to an unknown source root,
- * so paths are resolved against an index of the app's source files. Files that cannot be resolved
- * unambiguously are left out rather than guessed.
+ * Branch counts are merged by taking the best report per line. That is exact when the build also
+ * writes a report from merged execution data (jacoco:merge + report, as most DSB poms do), and a
+ * lower bound otherwise: separate XML reports cannot tell complementary branches from overlapping
+ * ones, so coverage is never overstated.
+ *
+ * JaCoCo reports source files by package and file name only, so paths are resolved against an
+ * index of the app's source files and the package each of them declares (Kotlin does not require
+ * the directory to match the package). Files that cannot be resolved unambiguously are left out
+ * rather than guessed.
  *
  * Never fails the build for lack of coverage: no reports, or none that resolve, only means
  * 'report-created=false'.
@@ -34,8 +40,16 @@ export interface LineCoverage {
 /** Repo-relative source path → line number → coverage. */
 export type CoverageMap = Map<string, Map<number, LineCoverage>>
 
-/** Basename → repo-relative paths of all source files with that name. */
-export type SourceIndex = Map<string, string[]>
+/** A source file in the index. */
+export interface SourceFile {
+  /** Repo-relative path. */
+  path: string
+  /** Declared package as a slash separated directory ('no/dsb/app'), empty for the default package. */
+  packagePath: string
+}
+
+/** Basename → all source files with that name. */
+export type SourceIndex = Map<string, SourceFile[]>
 
 interface JacocoLine {
   nr: string
@@ -64,6 +78,14 @@ function toPosix(path: string): string {
   return path.replaceAll('\\', '/')
 }
 
+const PACKAGE_DECLARATION = /^\s*package\s+([\w.`]+)/m
+
+/** The package a Kotlin/Java source declares, as a slash separated directory, empty for the default package. */
+export function declaredPackagePath(source: string): string {
+  const match = PACKAGE_DECLARATION.exec(source)
+  return match ? match[1].replaceAll('`', '').replaceAll('.', '/') : ''
+}
+
 /**
  * Builds the source index for all Kotlin/Java files below 'rootDir'.
  * @param workspace Absolute path of the repository root, paths in the index are relative to it.
@@ -73,10 +95,9 @@ export async function buildSourceIndex(workspace: string, rootDir: string): Prom
   const index: SourceIndex = new Map()
   for await (const entry of expandGlob(SOURCE_GLOB, { root: rootDir, exclude: GLOB_EXCLUDES, globstar: true })) {
     if (!entry.isFile) continue
-    const repoPath = toPosix(relative(workspace, entry.path))
-    const paths = index.get(entry.name) ?? []
-    paths.push(repoPath)
-    index.set(entry.name, paths)
+    const files = index.get(entry.name) ?? []
+    files.push({ path: toPosix(relative(workspace, entry.path)), packagePath: declaredPackagePath(await Deno.readTextFile(entry.path)) })
+    index.set(entry.name, files)
   }
   return index
 }
@@ -88,31 +109,31 @@ export function moduleDirOfReport(reportRepoPath: string): string {
   return '.'
 }
 
-/** Picks the single best candidate, preferring the reporting module and main (non-test) sources. */
-function pickCandidate(candidates: string[], moduleDir: string): string | null {
-  if (candidates.length === 1) return candidates[0]
-  if (candidates.length === 0) return null
-  const inModule = moduleDir === '.' ? candidates : candidates.filter((path) => path.startsWith(`${moduleDir}/`))
-  if (inModule.length === 1) return inModule[0]
-  const mainSources = (inModule.length > 0 ? inModule : candidates).filter((path) => path.includes('/src/main/'))
-  if (mainSources.length === 1) return mainSources[0]
-  return null
+/** Whether a repo-relative path is a main (non-test) source, also for root-level projects ('src/main/...'). */
+function isMainSource(path: string): boolean {
+  return `/${path}`.includes('/src/main/')
 }
 
 /**
  * Resolves a JaCoCo source file to its repo-relative path.
+ *
+ * Only files declaring the reported package are candidates. Among those, the reporting module's own
+ * sources win, so a same-named file in another module is never picked when the module has one; other
+ * modules are only considered when it has none, as for aggregate reports. Main sources win over test
+ * sources, since JaCoCo only reports main classes.
  * @param packagePath JaCoCo package name, a slash separated directory ('no/dsb/app'), empty for the default package.
  * @param fileName JaCoCo source file name ('App.kt').
  * @param moduleDir Repo-relative directory of the module that produced the report.
  * @returns The path, or null when there is no unambiguous match.
  */
 export function resolveSourcePath(index: SourceIndex, packagePath: string, fileName: string, moduleDir: string): string | null {
-  const candidates = index.get(fileName) ?? []
-  const suffix = packagePath ? `${packagePath}/${fileName}` : fileName
-  const matchingPackage = candidates.filter((path) => path === suffix || path.endsWith(`/${suffix}`))
-  if (matchingPackage.length > 0) return pickCandidate(matchingPackage, moduleDir)
-  // Kotlin does not require the directory to match the package, fall back to a unique file name.
-  return pickCandidate(candidates, moduleDir)
+  const candidates = (index.get(fileName) ?? []).filter((file) => file.packagePath === packagePath).map((file) => file.path)
+  const inModule = moduleDir === '.' ? candidates : candidates.filter((path) => path.startsWith(`${moduleDir}/`))
+  const scope = inModule.length > 0 ? inModule : candidates
+  if (scope.length === 1) return scope[0]
+  const mainSources = scope.filter(isMainSource)
+  if (mainSources.length === 1) return mainSources[0]
+  return null
 }
 
 function collectPackages(node: JacocoGroup, packages: JacocoPackage[] = []): JacocoPackage[] {
@@ -256,13 +277,24 @@ export function detectLanguage(coverage: CoverageMap): 'Kotlin' | 'Java' {
   return kotlinLines >= javaLines ? 'Kotlin' : 'Java'
 }
 
+/** The app's source directory. 'application-source-path' may also point at the pom.xml itself. */
+export async function sourceRootOf(workspace: string, appSourcePath: string | undefined): Promise<string> {
+  const path = join(workspace, appSourcePath || '.')
+  try {
+    if ((await Deno.stat(path)).isFile) return dirname(path)
+  } catch {
+    // A missing path is left as is, the glob below then finds nothing.
+  }
+  return path
+}
+
 export async function run(): Promise<void> {
   try {
     const appVars = tryParseJson<AppVars>(getActionInput('dsb-build-envs', true))
     if (!appVars) throw new Error('Failed to parse dsb-build-envs JSON.')
     const appName = appVars['application-name'] ?? 'app'
     const workspace = getWorkspacePath()
-    const sourceRoot = join(workspace, appVars['application-source-path'] ?? '.')
+    const sourceRoot = await sourceRootOf(workspace, appVars['application-source-path'])
     const outDir = Deno.env.get('RUNNER_TEMP') || workspace
 
     core.setOutput('report-created', 'false')
