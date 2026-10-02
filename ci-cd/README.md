@@ -43,6 +43,8 @@ permissions:
   packages: write       # required for maven deploy to GitHub Packages
   id-token: write       # required for GitHub artifact attestation (OIDC token)
   attestations: write   # required for writing build provenance attestations
+  security-events: write # required for uploading CodeQL and detekt SARIF results
+  code-quality: write   # required for uploading code coverage
 ```
 
 Alternatively, `permissions: write-all` can be used as a shorthand which covers all of the above.
@@ -83,7 +85,7 @@ Artifact attestation requires outbound HTTPS (443) access to Sigstore endpoints 
 
 ### Code scanning (CodeQL)
 
-CodeQL runs as part of the build for `spring-boot` (java-kotlin), `vue` (javascript-typescript), `python` and `maven-library` apps, with the `code-quality` query suite on top of the security queries. Kotlin apps additionally get [detekt](https://detekt.dev/) findings uploaded to code scanning when the app source path contains a `detekt.yml`.
+CodeQL runs as part of the build for `spring-boot` (java-kotlin), `vue` (javascript-typescript), `python` and `maven-library` apps, with the `code-quality` query suite on top of the security queries. Maven-based apps with Kotlin sources additionally get [detekt](https://detekt.dev/) findings uploaded to code scanning, see [detekt](#detekt).
 
 #### Kotlin version guard
 
@@ -96,9 +98,39 @@ com.semmle.extractor.java.interceptors.KotlinInterceptor$KotlinVersionTooRecentE
 
 That failure lands in the Maven build step, so `continue-on-error` on the CodeQL steps does not contain it — the whole build and deploy fails. `build-maven-project` therefore compares the project's Kotlin version against the extractors the installed bundle ships (`2_codeql-kotlin-guard.ts`) and sets `CODEQL_EXTRACTOR_JAVA_AGENT_DISABLE_KOTLIN=true` when CodeQL cannot handle it. The build then proceeds, Java code is still analyzed, and Kotlin analysis resumes by itself once a CodeQL bundle with support for that Kotlin version is released. The guard logs a warning when it kicks in, and never fails the build itself.
 
+#### detekt
+
+detekt runs for every `spring-boot` and `maven-library` app that contains Kotlin sources (`*.kt` outside `target`/`build`), in `ci-cd/run-detekt`:
+
+- When the app has a `detekt.yml` in its `application-source-path`, that config is used.
+- Otherwise the DSB default config [`run-detekt/detekt-default.yml`](run-detekt/detekt-default.yml) is used. It is tuned for Spring Boot services (constructor injection, controllers with many endpoints, guard clauses), turns off pure formatting rules (line length, wildcard imports, trailing newline) and only lists deviations from detekt's defaults.
+
+Either config is applied on top of detekt's own default config (`--build-upon-default-config`). To start from the DSB defaults and adjust them, copy `detekt-default.yml` into the app as `detekt.yml`. Findings are uploaded to code scanning and never fail the build.
+
+### Code coverage
+
+`spring-boot` and `maven-library` apps upload their test coverage to [GitHub code coverage](https://docs.github.com/en/code-security/how-tos/maintain-quality-code/set-up-code-coverage), which shows coverage of changed lines on pull requests. `ci-cd/upload-code-coverage` picks up every JaCoCo XML report the Maven build left below `application-source-path` (`**/target/**/jacoco*.xml`), merges them (a line is covered when any report covers it, so separate unit and integration test reports are fine) and converts the result to Cobertura XML, the only format GitHub accepts.
+
+Requirements for coverage to show up:
+
+- The pom runs `jacoco-maven-plugin` with the `prepare-agent` and `report` goals, so the build writes `target/site/jacoco/jacoco.xml`. Without a report the step is skipped.
+- The calling workflow grants `code-quality: write` (included in `permissions: write-all`).
+- Code coverage is enabled for the repository in its Code Quality settings.
+- The runner has the GitHub CLI (`gh`) and `python3`, which `actions/upload-code-coverage` uses.
+
+Uploads are best effort: a missing permission or a disabled setting produces an error annotation, not a failed build.
+
+Note that on pull requests the build runs on the merge commit, while GitHub maps coverage onto the PR head commit. Line numbers only differ for files the base branch changed after the PR branched off, where coverage of a few lines may be shown off by some lines.
+
 #### Opting out per application
 
-Set `codeql-enabled: false` on an app in `apps` to skip code scanning for it — that covers CodeQL init and analysis, and with it the detekt run, whose findings are uploaded through `codeql-action/upload-sarif`. Both the YAML boolean and the quoted string `"false"` are accepted:
+Set any of these on an app in `apps` to skip the corresponding analysis for it. Both the YAML boolean and the quoted string `"false"` are accepted:
+
+| Flag | Skips |
+|------|-------|
+| `codeql-enabled: false` | CodeQL init and analysis, and with it detekt, whose findings are uploaded to code scanning through `codeql-action/upload-sarif` |
+| `detekt-enabled: false` | detekt only |
+| `coverage-enabled: false` | Code coverage upload |
 
 ```yaml
 apps: |
@@ -106,7 +138,7 @@ apps: |
     codeql-enabled: false
 ```
 
-The value is normalized to a real boolean by `create-build-envs` and defaults to `true`, so the workflows can test it directly in an `if:` expression. That matters: an app var that is not set reads as `null`, and GitHub casts both `null` and boolean `false` to `0` when comparing, which makes `!= false` impossible to express correctly.
+The values are normalized to real booleans by `create-build-envs` and default to `true`, so the workflows can test them directly in an `if:` expression. That matters: an app var that is not set reads as `null`, and GitHub casts both `null` and boolean `false` to `0` when comparing, which makes `!= false` impossible to express correctly.
 
 ## Maintenance
 

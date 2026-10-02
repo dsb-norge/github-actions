@@ -1,0 +1,61 @@
+# DSB default detekt config, used for apps that have no detekt.yml of their own in their
+# 'application-source-path'. Applied on top of detekt's default config
+# (--build-upon-default-config), so only deviations from detekt's defaults are listed here.
+#
+# Tuned for Spring Boot services: constructor injection, controllers/services with many endpoints
+# and early-return guard clauses are idiomatic there and should not show up as findings. Pure
+# formatting rules are disabled.
+# Findings are reported to code scanning, they never fail the build.
+#
+# An app that wants different rules adds its own detekt.yml, which then replaces this file
+# (it is still applied on top of detekt's default config).
+
+config:
+  validation: true
+
+complexity:
+  LongParameterList:
+    # Spring constructor injection and request/response mapping.
+    constructorThreshold: 10
+    ignoreDefaultParameters: true
+    ignoreAnnotatedParameter: ['Value']
+  TooManyFunctions:
+    # Controllers and services commonly expose one function per endpoint/use case.
+    thresholdInFiles: 20
+    thresholdInClasses: 20
+    thresholdInInterfaces: 20
+    thresholdInObjects: 20
+    ignorePrivate: true
+    ignoreOverridden: true
+
+naming:
+  FunctionNaming:
+    # JUnit 5 display names as function names, also outside the default test directories.
+    ignoreAnnotated: ['Test', 'ParameterizedTest', 'RepeatedTest', 'TestFactory']
+
+style:
+  # Pure formatting rules are off: formatting belongs in the IDE/ktlint, not in code scanning,
+  # and these made up most of the findings on real repos.
+  MaxLineLength:
+    active: false
+  NewLineAtEndOfFile:
+    active: false
+  WildcardImport:
+    # IntelliJ's default Kotlin code style uses wildcard imports.
+    active: false
+  MagicNumber:
+    # Configuration defaults and annotation arguments (@Size(max = 255), @Scheduled(...)).
+    ignorePropertyDeclaration: true
+    ignoreAnnotation: true
+  ReturnCount:
+    max: 3
+    excludeGuardClauses: true
+  ThrowsCount:
+    excludeGuardClauses: true
+  ForbiddenComment:
+    # TODOs are tracked elsewhere; keep flagging markers meant to block a merge.
+    comments:
+      - reason: 'Forbidden FIXME todo marker in comment, please fix the problem.'
+        value: 'FIXME:'
+      - reason: 'Forbidden STOPSHIP todo marker in comment, please address the problem before shipping the code.'
+        value: 'STOPSHIP:'

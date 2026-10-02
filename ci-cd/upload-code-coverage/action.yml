@@ -1,0 +1,55 @@
+name: "Upload code coverage"
+description: |
+  Uploads the code coverage of a Maven build to GitHub code coverage, shown on pull requests and in the
+  repository's Code Quality view.
+  The JaCoCo XML report(s) left in the 'target' directories below 'application-source-path' are merged and
+  converted to Cobertura XML, the only format GitHub accepts. Nothing is uploaded when the build produced no
+  JaCoCo XML report, i.e. when the pom does not run the jacoco-maven-plugin 'report' goal.
+  The calling workflow must grant 'code-quality: write'. Uploads are best effort and never fail the build.
+author: "Direktoratet for samfunnssikkerhet og beredskap"
+inputs:
+  dsb-build-envs:
+    description: |
+      DSB build environment variables JSON.
+      Required fields:
+        application-name
+        application-source-path
+    required: true
+outputs:
+  report-file:
+    description: "Path to the generated Cobertura XML report, empty when none was created"
+    value: ${{ steps.convert.outputs.report-file }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v4
+      with:
+        dsb-build-envs: ${{ inputs.dsb-build-envs }}
+        require: |
+          application-name
+          application-source-path
+
+    - name: 🦕 Deno install
+      shell: bash
+      run: deno install
+      working-directory: ${{ github.action_path }}/../
+
+    - id: convert
+      shell: bash
+      env:
+        INPUT_DSB_BUILD_ENVS: ${{ inputs.dsb-build-envs }}
+        GITHUB_WORKSPACE: ${{ github.workspace }}
+        RUNNER_TEMP: ${{ runner.temp }}
+      run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_convert-jacoco.ts
+
+    - name: "📊 Upload coverage report"
+      if: steps.convert.outputs.report-created == 'true'
+      uses: actions/upload-code-coverage@v1
+      with:
+        file: ${{ steps.convert.outputs.report-file }}
+        language: ${{ steps.convert.outputs.language }}
+        label: code-coverage/jacoco/${{ fromJSON(inputs.dsb-build-envs).application-name }}
+        # Soft rollout: callers without 'code-quality: write' or with code coverage disabled in the
+        # repository settings get an error annotation, not a failed build.
+        fail-on-error: false
