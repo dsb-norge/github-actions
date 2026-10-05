@@ -67,10 +67,10 @@ When developing changes that need to be tried from a real consumer repo, follow 
 
 The reusable workflows assume:
 
-- Self-hosted runners labeled `self-hosted, dsb-builder, linux, x64`.
+- Jobs run on the GitHub-hosted larger runner `builder-app-platform-ghr-ubuntu-large` (the `runs-on` input's default). The self-hosted `dsb-builder` pool it replaced is being decommissioned; there is no fallback to it.
 - A GitHub App (`dsb-norge-cicd-access`) is installed in the caller org; `get-github-app-installation-token` mints an installation token from `ORG_CICD_APP_ID` / `ORG_CICD_APP_INSTALLATION_ID` / `ORG_CICD_APP_PRIVATE_KEY`.
 - Permissions required on the caller workflow are listed at the top of `.github/workflows/ci-cd-default.yml` and in `ci-cd/README.md`.
-- Build provenance + CycloneDX SBOM attestations are produced for Docker images, Maven artifacts, and npm builds (see `ci-cd/README.md` → **Artifact attestation** for verification commands and the Sigstore endpoint list self-hosted runners need outbound 443 access to).
+- Build provenance + CycloneDX SBOM attestations are produced for Docker images, Maven artifacts, and npm builds (see `ci-cd/README.md` → **Artifact attestation** for verification commands and the Sigstore endpoint list the runners need outbound 443 access to).
 
 ## Conventions worth knowing before editing
 
