@@ -112,6 +112,8 @@ jobs:
     outputs:
       app-vars-matrix: ${{ steps.create-matrix.outputs.app-vars }}
       applications-version: ${{ steps.create-matrix.outputs.applications-version }}
+      codeql-app-vars-matrix: ${{ steps.codeql-matrix.outputs.app-vars }}
+      codeql-has-apps: ${{ steps.codeql-matrix.outputs.has-apps }}
     steps:
       - name: "🧹 Clean: 🏢 workspace"
         id: clean
@@ -134,6 +136,25 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v4
         with:
           apps: ${{ inputs.apps }}
+
+      - name: "🎰 Generate: 🔎 CodeQL build matrix"
+        id: codeql-matrix
+        if: ${{ ! ( github.event_name == 'pull_request' && github.event.action == 'closed' ) }}
+        env:
+          APP_VARS_MATRIX: ${{ steps.create-matrix.outputs.app-vars }}
+        run: |
+          # Spring Boot apps with changes that have not opted out of CodeQL. 'codeql-enabled' is not
+          # normalized to a boolean until create-build-envs, so both 'false' and false opt out here.
+          MATRIX=$(jq -c '
+            .include |= map(select(
+              .["app-vars"]["application-type"] == "spring-boot"
+              and (.["app-vars"]["has-changes"] | tostring) == "true"
+              and (.["app-vars"]["codeql-enabled"] | tostring) != "false"
+            ))
+            | .["application-name"] = [.include[]["application-name"]]
+          ' <<< "${APP_VARS_MATRIX}")
+          echo "app-vars=${MATRIX}" >> "$GITHUB_OUTPUT"
+          echo "has-apps=$(jq '.include | length > 0' <<< "${MATRIX}")" >> "$GITHUB_OUTPUT"
 
       - name: Notify Internal Status (build-matrix-finished)
         if: always()
@@ -245,38 +266,8 @@ jobs:
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
 
-      - name: "🔎 Initialize CodeQL for Java and Kotlin"
-        if: |
-          matrix.app-vars['has-changes'] == true
-          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
-          && matrix.app-vars.application-type == 'spring-boot'
-          && fromJSON(steps.build-env.outputs.json).codeql-enabled
-        # Soft rollout: CodeQL steps must not fail callers that lack GHAS or
-        # security-events: write. Remove once all consumers are onboarded.
-        continue-on-error: true
-        uses: github/codeql-action/init@v4
-        with:
-          languages: java-kotlin
-          # build-mode: manual (was: none) — the tracer follows the real Maven
-          # build below, which runs on our runners with access to internal
-          # artifacts. none-mode was not an alternative: it never extracted
-          # Kotlin at all, so pure-Kotlin apps failed analysis with "CodeQL
-          # could not process any code written in Java/Kotlin".
-          # The flip side of manual mode is that the tracer injects itself into
-          # kotlinc and refuses Kotlin versions newer than the bundle supports,
-          # which fails the Maven build itself (not this step). build-maven-project
-          # guards against that by disabling Kotlin extraction when needed.
-          build-mode: manual
-          # Add the code-quality query suite (maintainability/reliability — the
-          # SonarQube-type findings) on top of the security queries. Findings
-          # land in code scanning alongside the security results: while GitHub
-          # Code Quality is in preview, only its own default setup may upload
-          # to the Code Quality product (`analysis-kinds: code-quality` is
-          # rejected in custom workflows with "use the queries input with
-          # code-quality instead"). TODO: switch to Code Quality uploads when
-          # the preview opens for advanced setup.
-          queries: +code-quality
-
+      # CodeQL for Java/Kotlin runs in the parallel 'codeql' job below, so its tracer does not slow
+      # down this build and its tests.
       - name: "🍃 Spring Boot app: ⚒ Build and analyze with Maven"
         id: maven-build
         if: |
@@ -286,29 +277,6 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/build-maven-project@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
-
-      - name: "🔎 Perform CodeQL Analysis for Java and Kotlin"
-        if: |
-          matrix.app-vars['has-changes'] == true
-          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
-          && matrix.app-vars.application-type == 'spring-boot'
-          && fromJSON(steps.build-env.outputs.json).codeql-enabled
-        continue-on-error: true
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
-
-      - name: "🧹 Clear CodeQL tracer env (LD_PRELOAD) after analysis"
-        if: |
-          matrix.app-vars['has-changes'] == true
-          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
-          && matrix.app-vars.application-type == 'spring-boot'
-        # CodeQL's manual-mode tracer sets LD_PRELOAD via GITHUB_ENV; it
-        # persists for the rest of the job and breaks subsequent Deno steps
-        # that use scoped --allow-run. Clear it so docker/az/helm/etc. actions
-        # keep their tight subprocess allowlists.
-        shell: bash
-        run: echo "LD_PRELOAD=" >> "$GITHUB_ENV"
 
       - name: "📊 Upload code coverage"
         if: |
@@ -556,6 +524,112 @@ jobs:
           application-name: ${{ matrix.app-vars.application-name }}
           basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
           appvars: ${{ toJSON(matrix.app-vars) }}
+
+  # CodeQL for Java/Kotlin, in parallel with 'build-deploy' instead of tracing its full build with
+  # tests. This job only compiles and packages (build-only), so the analysis is off the critical path.
+  # Not part of 'ci-cd-conclusion': like the CodeQL steps it replaces, it must never block a build.
+  codeql:
+    name: CodeQL (Java/Kotlin)
+    needs: create-matrix
+    if: needs.create-matrix.outputs.codeql-has-apps == 'true'
+    runs-on: ${{ matrix.app-vars.runs-on || inputs.runs-on }}
+    strategy:
+      matrix: ${{ fromJSON(needs.create-matrix.outputs.codeql-app-vars-matrix) }}
+      fail-fast: false
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: "🧹 Clean: 🏢 workspace"
+        uses: dsb-norge/directory-recreate@v1
+
+      - name: "⬇ Checkout working branch"
+        uses: actions/checkout@v6
+
+      - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
+        id: auth
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v4
+        with:
+          github-app-id: ${{ vars.ORG_CICD_APP_ID }}
+          github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
+          github-app-private-key: "${{ secrets.ORG_CICD_APP_PRIVATE_KEY }}"
+
+      - name: "🎰 Generate: 🔢 DSB build variables"
+        id: build-env
+        uses: dsb-norge/github-actions/ci-cd/create-build-envs@v4
+        with:
+          app-vars: ${{ toJSON(matrix.app-vars) }}
+          github-json: ${{ toJSON(github) }}
+          secrets-json: ${{ toJSON(secrets) }}
+          vars-json: ${{ toJSON(vars) }}
+          sonarqube-token: ${{ secrets.ORG_SONAR_TOKEN }}
+          jasypt-password: ${{ secrets.ORG_JASYPT_LOCAL_ENCRYPTOR_PASSWORD }}
+          acr-tenant-id: ${{ vars.ORG_DSBNO_AZURE_TENANT_ID }}
+          acr-subscription-id: ${{ vars.ORG_ACR_SUBSCRIPTION_ID }}
+          acr-push-service-principal-id: ${{ vars.ORG_ACR_PUSH_SERVICE_PRINCIPAL_ID }}
+          github-repo-token: ${{ secrets.GITHUB_TOKEN }}
+          npmjs-token: ${{ secrets.ORG_NPM_TOKEN }}
+          app-config-repo-token: ${{ steps.auth.outputs.github-token }}
+          pr-deploy-aks-creds-tenant-id: ${{ vars.ORG_DSBNO_AZURE_TENANT_ID }}
+          pr-deploy-aks-creds-subscription-id: ${{ vars.ORG_AKS_DEV_SUBSCRIPTION_ID }}
+          pr-deploy-aks-creds-service-principal-id: ${{ vars.ORG_AKS_DEV_ADMIN_SERVICE_PRINCIPAL_ID }}
+          acr-delete-service-principal-id: ${{ vars.ORG_ACR_DELETE_SERVICE_PRINCIPAL_ID }}
+
+      # Restore only: 'build-deploy' owns saving the cache.
+      - name: "🔄 Restore 📚 build dependencies cache"
+        if: fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
+        uses: dsb-norge/github-actions/ci-cd/dependencies-cache-restore@v4
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🔎 Initialize CodeQL for Java and Kotlin"
+        id: codeql-init
+        # Second check of the opt-out, after create-build-envs has normalized it.
+        if: fromJSON(steps.build-env.outputs.json).codeql-enabled
+        # Soft rollout: CodeQL steps must not fail callers that lack GHAS or
+        # security-events: write. Remove once all consumers are onboarded.
+        continue-on-error: true
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          # build-mode: manual (was: none) — the tracer follows the Maven
+          # build below, which runs on our runners with access to internal
+          # artifacts. none-mode was not an alternative: it never extracted
+          # Kotlin at all, so pure-Kotlin apps failed analysis with "CodeQL
+          # could not process any code written in Java/Kotlin".
+          # The flip side of manual mode is that the tracer injects itself into
+          # kotlinc and refuses Kotlin versions newer than the bundle supports,
+          # which fails the Maven build itself (not this step). build-maven-project
+          # guards against that by disabling Kotlin extraction when needed.
+          build-mode: manual
+          # Add the code-quality query suite (maintainability/reliability — the
+          # SonarQube-type findings) on top of the security queries. Findings
+          # land in code scanning alongside the security results: while GitHub
+          # Code Quality is in preview, only its own default setup may upload
+          # to the Code Quality product (`analysis-kinds: code-quality` is
+          # rejected in custom workflows with "use the queries input with
+          # code-quality instead"). TODO: switch to Code Quality uploads when
+          # the preview opens for advanced setup.
+          queries: +code-quality
+
+      - name: "🍃 Spring Boot app: ⚒ Build for CodeQL with Maven"
+        id: codeql-build
+        if: steps.codeql-init.outcome == 'success'
+        # A failing build here is reported by 'build-deploy' already, never fail the workflow on it.
+        continue-on-error: true
+        # TODO(before merge): revert to @v4. Points at the feature branch while it is tried from
+        # consumer repos, since 'build-only' does not exist in @v4 yet.
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@feat/codeql-parallel-job
+        with:
+          dsb-build-envs: ${{ steps.build-env.outputs.json }}
+          build-only: "true"
+
+      - name: "🔎 Perform CodeQL Analysis for Java and Kotlin"
+        if: steps.codeql-build.outcome == 'success'
+        continue-on-error: true
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:java-kotlin/app:${{ matrix.app-vars.application-name }}"
 
   deploy-to-static:
     name: Deploy app(s) to static environments

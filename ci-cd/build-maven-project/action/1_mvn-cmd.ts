@@ -8,6 +8,7 @@ const MVN_VERSION_ARGUMENTS_DEFAULT: string = '-B'
 const MVN_VERSION_GOALS_DEFAULT: string = 'versions:set'
 const MVN_ARGUMENTS_DEFAULT: string = '-B'
 const MVN_GOALS_DEFAULT: string = 'clean install'
+const MVN_GOALS_BUILD_ONLY: string = 'clean package'
 
 /**
  * Main function for the GitHub Action.
@@ -58,18 +59,25 @@ export async function run(): Promise<void> {
     core.setOutput('mvn-version-cmd', mvnVersionCmd)
     core.endGroup()
 
-    const skipBuildTests: boolean = typeof appVars['maven-build-skip-tests'] === 'boolean' ? appVars['maven-build-skip-tests'] : appVars['maven-build-skip-tests'] === 'true'
+    // Build-only mode (used by the CodeQL job): compile and package without tests, and without
+    // 'install' so nothing lands in the local repo. The app's goals are ignored on purpose, they may
+    // carry e.g. sonar, a full 'maven-build-project-command' is still honoured.
+    const buildOnly: boolean = getActionInput('build-only') === 'true'
+    const skipBuildTests: boolean = buildOnly || (typeof appVars['maven-build-skip-tests'] === 'boolean' ? appVars['maven-build-skip-tests'] : appVars['maven-build-skip-tests'] === 'true')
 
     // --- Determine Maven Build Command ---
     core.startGroup('Determining Maven Build Command')
+    if (buildOnly) {
+      core.info(`Build-only mode: using goals '${MVN_GOALS_BUILD_ONLY}' and skipping tests.`)
+    }
     const mvnCmd = determineMavenCommand(
       mvnCmdInput,
       appVars,
       safePomFilePath,
-      MVN_GOALS_DEFAULT,
+      buildOnly ? MVN_GOALS_BUILD_ONLY : MVN_GOALS_DEFAULT,
       MVN_ARGUMENTS_DEFAULT,
       'maven-build-project-command',
-      'maven-build-project-goals',
+      buildOnly ? undefined : 'maven-build-project-goals',
       'maven-build-project-arguments',
       skipBuildTests,
     )

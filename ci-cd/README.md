@@ -87,9 +87,11 @@ Artifact attestation requires outbound HTTPS (443) access to Sigstore endpoints 
 
 CodeQL runs as part of the build for `spring-boot` (java-kotlin), `vue` (javascript-typescript), `python` and `maven-library` apps, with the `code-quality` query suite on top of the security queries. Maven-based apps with Kotlin sources additionally get [detekt](https://detekt.dev/) findings uploaded to code scanning, see [detekt](#detekt).
 
+In `ci-cd-default.yml` the Java/Kotlin analysis of `spring-boot` apps runs in its own `codeql` job, in parallel with `build-deploy`, rather than tracing the regular build. That job calls `build-maven-project` with `build-only: true`, which runs `clean package -DskipTests` (keeping `maven-build-project-arguments`) and skips test reporting, artifact deploy, attestation and SBOM. The regular build and its tests thus run without the tracer, and the analysis is off the critical path. The `codeql` job is not part of `ci-cd-conclusion`, so it never blocks a build.
+
 #### Kotlin version guard
 
-Java/Kotlin analysis uses `build-mode: manual`, which means CodeQL's tracer injects itself into `kotlinc` during the real Maven build. When the project's Kotlin version is newer than the installed CodeQL bundle supports, the extractor throws before compilation:
+Java/Kotlin analysis uses `build-mode: manual`, which means CodeQL's tracer injects itself into `kotlinc` during the Maven build it follows. When the project's Kotlin version is newer than the installed CodeQL bundle supports, the extractor throws before compilation:
 
 ```
 com.semmle.extractor.java.interceptors.KotlinInterceptor$KotlinVersionTooRecentError:
