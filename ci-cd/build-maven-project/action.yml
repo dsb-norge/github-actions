@@ -91,10 +91,11 @@ inputs:
     default: ""
   build-only:
     description: |
-      Set to 'true' to only compile and package the project, used for the CodeQL job that runs in
-      parallel with the regular build. Runs 'clean package -DskipTests' (keeping the app's arguments,
-      a full 'maven-build-project-command' is still honoured) and skips test reporting, artifact
-      deploy, attestation and SBOM, as the regular build already takes care of those.
+      Set to 'true' for builds that run next to the regular build, ie. the CodeQL job and the
+      Spring Boot image build. Skips tests, test reporting, artifact deploy, attestation and SBOM,
+      as the regular build already takes care of those. Without 'mvn-cmd' it runs
+      'clean package -DskipTests' (keeping the app's arguments, a full 'maven-build-project-command'
+      is still honoured).
     required: false
     default: "false"
   dsb-build-envs:

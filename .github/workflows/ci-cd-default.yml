@@ -319,7 +319,8 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@v4
+        # TODO(before merge): revert to @v4, the branch version passes 'build-only' to its build.
+        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@feat/codeql-parallel-job
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
           sbom-file: ${{ steps.maven-build.outputs.sbom-file }}
@@ -553,6 +554,12 @@ jobs:
     strategy:
       matrix: ${{ fromJSON(needs.create-matrix.outputs.codeql-app-vars-matrix) }}
       fail-fast: false
+    env:
+      # Apps may enable Kotlin incremental compilation (eg. '-Dkotlin.compiler.incremental=true' in
+      # .mvn/maven.config) to avoid recompiling in deploy/image steps. The CodeQL tracer is only
+      # known to work with the regular compiler, so force it here. MAVEN_ARGS wins over
+      # .mvn/maven.config, '-ntp' is what the runner image sets by default.
+      MAVEN_ARGS: -ntp -Dkotlin.compiler.incremental=false
     defaults:
       run:
         shell: bash
