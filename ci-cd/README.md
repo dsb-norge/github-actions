@@ -87,9 +87,11 @@ Artifact attestation requires outbound HTTPS (443) access to Sigstore endpoints 
 
 CodeQL runs as part of the build for `spring-boot` (java-kotlin), `vue` (javascript-typescript), `python` and `maven-library` apps, with the `code-quality` query suite on top of the security queries. Maven-based apps with Kotlin sources additionally get [detekt](https://detekt.dev/) findings uploaded to code scanning, see [detekt](#detekt).
 
+In `ci-cd-default.yml` the Java/Kotlin analysis of `spring-boot` apps runs in its own `codeql` job, in parallel with `build-deploy`, rather than tracing the regular build. That job calls `build-maven-project` with `build-only: true`, which runs `clean package -DskipTests` (keeping `maven-build-project-arguments`) and skips test reporting, artifact deploy, attestation and SBOM. The regular build and its tests thus run without the tracer, and the analysis is off the critical path. The `codeql` job is not part of `ci-cd-conclusion`, so it never blocks a build.
+
 #### Kotlin version guard
 
-Java/Kotlin analysis uses `build-mode: manual`, which means CodeQL's tracer injects itself into `kotlinc` during the real Maven build. When the project's Kotlin version is newer than the installed CodeQL bundle supports, the extractor throws before compilation:
+Java/Kotlin analysis uses `build-mode: manual`, which means CodeQL's tracer injects itself into `kotlinc` during the Maven build it follows. When the project's Kotlin version is newer than the installed CodeQL bundle supports, the extractor throws before compilation:
 
 ```
 com.semmle.extractor.java.interceptors.KotlinInterceptor$KotlinVersionTooRecentError:
@@ -290,6 +292,7 @@ flowchart TD
         mavenDockerBuild["build-spring-boot-image"]
         npmBuild["build-nodejs-project"]
         npmDockerBuild["build-docker-image"]
+        cachePrune["Prune Own Artifacts From Cache"]
         cacheSave["Save Dependencies Cache"]
         eventTypeCheck{Event Type?}
         ephemeralDeploy["deploy-to-ephemeral"]
@@ -301,12 +304,22 @@ flowchart TD
         getToken --> createEnvs --> buildEnvsOutput --> cacheRestore --> appTypeCheck
         appTypeCheck -- "spring-boot" --> mavenBuild --> mavenDockerBuild
         appTypeCheck -- "vue" --> npmBuild --> npmDockerBuild
-        mavenDockerBuild --> cacheSave
+        mavenDockerBuild --> cachePrune --> cacheSave
         npmDockerBuild --> cacheSave
         cacheSave --> eventTypeCheck
         eventTypeCheck -- "PR" --> ephemeralDeploy
         eventTypeCheck -- "PR closed" --> teardownPR --> deletePRImages --> deletePRCaches
         eventTypeCheck -- "push/manual" --> pruneImages
+    end
+
+    %% CodeQL job (matrix, spring-boot apps only), in parallel with build-deploy
+    subgraph codeqlJob["CodeQL Job (Matrix) (codeql)"]
+        codeqlEnvs["create-build-envs"]
+        codeqlCache["dependencies-cache-restore"]
+        codeqlInit["codeql-action/init"]
+        codeqlBuild["build-maven-project (build-only)"]
+        codeqlAnalyze["codeql-action/analyze"]
+        codeqlEnvs --> codeqlCache --> codeqlInit --> codeqlBuild --> codeqlAnalyze
     end
 
     %% AND join node for jobs that require both createMatrixJob and buildDeployJob
@@ -334,6 +347,7 @@ flowchart TD
     %% Job dependencies (needs)
     start --> createMatrixJob
     matrixOutput -.-> buildDeployJob
+    matrixOutput -.-> codeqlJob
     createMatrixJob --|waits on|--> andDeployStatic
     buildDeployJob --|waits on|--> andDeployStatic
     andDeployStatic --> deployStaticJob

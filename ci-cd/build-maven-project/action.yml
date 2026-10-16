@@ -89,6 +89,15 @@ inputs:
     description: "JSON object with extra environment variables to set in same scope as maven is invoked."
     required: false
     default: ""
+  build-only:
+    description: |
+      Set to 'true' for builds that run next to the regular build, ie. the CodeQL job and the
+      Spring Boot image build. Skips tests, test reporting, artifact deploy, attestation and SBOM,
+      as the regular build already takes care of those. Without 'mvn-cmd' it runs
+      'clean package -DskipTests' (keeping the app's arguments, a full 'maven-build-project-command'
+      is still honoured).
+    required: false
+    default: "false"
   dsb-build-envs:
     description: |
       DSB build environment variables JSON.
@@ -165,6 +174,7 @@ runs:
         INPUT_DSB_BUILD_ENVS: ${{ inputs.dsb-build-envs }}
         INPUT_MVN_VERSION_CMD: ${{ inputs.mvn-version-cmd }}
         INPUT_MVN_CMD: ${{ inputs.mvn-cmd }}
+        INPUT_BUILD_ONLY: ${{ inputs.build-only }}
         GITHUB_WORKSPACE: ${{ github.workspace }}
       run: deno run --allow-env --allow-read --allow-write ${{ github.action_path }}/action/1_mvn-cmd.ts
 
@@ -213,7 +223,7 @@ runs:
 
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@567cc7f8dcea3eba5da355f6ebc95663310d8a07
-      if: ${{ !cancelled() && github.action == 'maven-build' }}
+      if: ${{ !cancelled() && github.action == 'maven-build' && inputs.build-only != 'true' }}
       with:
         check_name: "Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
         files: |
@@ -222,7 +232,7 @@ runs:
 
     - name: Log Test Results
       uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-      if: ${{ !cancelled() && github.action == 'maven-build'}}
+      if: ${{ !cancelled() && github.action == 'maven-build' && inputs.build-only != 'true' }}
       with:
         name: "Maven Test Results - ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}"
         path: "${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/**/target/**/TEST-*.xml"
@@ -230,6 +240,7 @@ runs:
         fail-on-empty: "false"
 
     - id: deploy-artifacts
+      if: inputs.build-only != 'true'
       shell: bash
       env:
         INPUT_BUILD_ENVS: "${{ inputs.dsb-build-envs }}"
