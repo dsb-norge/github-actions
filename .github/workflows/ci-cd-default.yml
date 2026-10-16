@@ -319,8 +319,7 @@ jobs:
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
                 || ( ! fromJSON(steps.build-env.outputs.json).static-deploy-from-default-branch-only )
           )))
-        # TODO(before merge): revert to @v4, the branch version passes 'build-only' to its build.
-        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@feat/codeql-parallel-job
+        uses: dsb-norge/github-actions/ci-cd/build-spring-boot-image@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
           sbom-file: ${{ steps.maven-build.outputs.sbom-file }}
@@ -641,9 +640,7 @@ jobs:
         if: steps.codeql-init.outcome == 'success'
         # A failing build here is reported by 'build-deploy' already, never fail the workflow on it.
         continue-on-error: true
-        # TODO(before merge): revert to @v4. Points at the feature branch while it is tried from
-        # consumer repos, since 'build-only' does not exist in @v4 yet.
-        uses: dsb-norge/github-actions/ci-cd/build-maven-project@feat/codeql-parallel-job
+        uses: dsb-norge/github-actions/ci-cd/build-maven-project@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
           build-only: "true"
