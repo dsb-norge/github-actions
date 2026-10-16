@@ -292,6 +292,7 @@ flowchart TD
         mavenDockerBuild["build-spring-boot-image"]
         npmBuild["build-nodejs-project"]
         npmDockerBuild["build-docker-image"]
+        cachePrune["Prune Own Artifacts From Cache"]
         cacheSave["Save Dependencies Cache"]
         eventTypeCheck{Event Type?}
         ephemeralDeploy["deploy-to-ephemeral"]
@@ -303,12 +304,22 @@ flowchart TD
         getToken --> createEnvs --> buildEnvsOutput --> cacheRestore --> appTypeCheck
         appTypeCheck -- "spring-boot" --> mavenBuild --> mavenDockerBuild
         appTypeCheck -- "vue" --> npmBuild --> npmDockerBuild
-        mavenDockerBuild --> cacheSave
+        mavenDockerBuild --> cachePrune --> cacheSave
         npmDockerBuild --> cacheSave
         cacheSave --> eventTypeCheck
         eventTypeCheck -- "PR" --> ephemeralDeploy
         eventTypeCheck -- "PR closed" --> teardownPR --> deletePRImages --> deletePRCaches
         eventTypeCheck -- "push/manual" --> pruneImages
+    end
+
+    %% CodeQL job (matrix, spring-boot apps only), in parallel with build-deploy
+    subgraph codeqlJob["CodeQL Job (Matrix) (codeql)"]
+        codeqlEnvs["create-build-envs"]
+        codeqlCache["dependencies-cache-restore"]
+        codeqlInit["codeql-action/init"]
+        codeqlBuild["build-maven-project (build-only)"]
+        codeqlAnalyze["codeql-action/analyze"]
+        codeqlEnvs --> codeqlCache --> codeqlInit --> codeqlBuild --> codeqlAnalyze
     end
 
     %% AND join node for jobs that require both createMatrixJob and buildDeployJob
@@ -336,6 +347,7 @@ flowchart TD
     %% Job dependencies (needs)
     start --> createMatrixJob
     matrixOutput -.-> buildDeployJob
+    matrixOutput -.-> codeqlJob
     createMatrixJob --|waits on|--> andDeployStatic
     buildDeployJob --|waits on|--> andDeployStatic
     andDeployStatic --> deployStaticJob

@@ -83,28 +83,10 @@ on:
         default: 0
 
 jobs:
-  check-docker-disk-space:
-    name: Check Docker Disk Space & Prune if Needed
-    runs-on: ${{ inputs.runs-on }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Notify Internal Status (ci-cd-started)
-        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
-        with:
-          status: started
-          step-name: ci-cd-started
-          basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
-
-      - name: "🩺 Check Docker disk usage and prune if necessary"
-        uses: dsb-norge/github-actions/ci-cd/check-docker-disk-space@v4
-        with:
-          threshold-gb: "7"
-
+  # No separate up-front Docker disk check job: the GitHub-hosted runners are fresh per job, so
+  # checking one runner's disk says nothing about the next. 'build-deploy' checks its own runner.
   create-matrix:
     name: Create build matrix
-    needs: check-docker-disk-space
     runs-on: ${{ inputs.runs-on }}
     defaults:
       run:
@@ -115,6 +97,13 @@ jobs:
       codeql-app-vars-matrix: ${{ steps.codeql-matrix.outputs.app-vars }}
       codeql-has-apps: ${{ steps.codeql-matrix.outputs.has-apps }}
     steps:
+      - name: Notify Internal Status (ci-cd-started)
+        uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
+        with:
+          status: started
+          step-name: ci-cd-started
+          basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
+
       - name: "🧹 Clean: 🏢 workspace"
         id: clean
         uses: dsb-norge/directory-recreate@v1
@@ -454,6 +443,34 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/build-docker-image@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
+
+      - name: "🧹 Prune: 📚 the project's own artifacts from the dependencies cache"
+        if: |
+          matrix.app-vars['has-changes'] == true
+          && ! ( github.event_name == 'pull_request' && github.event.action == 'closed' )
+          && matrix.app-vars.application-type == 'spring-boot'
+          && fromJSON(steps.build-env.outputs.json).github-dependencies-cache-enabled
+          && steps.cache-restore.outputs.cache-hit != 'true'
+        # 'install' and 'deploy' put the project's own artifacts in the local repo under a version that
+        # is unique per build, a WAR alone can be hundreds of MB. Kept in the cache they pile up build
+        # after build, and every job pays for them on restore and save. The artifact dirs holding this
+        # build's version are the project's own modules: drop them with all their versions, so older
+        # builds already in the cache go too. Anything needed later is simply fetched again.
+        env:
+          CACHE_PATH: ${{ steps.cache-restore.outputs.cache-normalized-path }}
+          APP_VERSION: ${{ fromJSON(steps.build-env.outputs.json).application-version }}
+        run: |
+          if [[ -z "${CACHE_PATH}" || ! -d "${CACHE_PATH}" || -z "${APP_VERSION}" ]]; then
+            echo "Nothing to prune (cache path: '${CACHE_PATH}', version: '${APP_VERSION}')."
+            exit 0
+          fi
+          echo "Cache size before pruning: $(du -sh "${CACHE_PATH}" | cut -f1)"
+          find "${CACHE_PATH}" -mindepth 2 -type d -name "${APP_VERSION}" -prune -printf '%h\n' | sort -u |
+            while read -r ARTIFACT_DIR; do
+              echo "Removing ${ARTIFACT_DIR#"${CACHE_PATH}"/} ($(du -sh "${ARTIFACT_DIR}" | cut -f1))"
+              rm -rf "${ARTIFACT_DIR}"
+            done
+          echo "Cache size after pruning: $(du -sh "${CACHE_PATH}" | cut -f1)"
 
       - name: "💾 Save 📚 build dependencies cache"
         id: cache-save
