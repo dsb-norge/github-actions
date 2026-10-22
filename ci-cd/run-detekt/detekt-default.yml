@@ -44,9 +44,15 @@ style:
     # IntelliJ's default Kotlin code style uses wildcard imports.
     active: false
   MagicNumber:
-    # Configuration defaults and annotation arguments (@Size(max = 255), @Scheduled(...)).
+    # Configuration defaults and annotation arguments (@Size(max = 255), @Scheduled(...)),
+    # plus the places where a literal is already named or self-explanatory.
     ignorePropertyDeclaration: true
     ignoreAnnotation: true
+    ignoreLocalVariableDeclaration: true
+    ignoreEnums: true
+    ignoreRanges: true
+    # Replaces detekt's default list (-1, 0, 1, 2), so those are repeated here.
+    ignoreNumbers: ['-1', '0', '1', '2', '10', '24', '60', '100', '1000']
   ReturnCount:
     max: 3
     excludeGuardClauses: true
