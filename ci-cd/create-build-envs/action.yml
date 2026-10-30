@@ -177,7 +177,7 @@ inputs:
       Comma separated list of static environments to deploy to.
       Application configuration for these must be defined in 'app-config-repo'.
     required: false
-    default: dev, test
+    default: dev
   static-deploy-from-default-branch-only:
     description: |
       Set this to 'false' to allow deploying to static environments from other branches than the default branch.
