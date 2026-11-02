@@ -8,8 +8,8 @@ import { handleError } from 'common/utils/error.ts'
  *
  * This function handles caching by:
  *   - Checking if caching is enabled via `github-dependencies-cache-enabled`.
- *   - Determining the cache type (either `maven` or `npm`) based on the `application-type` value.
- *   - Locating a dependency lock file (such as `pom.xml` or `package-lock.json`) from the application source path.
+ *   - Caching maven application types only.
+ *   - Locating `pom.xml` from the application source path.
  *   - Generating a unique cache key based on a hash of the lock file (or a fallback string if the file is missing).
  *   - Creating a set of restore keys with fallbacks tailored for pull request versus non-pull request events.
  *   - Setting default cache paths if not provided.
@@ -49,15 +49,12 @@ export async function run() {
       core.info('Processing GitHub Actions dependency cache variables...')
 
       const appType = appVars['application-type']
-      let cacheType: 'maven' | 'npm' | null = null
       const mavenTypes = ['spring-boot', 'maven-library']
-      const npmTypes = ['vue']
+      // npm is deliberately not cached: a restored ~/.npm serves tarballs without asking GitHub package
+      // firewall, so packages blocked by policy after they were cached would still be installed.
+      const cacheType = appType && mavenTypes.includes(appType) ? 'maven' : null
 
-      if (appType && mavenTypes.includes(appType)) {
-        cacheType = 'maven'
-      } else if (appType && npmTypes.includes(appType)) {
-        cacheType = 'npm'
-      } else {
+      if (!cacheType) {
         core.info(`Application type '${appType}' does not use dependency caching. Disabling.`)
         appVars['github-dependencies-cache-enabled'] = false
         delete appVars['github-dependencies-cache-key']
@@ -71,11 +68,7 @@ export async function run() {
         // Determine Cache Path
         if (!appVars['github-dependencies-cache-path']) {
           core.info("'github-dependencies-cache-path' not set, using default.")
-          if (cacheType === 'maven') {
-            appVars['github-dependencies-cache-path'] = join('${HOME}', '.m2', 'repository')
-          } else if (cacheType === 'npm') {
-            appVars['github-dependencies-cache-path'] = join('${HOME}', '.npm')
-          }
+          appVars['github-dependencies-cache-path'] = join('${HOME}', '.m2', 'repository')
         }
         logMultiline('Using cache path', appVars['github-dependencies-cache-path'])
 
@@ -108,22 +101,12 @@ export async function run() {
           core.info("'application-source-path' not defined, searching from workspace root.")
         }
 
-        if (cacheType === 'maven') {
-          const pomPath = join(searchBasePath, 'pom.xml')
-          if (await exists(pomPath, { isFile: true })) {
-            lockFilePath = pomPath
-            core.info(`Found lock file: ${getRelativePath(lockFilePath)}`)
-          } else {
-            core.warning(`pom.xml not found directly in ${getRelativePath(searchBasePath)}. Cache key hash will be based on 'no-lockfile'.`)
-          }
-        } else if (cacheType === 'npm') {
-          const lockPath = join(searchBasePath, 'package-lock.json')
-          if (await exists(lockPath, { isFile: true })) {
-            lockFilePath = lockPath
-            core.info(`Found lock file: ${getRelativePath(lockFilePath)}`)
-          } else {
-            core.warning(`package-lock.json not found directly in ${getRelativePath(searchBasePath)}. Cache key hash will be based on 'no-lockfile'.`)
-          }
+        const pomPath = join(searchBasePath, 'pom.xml')
+        if (await exists(pomPath, { isFile: true })) {
+          lockFilePath = pomPath
+          core.info(`Found lock file: ${getRelativePath(lockFilePath)}`)
+        } else {
+          core.warning(`pom.xml not found directly in ${getRelativePath(searchBasePath)}. Cache key hash will be based on 'no-lockfile'.`)
         }
 
         // Calculate Cache Keys

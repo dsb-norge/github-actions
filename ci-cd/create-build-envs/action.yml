@@ -236,6 +236,7 @@ inputs:
   github-dependencies-cache-enabled:
     description: |
       Whether to enable GitHub actions cache for dependencies.
+      Only maven application types are cached. npm is never cached, so every install is checked by GitHub package firewall.
       When this is enabled the dependencies directory is emptied before each build and a caching strategy using GitHub actions cache is applied.
       In short the strategy is:
         - For the builds of the default branch:
@@ -277,9 +278,7 @@ inputs:
   github-dependencies-cache-path:
     description: |
       The path of where to restore to/save from when GitHub actions cache is enabled for dependencies.
-      Leaving this empty causes the use of default value, which will vary depending on the 'application-type' field:
-        - For maven application types (ex. 'spring-boot' and 'maven-library') this typically becomes "${HOME}/.m2/repository".
-        - For node application types (ex. 'vue') this typically becomes "${HOME}/.npm".
+      Leaving this empty causes the use of default value "${HOME}/.m2/repository".
     required: false
     default: "" # results in "${HOME}/.m2/repository"
 outputs:

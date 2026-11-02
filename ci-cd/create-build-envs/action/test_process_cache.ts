@@ -38,24 +38,12 @@ function loadTestJson(filename: string): string {
   return Deno.readTextFileSync(`./testdata/${filename}`)
 }
 
-Deno.test('process_cache - Vue app with package-lock.json', async () => {
+Deno.test('process_cache - Vue app is not cached', async () => {
   resetMockCore()
   setEnvVars({
     'GITHUB_EVENT_NAME': 'push',
     'RUNNER_OS': 'Linux',
   })
-  // Simulate that package-lock.json exists under /frontend
-  overrideStat(async (path: string) => {
-    if (path.includes('package-lock.json')) {
-      return { isFile: true, isDirectory: false }
-    }
-    if (path.includes('/frontend')) {
-      return { isFile: false, isDirectory: true }
-    }
-    throw new Deno.errors.NotFound()
-  })
-
-  // Load and modify input JSON for Vue app test
   const inputJson = loadTestJson('test_cache_src_path_pkg_vue_app.json')
   const input = JSON.parse(inputJson)
   input['app-vars']['github-dependencies-cache-enabled'] = 'true'
@@ -66,10 +54,9 @@ Deno.test('process_cache - Vue app with package-lock.json', async () => {
 
   await run()
   const appVars = JSON.parse(mockOutputs['APPVARS'])
-  // Expect cache type "npm" and hash "deadbeef"
-  assertStringIncludes(appVars['github-dependencies-cache-key'], 'linux-npm-')
-  assertStringIncludes(appVars['github-dependencies-cache-key'], 'deadbeef')
-  restoreStat()
+  assertEquals(appVars['github-dependencies-cache-enabled'], false)
+  assertEquals(appVars['github-dependencies-cache-key'], undefined)
+  assertEquals(appVars['github-dependencies-cache-restore-keys'], undefined)
 })
 
 Deno.test('process_cache - Spring Boot app with pom.xml', async () => {
@@ -130,7 +117,7 @@ Deno.test('process_cache - Non-existing source path', async () => {
   overrideStat(async (_: string) => {
     throw new Deno.errors.NotFound()
   })
-  const inputJson = loadTestJson('test_cache_src_path_na_vue_app.json')
+  const inputJson = loadTestJson('test_cache_src_path_na_sb_app.json')
   const input = JSON.parse(inputJson)
   input['app-vars']['github-dependencies-cache-enabled'] = 'true'
   mockCore.getInput = (name: string) => {
@@ -236,55 +223,6 @@ Deno.test('process_cache - PR event cache keys', async () => {
 
 // Additional tests for JSON files not previously used:
 
-// Test for directory vue app (source path is a directory)
-Deno.test('process_cache - Directory vue app (no package-lock)', async () => {
-  resetMockCore()
-  setEnvVars({
-    'GITHUB_EVENT_NAME': 'push',
-    'RUNNER_OS': 'Linux',
-  })
-  const inputJson = loadTestJson('test_cache_src_path_dir_vue_app.json')
-  const input = JSON.parse(inputJson)
-  input['app-vars']['github-dependencies-cache-enabled'] = 'true'
-  // Simulate that "/frontend" is a directory and no package-lock.json exists
-  overrideStat(async (_: string) => {
-    throw new Deno.errors.NotFound()
-  })
-  mockCore.getInput = (name: string) => {
-    if (name === 'APPVARS') return JSON.stringify(input['app-vars'])
-    return ''
-  }
-  await run()
-  const appVars = JSON.parse(mockOutputs['APPVARS'])
-  // Expect fallback hash "no-lockfile" because no lockfile is found
-  assertStringIncludes(appVars['github-dependencies-cache-key'], 'no-lockfile')
-  restoreStat()
-})
-
-// Test for vue app with no source path provided
-Deno.test('process_cache - No source path vue app', async () => {
-  resetMockCore()
-  setEnvVars({
-    'GITHUB_EVENT_NAME': 'push',
-    'RUNNER_OS': 'Linux',
-  })
-  const inputJson = loadTestJson('test_cache_no_src_path_vue_app.json')
-  const input = JSON.parse(inputJson)
-  input['app-vars']['github-dependencies-cache-enabled'] = 'true'
-  // Simulate that getAbsolutePath falls back to workspace and no lockfile is found
-  overrideStat(async (_: string) => {
-    throw new Deno.errors.NotFound()
-  })
-  mockCore.getInput = (name: string) => {
-    if (name === 'APPVARS') return JSON.stringify(input['app-vars'])
-    return ''
-  }
-  await run()
-  const appVars = JSON.parse(mockOutputs['APPVARS'])
-  assertStringIncludes(appVars['github-dependencies-cache-key'], 'no-lockfile')
-  restoreStat()
-})
-
 // Test for spring-boot app with no source path provided
 Deno.test('process_cache - No source path sb app', async () => {
   resetMockCore()
@@ -364,60 +302,6 @@ Deno.test('process_cache - PR app', async () => {
   // Expect PR-specific cache key that includes "pr999"
   assertStringIncludes(appVars['github-dependencies-cache-key'], 'pr999')
   restoreStat()
-})
-
-// Test for Vue app with pom.xml source (test_cache_src_path_pom_vue_app.json)
-Deno.test('process_cache - Pom for vue app', async () => {
-  resetMockCore()
-  setEnvVars({
-    'GITHUB_EVENT_NAME': 'push',
-    'RUNNER_OS': 'Linux',
-  })
-  const inputJson = loadTestJson('test_cache_src_path_pom_vue_app.json')
-  const input = JSON.parse(inputJson)
-  input['app-vars']['github-dependencies-cache-enabled'] = 'true'
-  // Simulate that pom.xml exists in /backend
-  overrideStat(async (path: string) => {
-    if (path.includes('pom.xml')) return { isFile: true, isDirectory: false }
-    if (path.includes('/backend')) return { isFile: false, isDirectory: true }
-    throw new Deno.errors.NotFound()
-  })
-  mockCore.getInput = (name: string) => {
-    if (name === 'APPVARS') return JSON.stringify(input['app-vars'])
-    return ''
-  }
-  await run()
-  const appVars = JSON.parse(mockOutputs['APPVARS'])
-  // For a vue app, cache type is determined by app-type; expect "linux-npm-"
-  assertStringIncludes(appVars['github-dependencies-cache-key'], 'linux-npm-')
-  restoreStat()
-})
-
-// Test for default cache path for Vue app
-Deno.test('process_cache - Default cache path for Vue app', async () => {
-  resetMockCore()
-  setEnvVars({
-    'GITHUB_EVENT_NAME': 'push',
-    'RUNNER_OS': 'Linux',
-  })
-  // Load input for a vue app without an explicit cache path.
-  const inputJson = loadTestJson('test_cache_src_path_pkg_vue_app.json')
-  const input = JSON.parse(inputJson)
-  // Ensure no cache path is present.
-  delete input['app-vars']['github-dependencies-cache-path']
-  input['app-vars']['github-dependencies-cache-enabled'] = 'true'
-  mockCore.getInput = (name: string) => {
-    if (name === 'APPVARS') return JSON.stringify(input['app-vars'])
-    return ''
-  }
-
-  await run()
-  const appVars = JSON.parse(mockOutputs['APPVARS'])
-  // For a vue app, the default cache path should be join('${HOME}', '.npm')
-  assertEquals(
-    appVars['github-dependencies-cache-path'],
-    join('${HOME}', '.npm'),
-  )
 })
 
 // Test for default cache path for Spring Boot app

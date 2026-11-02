@@ -305,7 +305,7 @@ flowchart TD
         appTypeCheck -- "spring-boot" --> mavenBuild --> mavenDockerBuild
         appTypeCheck -- "vue" --> npmBuild --> npmDockerBuild
         mavenDockerBuild --> cachePrune --> cacheSave
-        npmDockerBuild --> cacheSave
+        npmDockerBuild --> eventTypeCheck
         cacheSave --> eventTypeCheck
         eventTypeCheck -- "PR" --> ephemeralDeploy
         eventTypeCheck -- "PR closed" --> teardownPR --> deletePRImages --> deletePRCaches
