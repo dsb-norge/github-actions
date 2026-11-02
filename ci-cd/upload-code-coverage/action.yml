@@ -23,7 +23,8 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@v4
+    # TODO revert to @v4
+    - uses: dsb-norge/github-actions/ci-cd/require-build-envs@npm-package-firewall
       with:
         dsb-build-envs: ${{ inputs.dsb-build-envs }}
         require: |
