@@ -159,9 +159,6 @@ inputs:
   github-repo-token:
     description: "Github repo token is required by: 1) Maven Sonar plugin to get PR information; 2) Adding comments from actions to github PRs."
     required: true
-  npmjs-token:
-    description: "Token for fetching private npmjs packages in the @dsb-norge - scope"
-    required: true
   app-config-repo:
     description: |
       Repo containing application configuration for apps used during deploy to ephemeral environment and static environments.
@@ -344,7 +341,6 @@ runs:
         INPUT_JAVA_DISTRIBUTION: "${{ inputs.java-distribution }}"
         INPUT_NODEJS_VERSION: "${{ inputs.nodejs-version }}"
         INPUT_GITHUB_REPO_TOKEN: "${{ inputs.github-repo-token }}"
-        INPUT_NPMJS_TOKEN: "${{ inputs.npmjs-token }}"
         INPUT_APP_CONFIG_REPO: "${{ inputs.app-config-repo }}"
         INPUT_APP_CONFIG_REPO_TOKEN: "${{ inputs.app-config-repo-token }}"
         INPUT_STATIC_DEPLOY_ENVIRONMENTS: "${{ inputs.static-deploy-environments }}"
