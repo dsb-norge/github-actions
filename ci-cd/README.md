@@ -83,6 +83,15 @@ Artifact attestation requires outbound HTTPS (443) access to Sigstore endpoints 
 | `fulcio.sigstore.dev` | Signing certificate issuance (public repos) |
 | `rekor.sigstore.dev` | Transparency log (public repos) |
 
+### npm package firewall
+
+All npm packages, in `build-nodejs-project` and in the Playwright image build, are fetched through [GitHub package firewall](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/protecting-endpoints-with-package-firewall) for enterprise `dsb-no`, authenticated with `github.token`. The firewall enforces the enterprise policies (malware, vulnerabilities, cooldown for new versions, etc.).
+
+- Runners need outbound HTTPS (443) to `package-firewall.githubapp.com`.
+- npm dependencies are not cached: a restored `~/.npm` would serve packages without asking the firewall.
+- There are no private npm packages, so no npm token is used. Keep it that way: npmjs is for public packages only.
+- A blocked package fails the build with `403 ... blocked by security policy`. The npm log links to a bypass request; usually the fix is to update the dependency instead.
+
 ### Code scanning (CodeQL)
 
 CodeQL runs as part of the build for `spring-boot` (java-kotlin), `vue` (javascript-typescript), `python` and `maven-library` apps, with the `code-quality` query suite on top of the security queries. Maven-based apps with Kotlin sources additionally get [detekt](https://detekt.dev/) findings uploaded to code scanning, see [detekt](#detekt).
