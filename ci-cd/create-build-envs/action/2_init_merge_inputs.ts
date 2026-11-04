@@ -53,7 +53,6 @@ export async function run() {
       'java-distribution': getActionInput('java-distribution'),
       'nodejs-version': getActionInput('nodejs-version'),
       'github-repo-token': getActionInput('github-repo-token'),
-      'npmjs-token': getActionInput('npmjs-token'),
       'app-config-repo': getActionInput('app-config-repo'),
       'app-config-repo-token': getActionInput('app-config-repo-token'),
       'static-deploy-environments': getActionInput('static-deploy-environments'),

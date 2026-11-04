@@ -159,9 +159,6 @@ inputs:
   github-repo-token:
     description: "Github repo token is required by: 1) Maven Sonar plugin to get PR information; 2) Adding comments from actions to github PRs."
     required: true
-  npmjs-token:
-    description: "Token for fetching private npmjs packages in the @dsb-norge - scope"
-    required: true
   app-config-repo:
     description: |
       Repo containing application configuration for apps used during deploy to ephemeral environment and static environments.
@@ -236,6 +233,7 @@ inputs:
   github-dependencies-cache-enabled:
     description: |
       Whether to enable GitHub actions cache for dependencies.
+      Only maven application types are cached. npm is never cached, so every install is checked by GitHub package firewall.
       When this is enabled the dependencies directory is emptied before each build and a caching strategy using GitHub actions cache is applied.
       In short the strategy is:
         - For the builds of the default branch:
@@ -277,9 +275,7 @@ inputs:
   github-dependencies-cache-path:
     description: |
       The path of where to restore to/save from when GitHub actions cache is enabled for dependencies.
-      Leaving this empty causes the use of default value, which will vary depending on the 'application-type' field:
-        - For maven application types (ex. 'spring-boot' and 'maven-library') this typically becomes "${HOME}/.m2/repository".
-        - For node application types (ex. 'vue') this typically becomes "${HOME}/.npm".
+      Leaving this empty causes the use of default value "${HOME}/.m2/repository".
     required: false
     default: "" # results in "${HOME}/.m2/repository"
 outputs:
@@ -345,7 +341,6 @@ runs:
         INPUT_JAVA_DISTRIBUTION: "${{ inputs.java-distribution }}"
         INPUT_NODEJS_VERSION: "${{ inputs.nodejs-version }}"
         INPUT_GITHUB_REPO_TOKEN: "${{ inputs.github-repo-token }}"
-        INPUT_NPMJS_TOKEN: "${{ inputs.npmjs-token }}"
         INPUT_APP_CONFIG_REPO: "${{ inputs.app-config-repo }}"
         INPUT_APP_CONFIG_REPO_TOKEN: "${{ inputs.app-config-repo-token }}"
         INPUT_STATIC_DEPLOY_ENVIRONMENTS: "${{ inputs.static-deploy-environments }}"

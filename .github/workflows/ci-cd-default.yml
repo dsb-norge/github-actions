@@ -201,7 +201,6 @@ jobs:
           acr-subscription-id: ${{ vars.ORG_ACR_SUBSCRIPTION_ID }}
           acr-push-service-principal-id: ${{ vars.ORG_ACR_PUSH_SERVICE_PRINCIPAL_ID }}
           github-repo-token: ${{ secrets.GITHUB_TOKEN }}
-          npmjs-token: ${{ secrets.ORG_NPM_TOKEN }}
           app-config-repo-token: ${{ steps.auth.outputs.github-token }}
           pr-deploy-aks-creds-tenant-id: ${{ vars.ORG_DSBNO_AZURE_TENANT_ID }}
           pr-deploy-aks-creds-subscription-id: ${{ vars.ORG_AKS_DEV_SUBSCRIPTION_ID }}
@@ -591,7 +590,6 @@ jobs:
           acr-subscription-id: ${{ vars.ORG_ACR_SUBSCRIPTION_ID }}
           acr-push-service-principal-id: ${{ vars.ORG_ACR_PUSH_SERVICE_PRINCIPAL_ID }}
           github-repo-token: ${{ secrets.GITHUB_TOKEN }}
-          npmjs-token: ${{ secrets.ORG_NPM_TOKEN }}
           app-config-repo-token: ${{ steps.auth.outputs.github-token }}
           pr-deploy-aks-creds-tenant-id: ${{ vars.ORG_DSBNO_AZURE_TENANT_ID }}
           pr-deploy-aks-creds-subscription-id: ${{ vars.ORG_AKS_DEV_SUBSCRIPTION_ID }}

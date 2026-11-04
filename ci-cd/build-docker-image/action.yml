@@ -37,7 +37,6 @@ runs:
           acr-tenant-id
           acr-subscription-id
           acr-push-service-principal-id
-          npmjs-token
 
     # log into Azure for ACR access
     - name: "🔑 Login to Azure"
@@ -133,10 +132,17 @@ runs:
         labels: ${{ steps.meta.outputs.labels }}
 
     - name: Write .npmrc for Docker BuildKit
-      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && fromJSON(inputs.dsb-build-envs)['npmjs-token']
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
       shell: bash
+      env:
+        NPMRC: ${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/.npmrc.dockerbuild
+        NPM_FIREWALL_TOKEN: ${{ github.token }}
+      # The token is written literally because the build container has no env to expand it from.
       run: |
-        echo "//registry.npmjs.org/:_authToken=${{ fromJSON(inputs.dsb-build-envs).npmjs-token }}" > "${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/.npmrc.dockerbuild"
+        cat > "${NPMRC}" <<EOF
+        registry=https://package-firewall.githubapp.com/npm/enterprises/dsb-no
+        //package-firewall.githubapp.com/npm/enterprises/dsb-no/:_authToken=${NPM_FIREWALL_TOKEN}
+        EOF
 
     # build playwright image (Dockerfile.playwright) if nodejs-e2e-enabled is true
     - name: Build Playwright E2E image
@@ -153,7 +159,7 @@ runs:
           npmrc=${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/.npmrc.dockerbuild
 
     - name: Remove .npmrc for Docker BuildKit
-      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true && fromJSON(inputs.dsb-build-envs)['npmjs-token']
+      if: fromJSON(inputs.dsb-build-envs)['has-changes'] == true && fromJSON(inputs.dsb-build-envs)['nodejs-e2e-enabled'] == true
       shell: bash
       run: rm -f "${{ fromJSON(inputs.dsb-build-envs).application-source-path }}/.npmrc.dockerbuild"
 
