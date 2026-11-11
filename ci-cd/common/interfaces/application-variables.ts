@@ -101,6 +101,7 @@ export interface AppVars {
   // Static Deploy
   'static-deploy-environments'?: string // JSON array string? Or comma-separated? Assume string for now.
   'static-deploy-from-default-branch-only'?: string | boolean
+  'static-deploy-skip'?: string | boolean // Set to true to leave the app out of deploys to static environments, normalized to a boolean by create-build-envs
 
   // GitHub Actions Cache (some generated)
   'github-dependencies-cache-enabled'?: string | boolean

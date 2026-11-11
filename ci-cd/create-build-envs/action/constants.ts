@@ -114,6 +114,7 @@ export const ENVS_WITHOUT_SECRETS: Set<string> = new Set([
   'spring-boot-build-image-version-goals',
   'static-deploy-environments',
   'static-deploy-from-default-branch-only',
+  'static-deploy-skip',
   'has-changes',
   'application-previous-version-tag',
 ])

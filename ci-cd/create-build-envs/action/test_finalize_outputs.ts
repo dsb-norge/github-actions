@@ -1,20 +1,28 @@
 import { assertEquals, assertRejects } from 'common/test_deps.ts'
 import { mockCore, mockOutputs, resetMockCore } from 'common/utils/mock-core.ts'
 import { setCore } from 'common/deps.ts'
-import { isEnabledUnlessOptedOut, run } from './6_finalize_outputs.ts'
+import { isEnabledUnlessOptedOut, isOptedIn, run } from './6_finalize_outputs.ts'
 import { AppVars } from 'common/interfaces/application-variables.ts'
 
 // Replace the real core with the mock
 setCore(mockCore)
 
 async function runWithAppVars(appVars: AppVars): Promise<AppVars> {
+  return (await runWithAppVarsBothOutputs(appVars)).json
+}
+
+/** The full 'json' output, and the non-secret JSON file the later jobs read through the build-envs artifact. */
+async function runWithAppVarsBothOutputs(appVars: AppVars): Promise<{ json: AppVars; withoutSecrets: AppVars }> {
   resetMockCore()
   const workspace = await Deno.makeTempDir()
   Deno.env.set('GITHUB_WORKSPACE', workspace)
   mockCore.outputs['APPVARS'] = JSON.stringify(appVars)
   try {
     await run()
-    return JSON.parse(mockOutputs['json']) as AppVars
+    return {
+      json: JSON.parse(mockOutputs['json']) as AppVars,
+      withoutSecrets: JSON.parse(await Deno.readTextFile(mockOutputs['json-without-secrets-path'])) as AppVars,
+    }
   } finally {
     await Deno.remove(workspace, { recursive: true })
   }
@@ -46,6 +54,31 @@ Deno.test('finalize_outputs - detekt-enabled and coverage-enabled default to tru
   assertEquals(optedOut['detekt-enabled'], false)
   assertEquals(optedOut['coverage-enabled'], false)
   assertEquals(optedOut['codeql-enabled'], true)
+})
+
+Deno.test('finalize_outputs - isOptedIn defaults to off and accepts both forms', () => {
+  assertEquals(isOptedIn(undefined), false)
+  assertEquals(isOptedIn(null), false)
+  assertEquals(isOptedIn(''), false)
+  assertEquals(isOptedIn(false), false)
+  assertEquals(isOptedIn('false'), false)
+  assertEquals(isOptedIn('yes'), false)
+  assertEquals(isOptedIn(true), true)
+  assertEquals(isOptedIn('true'), true)
+  assertEquals(isOptedIn('True'), true)
+})
+
+Deno.test('finalize_outputs - static-deploy-skip is always present as a boolean, also for the deploy-to-static job', async () => {
+  // The deploy-to-static job only sees the non-secret JSON, through the build-envs artifact.
+  const defaults = await runWithAppVarsBothOutputs({ 'application-name': 'test-app' })
+  assertEquals(defaults.json['static-deploy-skip'], false)
+  assertEquals(defaults.withoutSecrets['static-deploy-skip'], false)
+
+  for (const value of [true, 'true']) {
+    const skipped = await runWithAppVarsBothOutputs({ 'application-name': 'test-app', 'static-deploy-skip': value })
+    assertEquals(skipped.json['static-deploy-skip'], true)
+    assertEquals(skipped.withoutSecrets['static-deploy-skip'], true)
+  }
 })
 
 Deno.test('finalize_outputs - an appVars object without keys is still rejected', async () => {

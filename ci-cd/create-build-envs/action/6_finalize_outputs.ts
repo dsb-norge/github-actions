@@ -22,6 +22,17 @@ export function isEnabledUnlessOptedOut(value: string | boolean | undefined | nu
 const OPT_OUT_FLAGS = ['codeql-enabled', 'detekt-enabled', 'coverage-enabled'] as const
 
 /**
+ * The mirror image of the above, for flags that are off unless an app explicitly opts in: true only
+ * for the YAML boolean true or the quoted string, false for anything else, including not set. Also a
+ * real boolean that is always set, for the same reasons.
+ */
+export function isOptedIn(value: string | boolean | undefined | null): boolean {
+  return String(value ?? 'false').toLowerCase() === 'true'
+}
+
+const OPT_IN_FLAGS = ['static-deploy-skip'] as const
+
+/**
  * Finalizes and prepares the action outputs.
  *
  * This function completes the processing of application variables by:
@@ -71,6 +82,12 @@ export async function run() {
     // Code scanning, detekt and code coverage opt-outs
     for (const key of OPT_OUT_FLAGS) {
       appVars[key] = isEnabledUnlessOptedOut(appVars[key])
+      logMultiline(`Value '${key}'`, String(appVars[key]))
+    }
+
+    // Static deploy opt-in
+    for (const key of OPT_IN_FLAGS) {
+      appVars[key] = isOptedIn(appVars[key])
       logMultiline(`Value '${key}'`, String(appVars[key]))
     }
 
