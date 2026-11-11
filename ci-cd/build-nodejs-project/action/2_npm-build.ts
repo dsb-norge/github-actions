@@ -3,6 +3,7 @@ import { executeCommand, getActionInput, tryParseJson } from 'common/utils/helpe
 import { handleError } from 'common/utils/error.ts'
 import { AppVars } from 'common/interfaces/application-variables.ts'
 import { resolveUnitTestScript } from './unit-tests.ts'
+import { findInstalledLockfile, findPackagesBypassingFirewall, PackageLock } from './lockfile-sources.ts'
 
 /**
  * Main function for the GitHub Action step.
@@ -27,6 +28,7 @@ export async function run(): Promise<void> {
     }
 
     // 2. npm ci
+    await assertLockfileUsesFirewall()
     await executeCommand('npm ci --ignore-scripts --color=always', 'Installing dependencies with npm ci')
 
     // 3. Pre npm run lint hook
@@ -72,6 +74,26 @@ export async function run(): Promise<void> {
   } catch (error) {
     // Catch errors from executeCommand or other unexpected issues
     handleError(error, 'running Node.js build process')
+  }
+}
+
+/**
+ * Fails before npm ci when the lockfile it installs from would fetch a package past the firewall.
+ * A missing lockfile is left to npm ci to report.
+ */
+async function assertLockfileUsesFirewall(): Promise<void> {
+  const lockfile = await findInstalledLockfile('.')
+  if (!lockfile) return
+
+  const lock = tryParseJson<PackageLock>(await Deno.readTextFile(lockfile))
+  if (!lock) throw new Error(`Failed to parse ${lockfile}.`)
+
+  const bypassing = findPackagesBypassingFirewall(lock)
+  if (bypassing.length > 0) {
+    throw new Error(
+      `${lockfile} fetches packages from outside the npm registry, past the package firewall:\n  ${bypassing.join('\n  ')}\n` +
+        `Use a package from the npm registry, or vendor the tarball in the repo and depend on it with 'file:'.`,
+    )
   }
 }
 
