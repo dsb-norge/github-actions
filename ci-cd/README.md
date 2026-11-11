@@ -91,6 +91,7 @@ All npm packages, in `build-nodejs-project` and in the Playwright image build, a
 - npm dependencies are not cached: a restored `~/.npm` would serve packages without asking the firewall.
 - There are no private npm packages, so no npm token is used. Keep it that way: npmjs is for public packages only.
 - A blocked package fails the build with `403 ... blocked by security policy`. The npm log links to a bypass request; usually the fix is to update the dependency instead.
+- `package-lock.json` may only resolve packages from `registry.npmjs.org` (fetched through the firewall) or from `file:` paths in the repo. Any other host, such as a CDN tarball or a git dependency, fails `build-nodejs-project` before `npm ci`. A package published outside npm (e.g. SheetJS `xlsx` on `cdn.sheetjs.com`) is vendored: commit the tarball and depend on `file:vendor/<name>.tgz`.
 
 ### Code scanning (CodeQL)
 
