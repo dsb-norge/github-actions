@@ -152,6 +152,24 @@ apps: |
 
 The values are normalized to real booleans by `create-build-envs` and default to `true`, so the workflows can test them directly in an `if:` expression. That matters: an app var that is not set reads as `null`, and GitHub casts both `null` and boolean `false` to `0` when comparing, which makes `!= false` impossible to express correctly.
 
+### Static environments
+
+On a push to the default branch, the `deploy-to-static` job of `ci-cd-default.yml` deploys every app to the environments in its `static-deploy-environments` (default `dev`): it bumps the app's image tag in `apps/<env>/<app>/values.yaml` of `app-config-repo`, and Argo CD does the rest.
+
+#### Keeping an app out of them
+
+Set `static-deploy-skip: true` on an app in `apps` to leave it out. The app is still built, its image pushed and the commit tagged with its version, but no static environment is bumped to it, so each keeps the version it runs. Both the YAML boolean and the quoted string `"true"` are accepted; `create-build-envs` normalizes the value to a boolean that defaults to `false`. When every app in the run is left out, the job skips the deploy and makes no commit in `app-config-repo`.
+
+```yaml
+apps: |
+  - application-name: my-app
+    static-deploy-skip: true
+    pr-deploy-skip: true
+```
+
+- An empty `static-deploy-environments` does not do this: it falls back to the default, `dev`.
+- To stop PR environments too, also set `pr-deploy-skip: true`, as above. It must be the YAML boolean, and no image is built for the app on pull requests then.
+
 ## Maintenance
 
 ### Development
@@ -340,10 +358,12 @@ flowchart TD
     subgraph deployStaticJob["Deploy to Static Job (deploy-to-static)"]
         collectEnvs["collect-build-envs"]
         deployCheck["deploy-multiple-to-static-is-allowed"]
+        skipFilter["Leave out apps with static-deploy-skip"]
         getTokenStatic["get-github-app-installation-token"]
         staticDeploy["deploy-multiple-to-static"]
         versionTag["Add Git Version Tag"]
-        collectEnvs --> deployCheck -- "allowed" --> getTokenStatic --> staticDeploy --> versionTag
+        collectEnvs --> deployCheck -- "allowed" --> skipFilter -- "apps left" --> getTokenStatic --> staticDeploy --> versionTag
+        skipFilter -- "none left" --> versionTag
     end
 
     %% Prune Maven artifacts job

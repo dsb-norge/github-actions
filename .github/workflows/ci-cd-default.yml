@@ -681,6 +681,25 @@ jobs:
         with:
           dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
 
+      - name: "🧊 Leave out apps with 'static-deploy-skip'"
+        id: static-deploy-apps
+        # An app with 'static-deploy-skip: true' is still built, its image pushed and the commit tagged
+        # with its version, but no static environment is bumped to it: each keeps the version it runs.
+        # create-build-envs normalizes the flag to a boolean. When every app is left out, the token and
+        # the deploy below are skipped, so the config repo gets no empty commit.
+        env:
+          JSON_ARRAY: ${{ steps.read-build-envs.outputs.json-array }}
+        run: |
+          # Leave out apps with 'static-deploy-skip'
+          SKIPPED="$(jq -r '[.[] | select(."static-deploy-skip" == true) | ."application-name"] | join(", ")' <<< "${JSON_ARRAY}")"
+          DEPLOY="$(jq -c '[.[] | select(."static-deploy-skip" != true)]' <<< "${JSON_ARRAY}")"
+          if [ -n "${SKIPPED}" ]; then
+            echo "Left out of the deploy to static environments, 'static-deploy-skip' is set: ${SKIPPED}"
+          fi
+          echo "Apps to deploy to static environments: $(jq -r 'map(."application-name") | join(", ")' <<< "${DEPLOY}")"
+          echo "json-array=${DEPLOY}" >> "${GITHUB_OUTPUT}"
+          echo "has-apps=$(jq 'length > 0' <<< "${DEPLOY}")" >> "${GITHUB_OUTPUT}"
+
       - name: Notify Internal Status (app-deploy-started)
         uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
         with:
@@ -690,7 +709,7 @@ jobs:
 
       - name: "🔑 Obtain GitHub app installation access token for the CI/CD app"
         id: auth
-        if: steps.deploy-static-check.outputs.result == 'true'
+        if: steps.deploy-static-check.outputs.result == 'true' && steps.static-deploy-apps.outputs.has-apps == 'true'
         uses: dsb-norge/github-actions/get-github-app-installation-token@v4
         with:
           github-app-id: ${{ vars.ORG_CICD_APP_ID }}
@@ -699,10 +718,10 @@ jobs:
 
       - name: "🐙 Deploy: 🌍 apps to static environment(s)"
         id: static-deploy
-        if: steps.deploy-static-check.outputs.result == 'true'
+        if: steps.deploy-static-check.outputs.result == 'true' && steps.static-deploy-apps.outputs.has-apps == 'true'
         uses: dsb-norge/github-actions/ci-cd/deploy-multiple-to-static@v4
         with:
-          dsb-build-envs-array: ${{ steps.read-build-envs.outputs.json-array }}
+          dsb-build-envs-array: ${{ steps.static-deploy-apps.outputs.json-array }}
           app-config-repo-token: ${{ steps.auth.outputs.github-token }}
 
       - name: "🏷️ Tag current git commit with application version"
