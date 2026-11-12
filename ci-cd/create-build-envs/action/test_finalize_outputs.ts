@@ -81,6 +81,19 @@ Deno.test('finalize_outputs - static-deploy-skip is always present as a boolean,
   }
 })
 
+Deno.test('finalize_outputs - pr-image-build is always present as a boolean, also for the pr-images job', async () => {
+  // The pr-images job only sees the non-secret JSON, through the build-envs artifact.
+  const defaults = await runWithAppVarsBothOutputs({ 'application-name': 'test-app' })
+  assertEquals(defaults.json['pr-image-build'], false)
+  assertEquals(defaults.withoutSecrets['pr-image-build'], false)
+
+  for (const value of [true, 'true']) {
+    const built = await runWithAppVarsBothOutputs({ 'application-name': 'test-app', 'pr-image-build': value })
+    assertEquals(built.json['pr-image-build'], true)
+    assertEquals(built.withoutSecrets['pr-image-build'], true)
+  }
+})
+
 Deno.test('finalize_outputs - an appVars object without keys is still rejected', async () => {
   resetMockCore()
   mockCore.outputs['APPVARS'] = '{}'

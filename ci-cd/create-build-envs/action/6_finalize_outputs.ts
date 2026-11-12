@@ -30,7 +30,7 @@ export function isOptedIn(value: string | boolean | undefined | null): boolean {
   return String(value ?? 'false').toLowerCase() === 'true'
 }
 
-const OPT_IN_FLAGS = ['static-deploy-skip'] as const
+const OPT_IN_FLAGS = ['static-deploy-skip', 'pr-image-build'] as const
 
 /**
  * Finalizes and prepares the action outputs.
@@ -85,7 +85,7 @@ export async function run() {
       logMultiline(`Value '${key}'`, String(appVars[key]))
     }
 
-    // Static deploy opt-in
+    // Opt-in flags: static-deploy-skip, pr-image-build
     for (const key of OPT_IN_FLAGS) {
       appVars[key] = isOptedIn(appVars[key])
       logMultiline(`Value '${key}'`, String(appVars[key]))

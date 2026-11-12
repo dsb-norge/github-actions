@@ -96,6 +96,7 @@ export const ENVS_WITHOUT_SECRETS: Set<string> = new Set([
   'nodejs-e2e-backend-routes',
   'nodejs-e2e-backend-url',
   'pr-deploy-skip',
+  'pr-image-build',
   'pr-deploy-additional-helm-values',
   'pr-deploy-aks-cluster-name',
   'pr-deploy-aks-resource-group',
