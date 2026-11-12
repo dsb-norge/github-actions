@@ -81,6 +81,19 @@ on:
         type: number
         required: false
         default: 0
+    outputs:
+      applications-version:
+        description: |
+          The version every app in the run is built as, and the tag of the images it pushes:
+          'pr-<number>-<date>.<seconds>' on a pull request, '<date>.<seconds>' otherwise.
+        value: ${{ jobs.create-matrix.outputs.applications-version }}
+      pr-images:
+        description: |
+          On a pull request that is not closed: the images built and pushed for it, as a JSON object
+          '{"<application-name>": {"image": "<registry>/<repo>/<app>-pr-<number>", "tag": "<version>"}}'.
+          An app is in it when it has changes and its PR image was built: without 'pr-deploy-skip', or
+          with 'pr-image-build: true'. '{}' when no app qualifies; empty when the job did not run.
+        value: ${{ jobs.pr-images.outputs.json }}
 
 jobs:
   # No separate up-front Docker disk check job: the GitHub-hosted runners are fresh per job, so
@@ -312,7 +325,7 @@ jobs:
         if: |
           matrix.app-vars.application-type == 'spring-boot'
           && (
-            ( github.event_name == 'pull_request' && github.event.action != 'closed' && matrix.app-vars['pr-deploy-skip'] != true )
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' && ( matrix.app-vars['pr-deploy-skip'] != true || fromJSON(steps.build-env.outputs.json)['pr-image-build'] ) )
             || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
               && (
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
@@ -367,7 +380,7 @@ jobs:
         if: |
           matrix.app-vars.application-type == 'vue'
           && (
-            ( github.event_name == 'pull_request' && github.event.action != 'closed' && matrix.app-vars['pr-deploy-skip'] != true )
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' && ( matrix.app-vars['pr-deploy-skip'] != true || fromJSON(steps.build-env.outputs.json)['pr-image-build'] ) )
             || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
               && (
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
@@ -418,7 +431,7 @@ jobs:
         if: |
           matrix.app-vars.application-type == 'python'
           && (
-            ( github.event_name == 'pull_request' && github.event.action != 'closed' && matrix.app-vars['pr-deploy-skip'] != true )
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' && ( matrix.app-vars['pr-deploy-skip'] != true || fromJSON(steps.build-env.outputs.json)['pr-image-build'] ) )
             || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
               && (
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
@@ -433,7 +446,7 @@ jobs:
         if: |
           matrix.app-vars.application-type == 'deno'
           && (
-            ( github.event_name == 'pull_request' && github.event.action != 'closed' && matrix.app-vars['pr-deploy-skip'] != true )
+            ( github.event_name == 'pull_request' && github.event.action != 'closed' && ( matrix.app-vars['pr-deploy-skip'] != true || fromJSON(steps.build-env.outputs.json)['pr-image-build'] ) )
             || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch' )
               && (
                 fromJSON(steps.build-env.outputs.json).caller-repo-is-on-default-branch
@@ -745,6 +758,49 @@ jobs:
           step-name: app-deploy-finished
           basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
 
+  pr-images:
+    name: List the PR images
+    # For a caller that deploys the pull request somewhere else than the PR environment in dev,
+    # e.g. with 'pr-deploy-skip: true' and 'pr-image-build: true'. Reads back each app's non-secret
+    # build-envs, like deploy-to-static, and lists the images the build-deploy job pushed.
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    needs: [create-matrix, build-deploy]
+    runs-on: ${{ inputs.runs-on }}
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      json: ${{ steps.pr-images.outputs.json }}
+    steps:
+      - name: "🧹 Clean: 🏢 workspace"
+        id: clean
+        uses: dsb-norge/directory-recreate@v1
+
+      - name: "💾 Read build-envs from matrix job(s)"
+        id: read-build-envs
+        uses: dsb-norge/github-actions/ci-cd/collect-build-envs@v4
+        with:
+          build-envs-artifact-name-prefix: build-envs-${{ needs.create-matrix.outputs.applications-version }}
+
+      - name: "🐳 List the images pushed for the pull request"
+        id: pr-images
+        # The same conditions as the image build steps of build-deploy: an app with changes, of a type
+        # that builds an image, and without 'pr-deploy-skip' (the YAML boolean, as there) unless
+        # 'pr-image-build' is set (normalized to a boolean by create-build-envs).
+        env:
+          JSON_ARRAY: ${{ steps.read-build-envs.outputs.json-array }}
+        run: |
+          # List the images pushed for the pull request
+          JSON="$(jq -c '
+            map(select(
+              ."has-changes" == true
+              and (."application-type" | IN("spring-boot", "vue", "python", "deno"))
+              and (."pr-deploy-skip" != true or ."pr-image-build" == true)
+            ) | {key: ."application-name", value: {image: ."application-image-id", tag: ."application-version"}})
+            | from_entries' <<< "${JSON_ARRAY}")"
+          echo "Images pushed for the pull request: ${JSON}"
+          echo "json=${JSON}" >> "${GITHUB_OUTPUT}"
+
   prune-maven-artifacts:
     name: Prune maven artifacts
     if: >-
@@ -773,7 +829,7 @@ jobs:
     if: always()
     name: ci-cd-conclusion
     needs:
-      [create-matrix, build-deploy, deploy-to-static, prune-maven-artifacts]
+      [create-matrix, build-deploy, deploy-to-static, pr-images, prune-maven-artifacts]
     runs-on: ubuntu-latest
     defaults:
       run:
