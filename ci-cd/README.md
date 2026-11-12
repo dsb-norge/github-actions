@@ -168,7 +168,39 @@ apps: |
 ```
 
 - An empty `static-deploy-environments` does not do this: it falls back to the default, `dev`.
-- To stop PR environments too, also set `pr-deploy-skip: true`, as above. It must be the YAML boolean, and no image is built for the app on pull requests then.
+- To stop PR environments too, also set `pr-deploy-skip: true`, as above. It must be the YAML boolean, and no image is built for the app on pull requests then, unless `pr-image-build` is set (below).
+
+### PR images for a PR environment elsewhere
+
+An app with `pr-deploy-skip: true` gets no PR environment in dev and, by default, no image on pull requests. Set `pr-image-build: true` as well to build and push its PR image anyway, for a caller that deploys the pull request somewhere else. Both the YAML boolean and the quoted string `"true"` are accepted; it defaults to `false`, and changes nothing for an app without `pr-deploy-skip`, whose image is built anyway.
+
+```yaml
+apps: |
+  - application-name: my-app
+    static-deploy-skip: true
+    pr-deploy-skip: true
+    pr-image-build: true
+```
+
+On a pull request that is not closed, the `pr-images` job lists what was pushed, and `ci-cd-default.yml` gives it to the caller as outputs:
+
+| Output | Value |
+| --- | --- |
+| `applications-version` | The version every app in the run is built as, which is also the tag of its images: `pr-<number>-<date>.<seconds>` on a pull request |
+| `pr-images` | JSON object `{"<application-name>": {"image": "<registry>/<repo>/<app>-pr-<number>", "tag": "<version>"}}`, one entry per app with changes whose PR image was built; `{}` when there is none, empty when the job did not run |
+
+An app without changes gets no new image and is left out; the caller deploys the version it already runs. The PR images are deleted from the registry when the pull request closes, as before.
+
+```yaml
+jobs:
+  ci-cd:
+    uses: dsb-norge/github-actions/.github/workflows/ci-cd-default.yml@v4
+    # ...
+  pr-environment:
+    needs: ci-cd
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    # ... reads ${{ needs.ci-cd.outputs.pr-images }}
+```
 
 ## Maintenance
 
@@ -366,6 +398,13 @@ flowchart TD
         skipFilter -- "none left" --> versionTag
     end
 
+    %% PR images job (pull requests only)
+    subgraph prImagesJob["PR Images Job (pr-images)"]
+        prCollectEnvs["collect-build-envs"]
+        prImagesList["List the images pushed for the pull request"]
+        prCollectEnvs --> prImagesList
+    end
+
     %% Prune Maven artifacts job
     subgraph pruneMavenJob["Prune Maven Artifacts Job (prune-maven-artifacts)"]
         pruneArtifacts["prune-maven-artifacts-in-repo"]
@@ -384,6 +423,8 @@ flowchart TD
     createMatrixJob --|waits on|--> andPruneMaven
     buildDeployJob --|waits on|--> andPruneMaven
     andPruneMaven --> pruneMavenJob
+    buildDeployJob -- "pull request" --> prImagesJob
+    prImagesJob --> conclusion
     deployStaticJob --> conclusion
     pruneMavenJob --> conclusion
     buildDeployJob --> conclusion
