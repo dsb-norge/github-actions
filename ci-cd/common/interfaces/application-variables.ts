@@ -85,6 +85,7 @@ export interface AppVars {
 
   // PR Deployment
   'pr-deploy-skip'?: string | boolean // Indicates if PR deployment is skipped
+  'pr-image-build'?: string | boolean // Set to true to build the PR image even when pr-deploy-skip is set, normalized to a boolean by create-build-envs
   'pr-deploy-aks-cluster-name'?: string
   'pr-deploy-aks-resource-group'?: string
   'pr-deploy-aks-creds-tenant-id'?: string // Secret - Azure tenant ID
