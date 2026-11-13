@@ -1,4 +1,22 @@
-name: "DSB Build, push and deploy"
+name: "DSB Build, push and deploy (GitOps)"
+#
+# ci-cd-gitops.yml: ci-cd-default.yml for app repos moving to the new GitOps repo,
+# dsb-norge/azure-kubernetes-ikt-app-platform-apps-config (laid out apps/<app>/<env>/). It does what
+# ci-cd-default.yml does for every env that still lives in the old repo, and the new repo's way for every env
+# that has moved, decided per app and env on each run by whether the new repo has apps/<app>/<env>/ on its
+# default branch (create-matrix, 'route'). So an app repo switches to this workflow whenever it likes before its
+# env moves, with nothing changing for it; the move of an env is the conversion pull request into the new repo,
+# and no app repo changes that day. ci-cd-default.yml is left as it is, and its callers never depend on the
+# workflow called below. Once dev and then prod have moved, the old paths are taken out of this file, and it
+# ends as the new repo's workflow alone. See ci-cd/README.md, "ci-cd-gitops.yml".
+#
+# The job pr-environment-test calls the reusable workflow
+# dsb-infra/entra-id-terraform-ikt-app-platform-app-registrations/.github/workflows/pr-environment.yml@main.
+# That repo is private, and GitHub lets only private repos of the enterprise call it. GitHub reads every
+# called workflow and checks its access and permissions when a run starts, before any job's 'if', so
+# every caller of this workflow, with or without 'pr-environments', must be a private repo of the
+# enterprise and grant 'id-token: write', 'contents: read' and 'pull-requests: write', and pass
+# 'secrets: inherit'.
 #
 # A requirement for this workflow to run is that the following 'permissions' are granted by the calling workflow:
 #   permissions:
@@ -54,6 +72,18 @@ on:
           (matched by name). Defaults to 'builder-app-platform-ghr-ubuntu-large'. Can be overridden
           per application with a 'runs-on' field on an entry in 'apps'. The final
           'ci-cd-conclusion' gate always runs on ubuntu-latest.
+      pr-environments:
+        type: string
+        required: false
+        default: ""
+        description: |
+          An env whose PR environments run through 'pr-environment.yml' (called below), as a plain
+          string: only 'test', opted into per repo for now. Empty, the default, gives each app its PR
+          environment in dev, as ci-cd-default.yml does, while dev lives in the old GitOps repo. With
+          'test', an app whose test env lives in the new GitOps repo and that has no
+          'pr-deploy-skip: true' gets its PR environment in test instead, and none in dev; its
+          'pr-deploy-additional-helm-values' is ignored, since 'pr-environment.yml' derives the PR
+          environment from the app's config in the new repo. See ci-cd/README.md, "ci-cd-gitops.yml".
       # below are repo-specific settings, not app specific and thus does not belong in 'apps'
       # for explanation of maven artifact pruning configuration see inputs of 'ci-cd/prune-maven-artifacts-in-repo/action.yml'
       # sane defaults are defined but can be overridden pr. repo
@@ -109,6 +139,8 @@ jobs:
       applications-version: ${{ steps.create-matrix.outputs.applications-version }}
       codeql-app-vars-matrix: ${{ steps.codeql-matrix.outputs.app-vars }}
       codeql-has-apps: ${{ steps.codeql-matrix.outputs.has-apps }}
+      route: ${{ steps.route.outputs.route }}
+      pr-environment-apps: ${{ steps.route.outputs.pr-environment-apps }}
     steps:
       - name: Notify Internal Status (ci-cd-started)
         uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
@@ -138,6 +170,80 @@ jobs:
         uses: dsb-norge/github-actions/ci-cd/create-app-vars-matrix@v4
         with:
           apps: ${{ inputs.apps }}
+
+      - name: "🔑 Obtain GitHub app installation access token for reading the new GitOps repo"
+        id: gitops-auth
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v4
+        with:
+          github-app-id: ${{ vars.ORG_CICD_APP_ID }}
+          github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
+          github-app-private-key: "${{ secrets.ORG_CICD_APP_PRIVATE_KEY }}"
+          # Scoped down to reading the one repo the next step looks in.
+          token-request-body: '{"repositories": ["azure-kubernetes-ikt-app-platform-apps-config"], "permissions": {"contents": "read"}}'
+
+      - name: "🧭 Route: which GitOps repo each app's envs live in"
+        id: route
+        # For each app and each of dev, test and prod: 'new' when the new GitOps repo has
+        # apps/<app>/<env>/ on its default branch, which is where Argo CD reads that app's env once the env
+        # has moved, else 'old'. Every job below that writes to a GitOps repo or deploys a PR environment
+        # takes the branch for its env from 'route'. Any answer from GitHub other than the directory or
+        # "not found" fails the run, rather than quietly writing to the wrong repo.
+        # 'pr-environment-apps': with 'pr-environments: test', on a pull request, the apps routed 'new' in
+        # test and without 'pr-deploy-skip: true', for the job pr-environment-test. Always set, '[]' for none.
+        env:
+          PR_ENVIRONMENTS: ${{ inputs.pr-environments }}
+          EVENT_NAME: ${{ github.event_name }}
+          APP_VARS_MATRIX: ${{ steps.create-matrix.outputs.app-vars }}
+          GITOPS_REPOSITORY: dsb-norge/azure-kubernetes-ikt-app-platform-apps-config
+          GH_TOKEN: ${{ steps.gitops-auth.outputs.github-token }}
+        run: |
+          # Route: which GitOps repo each app's envs live in
+          case "${PR_ENVIRONMENTS}" in
+            "" | test) ;;
+            *)
+              echo "::error::pr-environments: '${PR_ENVIRONMENTS}' has no PR environments through pr-environment.yml; only 'test', or empty for none"
+              exit 1
+              ;;
+          esac
+          ROUTE='{}'
+          mapfile -t APPS < <(jq -r '.include[]["app-vars"]."application-name"' <<< "${APP_VARS_MATRIX}")
+          for APP in "${APPS[@]}"; do
+            # A name the GitOps repo can have a directory for, and nothing that changes the path.
+            if [[ ! "${APP}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+              echo "::error::'${APP//[[:cntrl:]]/ }' can't be a directory of ${GITOPS_REPOSITORY}; rename the app or stay on ci-cd-default.yml"
+              exit 1
+            fi
+            for ENV in dev test prod; do
+              if TYPE="$(gh api "repos/${GITOPS_REPOSITORY}/contents/apps/${APP}/${ENV}" --jq 'type' 2> "${RUNNER_TEMP}/gh-api-error.txt")"; then
+                # The contents of a directory are an array, of a file an object.
+                if [[ "${TYPE}" == "array" ]]; then WHERE=new; else WHERE=old; fi
+              elif grep -q 'HTTP 404' "${RUNNER_TEMP}/gh-api-error.txt"; then
+                WHERE=old
+              else
+                cat "${RUNNER_TEMP}/gh-api-error.txt"
+                echo "::error::Could not read apps/${APP}/${ENV}/ in ${GITOPS_REPOSITORY}"
+                exit 1
+              fi
+              ROUTE="$(jq -c --arg app "${APP}" --arg env "${ENV}" --arg where "${WHERE}" '.[$app][$env] = $where' <<< "${ROUTE}")"
+            done
+            echo "${APP}: $(jq -r --arg app "${APP}" '.[$app] | to_entries | map("\(.key) in the \(.value) repo") | join(", ")' <<< "${ROUTE}")"
+          done
+          echo "route=${ROUTE}" >> "${GITHUB_OUTPUT}"
+
+          PR_APPS='[]'
+          if [[ "${PR_ENVIRONMENTS}" == "test" && "${EVENT_NAME}" == "pull_request" ]]; then
+            PR_APPS="$(jq -c --argjson route "${ROUTE}" '[.include[]["app-vars"]
+              | select(."pr-deploy-skip" != true and $route[."application-name"].test == "new")
+              | {app: ."application-name"}]' <<< "${APP_VARS_MATRIX}")"
+            IGNORED="$(jq -r --argjson apps "${PR_APPS}" '[.include[]["app-vars"]
+              | select((."application-name" | IN($apps[].app)) and ."pr-deploy-additional-helm-values" != null)
+              | ."application-name"] | join(", ")' <<< "${APP_VARS_MATRIX}")"
+            echo "PR environments in test, through pr-environment.yml, and none in dev: $(jq -r 'map(.app) | join(", ")' <<< "${PR_APPS}")"
+            if [[ -n "${IGNORED}" ]]; then
+              echo "Ignored, a PR environment in test takes its config from ${GITOPS_REPOSITORY}: 'pr-deploy-additional-helm-values' of ${IGNORED}"
+            fi
+          fi
+          echo "pr-environment-apps=${PR_APPS}" >> "${GITHUB_OUTPUT}"
 
       - name: "🎰 Generate: 🔎 CodeQL build matrix"
         id: codeql-matrix
@@ -503,6 +609,11 @@ jobs:
           && github.event.action != 'closed'
           && github.actor != 'renovate[bot]'
           && matrix.app-vars['pr-deploy-skip'] != true
+          && fromJSON(needs.create-matrix.outputs.route)[matrix.app-vars.application-name].dev == 'old'
+          && ! contains(fromJSON(needs.create-matrix.outputs.pr-environment-apps).*.app, matrix.app-vars.application-name)
+        # The PR environment in dev as ci-cd-default.yml deploys it, only while the app's dev lives in the old
+        # GitOps repo ('route'), and not for an app whose PR environment runs in test through pr-environment.yml.
+        # Once dev has moved, dev's PR environments run through pr-environment.yml too, in a job added then.
         uses: dsb-norge/github-actions/ci-cd/deploy-to-ephemeral@v4
         with:
           dsb-build-envs: ${{ steps.build-env.outputs.json }}
@@ -696,12 +807,14 @@ jobs:
 
       - name: "🧊 Leave out apps with 'static-deploy-skip'"
         id: static-deploy-apps
+        # As in ci-cd-default.yml, and then routed per env ('route' from create-matrix).
         # An app with 'static-deploy-skip: true' is still built, its image pushed and the commit tagged
         # with its version, but no static environment is bumped to it: each keeps the version it runs.
         # create-build-envs normalizes the flag to a boolean. When every app is left out, the token and
         # the deploy below are skipped, so the config repo gets no empty commit.
         env:
           JSON_ARRAY: ${{ steps.read-build-envs.outputs.json-array }}
+          ROUTE: ${{ needs.create-matrix.outputs.route }}
         run: |
           # Leave out apps with 'static-deploy-skip'
           SKIPPED="$(jq -r '[.[] | select(."static-deploy-skip" == true) | ."application-name"] | join(", ")' <<< "${JSON_ARRAY}")"
@@ -710,6 +823,22 @@ jobs:
             echo "Left out of the deploy to static environments, 'static-deploy-skip' is set: ${SKIPPED}"
           fi
           echo "Apps to deploy to static environments: $(jq -r 'map(."application-name") | join(", ")' <<< "${DEPLOY}")"
+          # Each app's envs that live in the old GitOps repo keep today's deploy; those in the new repo are left
+          # out here, since a commit to the old repo's apps/<env>/ would reach nothing Argo CD reads. The new
+          # repo's way, a pull request on bump/<app>/<env> that changes only tag.yaml, is added to this file later.
+          NEW_ENVS="$(jq -r --argjson route "${ROUTE}" '[.[]
+            | ."application-name" as $app
+            | (."static-deploy-environments" // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(. != "")))[]
+            | select($route[$app][.] == "new") | "\($app) in \(.)"] | join(", ")' <<< "${DEPLOY}")"
+          DEPLOY="$(jq -c --argjson route "${ROUTE}" 'map(
+              ."application-name" as $app
+              | ."static-deploy-environments" = ((."static-deploy-environments" // "" | split(",") | map(gsub("^\\s+|\\s+$"; ""))
+                  | map(select(. != "" and $route[$app][.] != "new"))) | join(","))
+            ) | map(select(."static-deploy-environments" != ""))' <<< "${DEPLOY}")"
+          if [ -n "${NEW_ENVS}" ]; then
+            echo "::notice title=Not deployed to the new GitOps repo::${NEW_ENVS}: the env lives in the new GitOps repo, whose tag.yaml this workflow does not update yet; not deployed by this run"
+          fi
+          echo "Apps to deploy to static environments in the old GitOps repo: $(jq -r 'map("\(."application-name") (\(."static-deploy-environments"))") | join(", ")' <<< "${DEPLOY}")"
           echo "json-array=${DEPLOY}" >> "${GITHUB_OUTPUT}"
           echo "has-apps=$(jq 'length > 0' <<< "${DEPLOY}")" >> "${GITHUB_OUTPUT}"
 
@@ -771,6 +900,7 @@ jobs:
         shell: bash
     outputs:
       json: ${{ steps.pr-images.outputs.json }}
+      pr-environment-json: ${{ steps.pr-images.outputs.pr-environment-json }}
     steps:
       - name: "🧹 Clean: 🏢 workspace"
         id: clean
@@ -789,6 +919,7 @@ jobs:
         # 'pr-image-build' is set (normalized to a boolean by create-build-envs).
         env:
           JSON_ARRAY: ${{ steps.read-build-envs.outputs.json-array }}
+          PR_ENVIRONMENT_APPS: ${{ needs.create-matrix.outputs.pr-environment-apps }}
         run: |
           # List the images pushed for the pull request
           JSON="$(jq -c '
@@ -800,6 +931,37 @@ jobs:
             | from_entries' <<< "${JSON_ARRAY}")"
           echo "Images pushed for the pull request: ${JSON}"
           echo "json=${JSON}" >> "${GITHUB_OUTPUT}"
+          # The same, cut down to the apps whose PR environments run through pr-environment.yml, which refuses an
+          # image of an app it is not given.
+          PR_ENVIRONMENT_JSON="$(jq -c --argjson apps "${PR_ENVIRONMENT_APPS:-[]}" 'with_entries(select(.key | IN($apps[].app)))' <<< "${JSON}")"
+          echo "pr-environment-json=${PR_ENVIRONMENT_JSON}" >> "${GITHUB_OUTPUT}"
+
+  pr-environment-test:
+    name: PR environment in test
+    # 'pr-environments: test': the pull request's environment in test for the apps routed there (create-matrix),
+    # by pr-environment.yml. It deploys after pr-images, with the pull request's images; on
+    # close it tears down, as it reads the event itself. It names its own env, identities and runner, and is
+    # called at main, the only ref its identities trust. Bots' pull requests get none.
+    needs: [create-matrix, pr-images]
+    if: >-
+      ! cancelled()
+      && inputs.pr-environments == 'test'
+      && github.event_name == 'pull_request'
+      && contains(fromJSON('["opened", "synchronize", "reopened", "closed"]'), github.event.action)
+      && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
+      && needs.create-matrix.result == 'success'
+      && needs.create-matrix.outputs.pr-environment-apps != '[]'
+      && (github.event.action == 'closed' || needs.pr-images.result == 'success')
+    uses: dsb-infra/entra-id-terraform-ikt-app-platform-app-registrations/.github/workflows/pr-environment.yml@main
+    secrets: inherit # the org's CI/CD App reads the GitOps repo
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    with:
+      apps: ${{ needs.create-matrix.outputs.pr-environment-apps }}
+      images: ${{ needs.pr-images.outputs.pr-environment-json }}
+      pr-number: ${{ github.event.pull_request.number }}
 
   prune-maven-artifacts:
     name: Prune maven artifacts
@@ -829,7 +991,7 @@ jobs:
     if: always()
     name: ci-cd-conclusion
     needs:
-      [create-matrix, build-deploy, deploy-to-static, pr-images, prune-maven-artifacts]
+      [create-matrix, build-deploy, deploy-to-static, pr-images, pr-environment-test, prune-maven-artifacts]
     runs-on: ubuntu-latest
     defaults:
       run:

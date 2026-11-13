@@ -202,6 +202,45 @@ jobs:
     # ... reads ${{ needs.ci-cd.outputs.pr-images }}
 ```
 
+### ci-cd-gitops.yml: for app repos moving to the new GitOps repo
+
+`.github/workflows/ci-cd-gitops.yml` is `ci-cd-default.yml` for app repos whose envs move to a new GitOps repo, `dsb-norge/azure-kubernetes-ikt-app-platform-apps-config`, laid out `apps/<app>/<env>/`. It takes the same inputs, plus `pr-environments`, and does what `ci-cd-default.yml` does for every env that still lives in the old repo. `ci-cd-default.yml` is not changed by it, and its callers depend on nothing new.
+
+```yaml
+jobs:
+  ci-cd:
+    # was: dsb-norge/github-actions/.github/workflows/ci-cd-default.yml@v4
+    uses: dsb-norge/github-actions/.github/workflows/ci-cd-gitops.yml@v4
+    secrets: inherit
+    permissions: write-all
+    with:
+      apps: |
+        - application-name: my-app
+```
+
+- **Where each env lives is decided on every run.** `create-matrix` asks the new repo whether it has `apps/<application-name>/<env>/` on its default branch, for `dev`, `test` and `prod`. It reads the repo with a token from the org's CI/CD App, scoped to that repo. If the directory is there the env lives in the new repo, where Argo CD reads it; if not, in the old one.
+  - The step logs the answer per app.
+  - Any answer from GitHub other than the directory or "not found" fails the run, rather than writing to the wrong repo.
+  - An app name that can't be a directory there fails the run too.
+- **Switching changes nothing.** While all of an app's envs live in the old repo, this workflow does what `ci-cd-default.yml` does, so an app repo can switch any time before its env moves.
+- **Moving an env changes no app repo.** An env moves when its conversion pull request merges into the new repo, creating `apps/<app>/<env>/` for every app. From the next run on, every app repo on this workflow takes the new repo's way for that env. So every app repo that deploys to an env must be on this workflow before that env moves.
+- **Static environments.** On a push, each app's `static-deploy-environments` in the old repo are deployed as before. Those in the new repo are left out of the old repo's commit, with a notice. The new repo's way, a pull request on `bump/<app>/<env>` that changes only `tag.yaml`, is added to this workflow later; until then nothing is deployed there by it.
+- **PR environments.** By default, as before: the PR environment in dev, while dev lives in the old repo. Once dev has moved, dev's PR environments run through `pr-environment.yml` too, in a job added then.
+- **`pr-environments: test`, opted into per repo for now.** An app whose test env lives in the new repo, without `pr-deploy-skip: true`, gets its PR environment in test instead of dev. It runs through the reusable workflow `pr-environment.yml` in `dsb-infra/entra-id-terraform-ikt-app-platform-app-registrations`.
+  - The app's PR image is built as before.
+  - Its `pr-deploy-additional-helm-values` is ignored, since the PR environment is derived from the app's config in the new repo; the run logs which apps that applies to.
+  - The job `pr-environment-test` runs after `pr-images`, on `opened`, `synchronize`, `reopened` and `closed`. It passes `apps` (those apps, by name), `images` (`pr-images`, cut down to them) and `pr-number`, and on `closed` it tears the PR environment down.
+  - Bots' pull requests get none. The job's result counts in `ci-cd-conclusion`.
+  - Only `test` is accepted; another value fails the run.
+- **The caller** must be a private repository of the enterprise, grant `id-token: write`, `contents: read` and `pull-requests: write` (`write-all` covers them), and pass `secrets: inherit`.
+  - GitHub reads every called workflow, and checks its access and permissions, when a run starts and before any job's `if`. So this holds for every caller of `ci-cd-gitops.yml`, with or without `pr-environments`.
+  - That is why `pr-environment.yml` is called from this file and not from `ci-cd-default.yml`.
+- **The Azure identities this workflow signs in as** (ACR push and delete, and dev's AKS for PR environments) must trust this workflow file, as they trust `ci-cd-default.yml`.
+- **The end shape.**
+  - After dev has moved: the old dev PR environment and dev's old-repo deploy come out of this file.
+  - After prod has moved: the routing and the old repo's deploy come out, and `ci-cd-default.yml` is retired once no repo calls it.
+  - What is left is the new repo's way alone: build, a `tag.yaml` update, and PR environments through `pr-environment.yml`.
+
 ## Maintenance
 
 ### Development
