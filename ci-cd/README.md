@@ -224,7 +224,13 @@ jobs:
   - An app name that can't be a directory there fails the run too.
 - **Switching changes nothing.** While all of an app's envs live in the old repo, this workflow does what `ci-cd-default.yml` does, so an app repo can switch any time before its env moves.
 - **Moving an env changes no app repo.** An env moves when its conversion pull request merges into the new repo, creating `apps/<app>/<env>/` for every app. From the next run on, every app repo on this workflow takes the new repo's way for that env. So every app repo that deploys to an env must be on this workflow before that env moves.
-- **Static environments.** On a push, each app's `static-deploy-environments` in the old repo are deployed as before. Those in the new repo are left out of the old repo's commit, with a notice. The new repo's way, a pull request on `bump/<app>/<env>` that changes only `tag.yaml`, is added to this workflow later; until then nothing is deployed there by it.
+- **Static environments.** On a push, each app's `static-deploy-environments` in the old repo are deployed as before, by the same commit to the old repo. Those in the new repo are left out of that commit and bumped by pull request instead, in the job `bump-new-gitops-repo`, one matrix entry per app and env:
+  - The branch `bump/<app>/<env>` is reset to the new repo's `main`, with one commit that changes only `apps/<app>/<env>/tag.yaml`, the tag on the line marked `# replaced-by-auto-bumper` set to the build's version. It is force-pushed, a pull request is opened if none is open, and auto-merge (rebase) is enabled, so it merges itself once the repo's checks pass. A newer build's bump replaces an older one's on the same branch.
+  - When the new repo's `main` holds that version already, nothing is pushed and no pull request is opened; an open bump pull request for that app and env, out of date, is closed with a comment and its branch deleted.
+  - Which envs a build bumps is decided as before: `static-deploy-environments`, `static-deploy-skip`, and deploying only from the default branch unless `static-deploy-from-default-branch-only: false`.
+  - It runs as the org's CI/CD App (`ORG_CICD_APP_*`), with a token scoped to the new repo, `contents: write` and `pull_requests: write`; not as `GITHUB_TOKEN`, since the new repo's required checks don't run on events made with it. The App's commit and pull request are its bot user's.
+  - The bump is the action `bump` that the job uses, at `main`, which also makes the new repo's "Bump version" pull requests, so every bump pull request there has one shape. It needs the runner's `python3`, 3.12 or later, and nothing installed.
+  - The job's result counts in `ci-cd-conclusion`.
 - **PR environments.** By default, as before: the PR environment in dev, while dev lives in the old repo. Once dev has moved, dev's PR environments run through `pr-environment.yml` too, in a job added then.
 - **`pr-environments: test`, opted into per repo for now.** An app whose test env lives in the new repo, without `pr-deploy-skip: true`, gets its PR environment in test instead of dev. It runs through the reusable workflow `pr-environment.yml` in `dsb-infra/entra-id-terraform-ikt-app-platform-app-registrations`.
   - The app's PR image is built as before.
@@ -235,11 +241,12 @@ jobs:
 - **The caller** must be a private repository of the enterprise, grant `id-token: write`, `contents: read` and `pull-requests: write` (`write-all` covers them), and pass `secrets: inherit`.
   - GitHub reads every called workflow, and checks its access and permissions, when a run starts and before any job's `if`. So this holds for every caller of `ci-cd-gitops.yml`, with or without `pr-environments`.
   - That is why `pr-environment.yml` is called from this file and not from `ci-cd-default.yml`.
+  - The same private repo's action `bump` is fetched only when a job uses it, with the same access.
 - **The Azure identities this workflow signs in as** (ACR push and delete, and dev's AKS for PR environments) must trust this workflow file, as they trust `ci-cd-default.yml`.
 - **The end shape.**
   - After dev has moved: the old dev PR environment and dev's old-repo deploy come out of this file.
   - After prod has moved: the routing and the old repo's deploy come out, and `ci-cd-default.yml` is retired once no repo calls it.
-  - What is left is the new repo's way alone: build, a `tag.yaml` update, and PR environments through `pr-environment.yml`.
+  - What is left is the new repo's way alone: build, a `tag.yaml` bump by pull request, and PR environments through `pr-environment.yml`.
 
 ## Maintenance
 

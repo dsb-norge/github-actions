@@ -16,7 +16,7 @@ name: "DSB Build, push and deploy (GitOps)"
 # called workflow and checks its access and permissions when a run starts, before any job's 'if', so
 # every caller of this workflow, with or without 'pr-environments', must be a private repo of the
 # enterprise and grant 'id-token: write', 'contents: read' and 'pull-requests: write', and pass
-# 'secrets: inherit'.
+# 'secrets: inherit'. The job bump-new-gitops-repo uses that repo's action 'bump' with the same access.
 #
 # A requirement for this workflow to run is that the following 'permissions' are granted by the calling workflow:
 #   permissions:
@@ -783,6 +783,10 @@ jobs:
     defaults:
       run:
         shell: bash
+    outputs:
+      # The apps' envs that live in the new GitOps repo, for the job bump-new-gitops-repo; '[]' unless deploying is
+      # allowed from the calling branch.
+      bumps: ${{ steps.deploy-static-check.outputs.result == 'true' && steps.static-deploy-apps.outputs.bumps || '[]' }}
     steps:
       - name: "🧹 Clean: 🏢 workspace"
         id: clean
@@ -824,23 +828,26 @@ jobs:
           fi
           echo "Apps to deploy to static environments: $(jq -r 'map(."application-name") | join(", ")' <<< "${DEPLOY}")"
           # Each app's envs that live in the old GitOps repo keep today's deploy; those in the new repo are left
-          # out here, since a commit to the old repo's apps/<env>/ would reach nothing Argo CD reads. The new
-          # repo's way, a pull request on bump/<app>/<env> that changes only tag.yaml, is added to this file later.
-          NEW_ENVS="$(jq -r --argjson route "${ROUTE}" '[.[]
+          # out here, since a commit to the old repo's apps/<env>/ would reach nothing Argo CD reads. They get the
+          # new repo's way instead, a pull request on bump/<app>/<env> that changes only tag.yaml, in the job
+          # bump-new-gitops-repo ('bumps').
+          BUMPS="$(jq -c --argjson route "${ROUTE}" '[.[]
             | ."application-name" as $app
-            | (."static-deploy-environments" // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(. != "")))[]
-            | select($route[$app][.] == "new") | "\($app) in \(.)"] | join(", ")' <<< "${DEPLOY}")"
+            | ."application-version" as $tag
+            | (."static-deploy-environments" // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(. != "")) | unique)[]
+            | select($route[$app][.] == "new") | {app: $app, env: ., tag: $tag}]' <<< "${DEPLOY}")"
           DEPLOY="$(jq -c --argjson route "${ROUTE}" 'map(
               ."application-name" as $app
               | ."static-deploy-environments" = ((."static-deploy-environments" // "" | split(",") | map(gsub("^\\s+|\\s+$"; ""))
                   | map(select(. != "" and $route[$app][.] != "new"))) | join(","))
             ) | map(select(."static-deploy-environments" != ""))' <<< "${DEPLOY}")"
-          if [ -n "${NEW_ENVS}" ]; then
-            echo "::notice title=Not deployed to the new GitOps repo::${NEW_ENVS}: the env lives in the new GitOps repo, whose tag.yaml this workflow does not update yet; not deployed by this run"
-          fi
           echo "Apps to deploy to static environments in the old GitOps repo: $(jq -r 'map("\(."application-name") (\(."static-deploy-environments"))") | join(", ")' <<< "${DEPLOY}")"
-          echo "json-array=${DEPLOY}" >> "${GITHUB_OUTPUT}"
-          echo "has-apps=$(jq 'length > 0' <<< "${DEPLOY}")" >> "${GITHUB_OUTPUT}"
+          echo "Apps to bump by pull request in the new GitOps repo: $(jq -r 'map("\(.app) in \(.env) to \(.tag)") | join(", ")' <<< "${BUMPS}")"
+          {
+            echo "bumps=${BUMPS}"
+            echo "json-array=${DEPLOY}"
+            echo "has-apps=$(jq 'length > 0' <<< "${DEPLOY}")"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Notify Internal Status (app-deploy-started)
         uses: dsb-norge/github-actions/ci-cd/notify-internal-status@v4
@@ -886,6 +893,57 @@ jobs:
           status: ${{ job.status }}
           step-name: app-deploy-finished
           basic-auth-password: ${{ secrets.CLOUD_MONITOR_BASIC_AUTH_PASSWORD }}
+
+  bump-new-gitops-repo:
+    name: Bump ${{ matrix.bump.app }} in ${{ matrix.bump.env }} (new GitOps repo)
+    # The new GitOps repo's way to deploy a build to a static env: for each app's env that lives there ('bumps' from
+    # deploy-to-static, which applies 'static-deploy-skip' and the check of the calling branch), a pull request from
+    # bump/<app>/<env>, reset to the repo's main, with one commit that changes only apps/<app>/<env>/tag.yaml to the
+    # build's version, force-pushed, opened if none is open and set to merge itself (auto-merge, rebase). A newer
+    # build's bump replaces an older one's on the same branch. When main holds the version already, nothing is pushed.
+    # It is the action 'bump' in the step below, the same that makes the new repo's "Bump version" pull requests, so
+    # the repo's checks hold every bump pull request to one shape. It runs as the org's CI/CD App, not GITHUB_TOKEN:
+    # the new repo's required checks don't run on events made with GITHUB_TOKEN. The action needs python3 3.12 or
+    # later and nothing else, which the runner's Ubuntu image has; the token's action needs its deno.
+    needs: [deploy-to-static]
+    if: needs.deploy-to-static.outputs.bumps != '[]' && needs.deploy-to-static.outputs.bumps != ''
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        bump: ${{ fromJSON(needs.deploy-to-static.outputs.bumps) }}
+    steps:
+      - name: "🔑 Obtain GitHub app installation access token for the new GitOps repo"
+        id: auth
+        uses: dsb-norge/github-actions/get-github-app-installation-token@v4
+        with:
+          github-app-id: ${{ vars.ORG_CICD_APP_ID }}
+          github-app-installation-id: ${{ vars.ORG_CICD_APP_INSTALLATION_ID }}
+          github-app-private-key: "${{ secrets.ORG_CICD_APP_PRIVATE_KEY }}"
+          # Scoped down to the one repo, to push the bump branch and open and auto-merge its pull request.
+          token-request-body: '{"repositories": ["azure-kubernetes-ikt-app-platform-apps-config"], "permissions": {"contents": "write", "pull_requests": "write"}}'
+
+      - name: "⬇ Checkout the new GitOps repo's main as the CI/CD app"
+        uses: actions/checkout@v6
+        with:
+          repository: dsb-norge/azure-kubernetes-ikt-app-platform-apps-config
+          ref: main
+          path: gitops-main
+          token: ${{ steps.auth.outputs.github-token }}
+          persist-credentials: true # the bump pushes its branch as the app
+
+      - name: "🆕 Bump: ${{ matrix.bump.app }} in ${{ matrix.bump.env }} to ${{ matrix.bump.tag }}"
+        uses: dsb-infra/entra-id-terraform-ikt-app-platform-app-registrations/bump@main
+        with:
+          app: ${{ matrix.bump.app }}
+          env: ${{ matrix.bump.env }}
+          tag: ${{ matrix.bump.tag }}
+          gitops: gitops-main
+          token: ${{ steps.auth.outputs.github-token }}
+          # The org's CI/CD App, whose bot user authors the commit and opens the pull request.
+          app-slug: dsb-norge-cicd-access
+          repository: dsb-norge/azure-kubernetes-ikt-app-platform-apps-config
+          source: build
 
   pr-images:
     name: List the PR images
@@ -991,7 +1049,7 @@ jobs:
     if: always()
     name: ci-cd-conclusion
     needs:
-      [create-matrix, build-deploy, deploy-to-static, pr-images, pr-environment-test, prune-maven-artifacts]
+      [create-matrix, build-deploy, deploy-to-static, bump-new-gitops-repo, pr-images, pr-environment-test, prune-maven-artifacts]
     runs-on: ubuntu-latest
     defaults:
       run:
