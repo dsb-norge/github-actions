@@ -900,7 +900,8 @@ jobs:
     # deploy-to-static, which applies 'static-deploy-skip' and the check of the calling branch), a pull request from
     # bump/<app>/<env>, reset to the repo's main, with one commit that changes only apps/<app>/<env>/tag.yaml to the
     # build's version, force-pushed, opened if none is open and set to merge itself (auto-merge, rebase). A newer
-    # build's bump replaces an older one's on the same branch. When main holds the version already, nothing is pushed.
+    # build's bump replaces an older one's on the same branch. When main holds the version already, nothing is pushed;
+    # an older version than main's or the open bump pull request's changes nothing, and no pull request is closed.
     # It is the action 'bump' in the step below, the same that makes the new repo's "Bump version" pull requests, so
     # the repo's checks hold every bump pull request to one shape. It runs as the org's CI/CD App, not GITHUB_TOKEN:
     # the new repo's required checks don't run on events made with GITHUB_TOKEN. The action needs python3 3.12 or
@@ -908,6 +909,15 @@ jobs:
     needs: [deploy-to-static]
     if: needs.deploy-to-static.outputs.bumps != '[]' && needs.deploy-to-static.outputs.bumps != ''
     runs-on: ${{ inputs.runs-on }}
+    # Nothing here uses the job's GITHUB_TOKEN: the App's token checks out, pushes and opens the pull request, and the
+    # actions are fetched by the runner whatever the job's permissions. So the job takes none of the caller's.
+    permissions: {}
+    # One bump of an app's env at a time in a repo, never cancelled half done: each pushes the same branch with a lease
+    # and reads its open pull request. A newer run's bump waits for the running one, and replaces an older one still
+    # waiting. It relies, as the old repo's deploy does, on the caller's main builds running one at a time.
+    concurrency:
+      group: bump-${{ matrix.bump.app }}-${{ matrix.bump.env }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
