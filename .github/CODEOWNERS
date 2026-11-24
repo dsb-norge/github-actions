@@ -1,0 +1,5 @@
+# The GitOps workflow's call to the reconciler's pr-environment.yml is a contract: see its job's comment
+/.github/workflows/ci-cd-gitops.yml @dsb-norge/dsb-platform
+
+# This file is managed by terraform, do not edit manually
+#  Created by: https://github.com/dsb-infra/github-terraform-config
