@@ -15,4 +15,14 @@
 
     <servers/>
 
+    <!-- Maven Central rate limits our builds, so its artifacts come from Google's public copy of it -->
+    <mirrors>
+        <mirror>
+            <id>google-maven-central</id>
+            <name>Google mirror of Maven Central</name>
+            <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
+            <mirrorOf>central</mirrorOf>
+        </mirror>
+    </mirrors>
+
 </settings>
