@@ -1010,6 +1010,11 @@ jobs:
     # by pr-environment.yml. It deploys after pr-images, with the pull request's images; on
     # close it tears down, as it reads the event itself. It names its own env, identities and runner, and is
     # called at main, the only ref its identities trust. Bots' pull requests get none.
+    # This job's 'uses', 'with', 'secrets' and 'permissions' are a contract with pr-environment.yml: the reconciler
+    # repo's CI holds this call to that file at every released major tag (vN) of this repo, and fails when a
+    # release breaks it; at main and in open pull requests here it only warns. GitHub refuses a broken call when a
+    # run starts, in every app repo on this workflow. So pass a new input only once pr-environment.yml declares it,
+    # keep 'secrets: inherit' and the three permissions, and ask the platform team before changing any of them.
     needs: [create-matrix, pr-images]
     if: >-
       ! cancelled()
