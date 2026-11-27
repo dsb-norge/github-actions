@@ -11,7 +11,9 @@ name: "DSB Build, push and deploy (GitOps)"
 # ends as the new repo's workflow alone. See ci-cd/README.md, "ci-cd-gitops.yml".
 #
 # The job pr-environment-test calls the reusable workflow
-# dsb-infra/entra-id-terraform-ikt-app-platform-app-registrations/.github/workflows/pr-environment.yml@main.
+# dsb-infra/entra-id-terraform-ikt-app-platform-app-registrations/.github/workflows/pr-environment.yml@release,
+# the reconciler's released channel: its main is for the GitOps repo's own runs, and its PR-environment
+# credentials trust main from the GitOps repo alone once every app repo calls release.
 # That repo is private, and GitHub lets only private repos of the enterprise call it. GitHub reads every
 # called workflow and checks its access and permissions when a run starts, before any job's 'if', so
 # every caller of this workflow, with or without 'pr-environments', must be a private repo of the
@@ -1025,7 +1027,7 @@ jobs:
       && needs.create-matrix.result == 'success'
       && needs.create-matrix.outputs.pr-environment-apps != '[]'
       && (github.event.action == 'closed' || needs.pr-images.result == 'success')
-    uses: dsb-infra/entra-id-terraform-ikt-app-platform-app-registrations/.github/workflows/pr-environment.yml@main
+    uses: dsb-infra/entra-id-terraform-ikt-app-platform-app-registrations/.github/workflows/pr-environment.yml@release
     secrets: inherit # the org's CI/CD App reads the GitOps repo
     permissions:
       id-token: write
